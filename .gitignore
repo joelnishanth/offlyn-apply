@@ -3,6 +3,10 @@ node_modules/
 .pnp
 .pnp.js
 
+# Internal documentation (summary files, notes, etc.)
+# README.md files are tracked by git
+docs-internal/
+
 # Build outputs
 dist/
 build/
@@ -47,3 +51,9 @@ coverage/
 
 # Development tracking (git-ignored per project guidelines)
 development/
+
+# Cloned repositories
+superfill.ai/
+ApplyEase/
+automatic-job-application-filler-extension/
+mastra/

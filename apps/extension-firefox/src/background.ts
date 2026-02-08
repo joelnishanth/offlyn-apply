@@ -6,7 +6,7 @@ import type { ApplyEvent, TabJobInfo, JobApplication } from './shared/types';
 import { getSettings, setTabJobInfo, addJobApplication } from './shared/storage';
 import { log, info, warn, error } from './shared/log';
 import { sendDailySummary } from './shared/whatsapp';
-import { ollama } from './shared/ollama-client';
+import { mastraAgent as ollama } from './shared/mastra-agent';
 import { ragParser } from './shared/rag-parser';
 
 interface ConnectionState {

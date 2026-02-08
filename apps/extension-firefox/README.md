@@ -401,14 +401,52 @@ See [OLLAMA_CORS_FIX.md](./OLLAMA_CORS_FIX.md) for details (macOS, Linux, Ollama
 ## Architecture
 
 ```
-Firefox Extension
-    ↓ (detects forms, shows panel)
+Firefox Extension (Browser-Compatible AI SDK)
+    ↓ 
+AI Agent Service (ollama-ai-provider-v2 + AI SDK)
+    ↓
+Ollama (Local LLM - http://localhost:11434)
+    ↓
+Resume Parsing, Field Analysis, Learning System
+
 Profile Storage (browser.storage.local)
     ↓ (auto-fill logic)
 Form Fields → Auto-Fill
+```
 
-For Resume Parsing:
-Extension → Native Host → Ollama → Parsed Profile
+### AI Integration
+
+The extension uses a **browser-compatible AI agent** powered by:
+
+- **AI SDK** (`ai` package) - Vercel's AI SDK for unified LLM interaction
+- **Ollama Provider** (`ollama-ai-provider-v2`) - Connects to local Ollama instance
+- **Direct HTTP** - All inference happens via Ollama's HTTP API (no native messaging needed)
+
+This approach provides:
+- ✅ Browser compatibility (no Node.js modules)
+- ✅ Direct Ollama HTTP API access
+- ✅ AI SDK abstractions for clean code
+- ✅ Lightweight bundle (no heavy framework overhead)
+- ✅ Streaming support for future features
+
+**Key Files:**
+- `src/shared/mastra-agent.ts` - AI agent service (browser-compatible)
+- `src/shared/ollama-client.ts` - Legacy client (deprecated, will be removed)
+
+**Usage:**
+```typescript
+import { mastraAgent } from './shared/mastra-agent';
+
+// Chat with AI
+const response = await mastraAgent.chat([
+  { role: 'system', content: 'You are a helpful assistant' },
+  { role: 'user', content: 'Analyze this form field...' }
+]);
+
+// Parse resume
+const profile = await mastraAgent.parseResume(resumeText, (stage, percent) => {
+  console.log(`${stage}: ${percent}%`);
+});
 ```
 
 ## Privacy

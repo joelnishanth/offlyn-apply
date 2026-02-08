@@ -29,6 +29,27 @@ import {
   type ValidationResult
 } from './shared/field-validator';
 import { learningSystem } from './shared/learning-system';
+import { 
+  generateBatchSuggestions, 
+  filterSuggestionsByConfidence,
+  getPrimarySuggestions,
+  type FieldSuggestion
+} from './shared/suggestion-service';
+import { 
+  showSuggestionPanel, 
+  hideSuggestionPanel,
+  isSuggestionPanelVisible
+} from './ui/suggestion-panel';
+import { getContextualStorage, migrateProfileToContextual } from './shared/context-aware-storage';
+import {
+  highlightFieldAsFilling,
+  highlightFieldAsSuccess,
+  highlightFieldAsError,
+  showFieldLabel,
+  clearAllHighlights
+} from './ui/field-highlighter';
+import { showNotification, showSuccess, showError, showWarning, showInfo } from './ui/notification';
+import { showProgress, updateProgress, hideProgress, showProgressComplete } from './ui/progress-indicator';
 
 let lastJobMeta: JobMeta | null = null;
 let lastSchema: string | null = null;
@@ -275,8 +296,8 @@ function detectPage(): void {
       // Show field summary UI with detected fields
       showFieldSummary(uniqueFields, jobMeta.jobTitle || undefined, jobMeta.company || undefined);
       
-      // Auto-fill if profile exists
-      tryAutoFill(uniqueFields);
+      // Don't auto-fill automatically - wait for user to trigger it
+      // tryAutoFill(uniqueFields);
     }
   } catch (err) {
     error('Error in page detection:', err);
@@ -290,22 +311,30 @@ async function tryAutoFill(schema: ReturnType<typeof extractFormSchema>): Promis
   try {
     const profile = await getUserProfile();
     if (!profile) {
-      log('No user profile found, skipping auto-fill');
+      warn('⚠️ No user profile found. Please set up your profile first.');
+      showNotification('No profile found', 'Please set up your profile in the extension popup.', 'warning');
       return;
     }
     
     // Store all detected fields for smart autofill
     allDetectedFields = schema;
     
+    // Migrate existing profile to contextual storage if needed
+    try {
+      await migrateProfileToContextual(profile);
+    } catch (err) {
+      warn('Failed to migrate profile to contextual storage:', err);
+    }
+    
     const mappings = generateFillMappings(schema, profile);
     if (mappings.length === 0) {
-      log('No fields matched profile data');
-      // Still try smart autofill even if no basic matches
-      setTimeout(() => trySmartAutoFill(), 2000);
+      info('ℹ️ No fields matched profile data. Try Smart Suggestions instead.');
+      showNotification('No matches found', 'No fields could be auto-filled. Try Smart Suggestions for better results.', 'info');
       return;
     }
     
-    info(`Auto-filling ${mappings.length} fields from profile`);
+    info(`🚀 Starting auto-fill: ${mappings.length} fields detected`);
+    showNotification('Auto-filling form...', `Filling ${mappings.length} fields with your profile data`, 'info');
     
     // Create a fill plan
     const fillPlan: FillPlan = {
@@ -321,10 +350,137 @@ async function tryAutoFill(schema: ReturnType<typeof extractFormSchema>): Promis
     // Also try to fill resume file inputs
     fillResumeFileInputs();
     
-    // After basic autofill, try smart autofill for remaining fields
-    setTimeout(() => trySmartAutoFill(), 2000);
+    // After basic autofill, offer smart suggestions for remaining fields
+    const unfilledCount = allDetectedFields.length - filledSelectors.size;
+    if (unfilledCount > 0) {
+      info(`ℹ️ ${unfilledCount} fields remain unfilled. Consider using Smart Suggestions.`);
+    }
   } catch (err) {
     error('Error in auto-fill:', err);
+    showError('Auto-fill Error', 'An error occurred during auto-fill. Please try again.', 5000);
+  }
+}
+
+/**
+ * Try smart suggestions - show suggestion panel instead of auto-filling
+ * This is similar to superfill.ai's approach: suggest appropriate answers
+ */
+async function trySmartSuggestions(): Promise<void> {
+  try {
+    const profile = await getUserProfile();
+    if (!profile) {
+      log('No profile for smart suggestions');
+      return;
+    }
+    
+    // Check if AI is available for better suggestions
+    const ollamaAvailable = await checkOllamaConnection();
+    
+    // Get unfilled fields
+    const unfilledFields = analyzeUnfilledFields(allDetectedFields, filledSelectors);
+    
+    if (unfilledFields.length === 0) {
+      info('All fields filled! No suggestions needed.');
+      return;
+    }
+    
+    info(`Generating smart suggestions for ${unfilledFields.length} unfilled fields...`);
+    
+    // Generate suggestions for unfilled fields
+    const suggestions = await generateBatchSuggestions(
+      unfilledFields.map(f => f.field),
+      profile,
+      {
+        company: lastJobMeta?.company,
+        jobTitle: lastJobMeta?.jobTitle,
+        url: window.location.href
+      },
+      ollamaAvailable // Use AI if available
+    );
+    
+    // Filter by confidence
+    const highConfidenceSuggestions = filterSuggestionsByConfidence(suggestions, 0.6);
+    
+    if (highConfidenceSuggestions.length === 0) {
+      info('No high-confidence suggestions found');
+      return;
+    }
+    
+    info(`Generated ${highConfidenceSuggestions.length} high-confidence suggestions`);
+    
+    // Show suggestion panel
+    showSuggestionPanel(
+      highConfidenceSuggestions,
+      async (selections) => {
+        console.log('[Suggestions] onApply callback invoked!');
+        console.log('[Suggestions] Total selections to apply:', selections.size);
+        info(`Applying ${selections.size} selected suggestions`);
+        
+        let successCount = 0;
+        let failCount = 0;
+        let currentIndex = 0;
+        
+        // Convert Map to array to track progress
+        const selectionsArray = Array.from(selections.entries());
+        console.log('[Suggestions] Selections array created, length:', selectionsArray.length);
+        
+        // Apply selected suggestions
+        for (const [selector, option] of selectionsArray) {
+          currentIndex++;
+          console.log(`[Suggestions] ==== Processing ${currentIndex}/${selectionsArray.length} ====`);
+          
+          try {
+            console.log(`[Suggestions] Attempting to apply: ${selector} = ${option.value}`);
+            const field = allDetectedFields.find(f => f.selector === selector);
+            if (!field) {
+              console.warn(`[Suggestions] Field not found for selector: ${selector}`);
+              failCount++;
+              continue;
+            }
+            
+            console.log(`[Suggestions] Field found:`, field.label, field.type);
+            console.log(`[Suggestions] About to call fillFieldWithValue...`);
+            
+            await fillFieldWithValue(selector, option.value, field.label || 'Field');
+            
+            console.log(`[Suggestions] fillFieldWithValue completed successfully`);
+            
+            // Track for learning
+            autoFilledValues.set(selector, {
+              field,
+              value: option.value
+            });
+            
+            info(`✓ Applied suggestion: ${field.label} = ${option.value}`);
+            successCount++;
+            console.log(`[Suggestions] Success count now: ${successCount}`);
+          } catch (err) {
+            warn(`Failed to apply suggestion for ${selector}:`, err);
+            console.error(`[Suggestions] Error applying suggestion:`, err);
+            console.error(`[Suggestions] Error stack:`, err.stack);
+            failCount++;
+          }
+          
+          console.log(`[Suggestions] ==== Completed ${currentIndex}/${selectionsArray.length}, moving to next ====`);
+        }
+        
+        console.log('[Suggestions] Loop completed!');
+        info(`Successfully applied ${successCount} suggestions, ${failCount} failed`);
+        
+        // Show notification
+        if (successCount > 0) {
+          showNotification(`✓ Applied ${successCount} suggestion${successCount > 1 ? 's' : ''}!`, 'success');
+        }
+        if (failCount > 0) {
+          showNotification(`⚠️ Failed to apply ${failCount} suggestion${failCount > 1 ? 's' : ''}`, 'warning');
+        }
+      },
+      () => {
+        info('User dismissed suggestion panel');
+      }
+    );
+  } catch (err) {
+    error('Error in smart suggestions:', err);
   }
 }
 
@@ -529,6 +685,30 @@ window.addEventListener('offlyn-browser-use-fill', () => {
 });
 
 /**
+ * Listen for smart suggestions trigger
+ */
+window.addEventListener('offlyn-show-suggestions', () => {
+  if (allDetectedFields.length > 0) {
+    info('Manual trigger: showing smart suggestions');
+    trySmartSuggestions();
+  } else {
+    warn('[Suggestions] No detected fields. Refresh the scan first.');
+  }
+});
+
+/**
+ * Listen for manual autofill trigger
+ */
+window.addEventListener('offlyn-manual-autofill', async () => {
+  if (allDetectedFields.length > 0) {
+    info('Manual trigger: starting autofill with highlighting');
+    await tryAutoFill(allDetectedFields);
+  } else {
+    warn('[Autofill] No detected fields. Refresh the scan first.');
+  }
+});
+
+/**
  * Handle submit/apply button clicks
  */
 function handleSubmitAttempt(e: Event): void {
@@ -664,7 +844,22 @@ async function executeFillPlan(plan: FillPlan): Promise<void> {
     timestamp: Date.now(),
   };
   
+  // Clear any existing highlights
+  clearAllHighlights();
+  
+  // Show progress indicator
+  showProgress(plan.mappings.length);
+  
+  // Small delay to ensure page is ready
+  await new Promise(resolve => setTimeout(resolve, 300));
+  
+  let processedCount = 0;
+  
   for (const mapping of plan.mappings) {
+    processedCount++;
+    
+    // Highlight field as being filled
+    highlightFieldAsFilling(mapping.selector);
     try {
       // Check if this is a shadow DOM selector
       let element: Element | null = null;
@@ -802,20 +997,192 @@ async function executeFillPlan(plan: FillPlan): Promise<void> {
         }
       }
       // Handle regular autocomplete/dropdown fields (Lever, Greenhouse, Discord ATS, etc.)
-      // Open dropdown by click, then select option — do not type into the input
       else if ((fieldType === 'autocomplete' || hasOptionsArray) && element instanceof HTMLInputElement) {
-        console.log('[Offlyn] Selecting dropdown option (click, not type):', mapping.selector, 'with:', finalValue);
-        const clicked = await openDropdownAndSelectOption(element, String(finalValue));
-        if (!clicked) {
-          // Fallback: type to filter then find and click (for searchable dropdowns)
-          element.value = String(finalValue);
-          element.dispatchEvent(new Event('input', { bubbles: true }));
-          await new Promise(resolve => setTimeout(resolve, 400));
-          const clickedAfterType = findAndClickDropdownOption(String(finalValue));
-          if (!clickedAfterType) {
-            console.warn('[Offlyn] Could not find matching dropdown option for:', finalValue);
+        console.log('[Offlyn] Handling autocomplete/dropdown field:', mapping.selector);
+        console.log('[Offlyn] Field label:', fieldSchema?.label);
+        console.log('[Offlyn] Field type:', fieldType, '| Has options:', hasOptionsArray);
+        console.log('[Offlyn] Setting value:', finalValue);
+        
+        // Skip fields with empty values
+        if (!finalValue || String(finalValue).trim() === '') {
+          console.log('[Offlyn] Skipping field with empty value');
+          result.failedSelectors.push(mapping.selector);
+          continue;
+        }
+        
+        // Close any lingering dropdowns from previous fields
+        document.body.click();
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // If field has known options, validate against them first
+        if (hasOptionsArray && fieldSchema && 'options' in fieldSchema) {
+          const knownOptions = (fieldSchema as any).options;
+          const hasMatch = knownOptions.some((opt: string) => 
+            opt.toLowerCase().includes(String(finalValue).toLowerCase()) ||
+            String(finalValue).toLowerCase().includes(opt.toLowerCase())
+          );
+          
+          if (!hasMatch) {
+            console.warn(`[Offlyn] Value "${finalValue}" not in known options for ${fieldSchema.label}`);
+            console.warn('[Offlyn] Known options:', knownOptions.slice(0, 5).join(', '));
+            // Skip this field - wrong value for these options
+            result.failedSelectors.push(mapping.selector);
+            highlightFieldAsError(mapping.selector);
+            showFieldLabel(mapping.selector, '✗ Invalid value');
+            continue;
           }
         }
+        
+        // TWO-PHASE APPROACH: Try setting value first, then interact with dropdown if needed
+        element.focus();
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Phase 1: Set value and dispatch events (works for some ATSs)
+        element.value = String(finalValue);
+        element.dispatchEvent(new Event('input', { bubbles: true }));
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+        
+        // Wait longer for dropdown to appear (Greenhouse can be slow)
+        await new Promise(resolve => setTimeout(resolve, 400));
+        
+        // Phase 2: Check if dropdown appeared, if so, click the matching option
+        // Look for options that are in an active dropdown (parent container is visible)
+        const allOptions = document.querySelectorAll(DROPDOWN_OPTION_SELECTORS.join(','));
+        
+        const visibleOptions = Array.from(allOptions).filter(option => {
+          const style = window.getComputedStyle(option);
+          
+          // Skip if explicitly hidden
+          if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+            return false;
+          }
+          
+          // Check if option or its parent container is part of a visible dropdown
+          // Look for parent container with meaningful dimensions
+          let current = option.parentElement;
+          let hasVisibleParent = false;
+          let depth = 0;
+          
+          while (current && depth < 10) {
+            const parentRect = current.getBoundingClientRect();
+            const parentStyle = window.getComputedStyle(current);
+            
+            // If parent has dimensions and is visible, this option is in an active dropdown
+            if (parentRect.height > 0 && 
+                parentStyle.display !== 'none' && 
+                parentStyle.visibility !== 'hidden') {
+              hasVisibleParent = true;
+              break;
+            }
+            
+            current = current.parentElement;
+            depth++;
+          }
+          
+          return hasVisibleParent;
+        });
+        
+        console.log('[Offlyn] Found', visibleOptions.length, 'dropdown options in visible containers (out of', allOptions.length, 'total)');
+        
+        // Debug: Log all option texts to understand what we're matching against
+        if (visibleOptions.length > 0 && visibleOptions.length < 30) {
+          console.log('[Offlyn] Available options:', visibleOptions.map(opt => 
+            (opt.textContent || '').trim().substring(0, 50)
+          ));
+        }
+        
+        if (visibleOptions.length > 0 && visibleOptions.length < 50) { // Sanity check - dropdown shouldn't have 255 options
+          let optionClicked = false;
+          const valueToMatch = String(finalValue).toLowerCase().trim();
+          
+          // Skip if value is empty
+          if (!valueToMatch) {
+            console.log('[Offlyn] Skipping empty value - using Enter key');
+            element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+            await new Promise(resolve => setTimeout(resolve, 100));
+            element.blur();
+          } else {
+            // Try to find and click matching option
+            for (const option of visibleOptions) {
+              const optionText = (option.textContent || '').toLowerCase().trim();
+              
+              // Debug: Log each option we're checking
+              console.log('[Offlyn] Checking option:', optionText.substring(0, 50), 'against:', valueToMatch);
+              
+              // Skip empty or very short options
+              if (optionText.length < 2) continue;
+              
+              // Skip container elements that show "options: ..." labels
+              if (optionText.startsWith('options:') || optionText.startsWith('option:')) {
+                continue;
+              }
+              
+              // Skip if option text is way too long (likely a container with multiple options)
+              if (optionText.length > 100) {
+                continue;
+              }
+              
+              // For short values like "yes" or "no", require exact match or very close match
+              if (valueToMatch.length <= 4) {
+                // Exact match only for short values
+                if (optionText === valueToMatch || optionText.startsWith(valueToMatch + ' ') || optionText.endsWith(' ' + valueToMatch)) {
+                  console.log('[Offlyn] Clicking exact-match option:', optionText.substring(0, 50));
+                  (option as HTMLElement).click();
+                  optionClicked = true;
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                  break;
+                }
+              } else {
+                // For longer values, allow partial matching
+                if (optionText.includes(valueToMatch) || valueToMatch.includes(optionText)) {
+                  console.log('[Offlyn] Clicking partial-match option:', optionText.substring(0, 50));
+                  (option as HTMLElement).click();
+                  optionClicked = true;
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                  break;
+                }
+              }
+            }
+            
+            if (!optionClicked) {
+              console.warn('[Offlyn] No matching option found, trying keyboard navigation...');
+              // Use keyboard to select - Type each character to trigger filtering
+              element.value = ''; // Clear first
+              element.dispatchEvent(new Event('input', { bubbles: true }));
+              await new Promise(resolve => setTimeout(resolve, 100));
+              
+              // Type the value character by character
+              for (const char of String(finalValue)) {
+                element.value += char;
+                element.dispatchEvent(new Event('input', { bubbles: true }));
+                await new Promise(resolve => setTimeout(resolve, 30));
+              }
+              
+              // Wait for dropdown to filter
+              await new Promise(resolve => setTimeout(resolve, 200));
+              
+              // Press Enter to select first filtered option
+              element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+              element.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+              element.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+              await new Promise(resolve => setTimeout(resolve, 150));
+              console.log('[Offlyn] Sent keyboard Enter to accept filtered value');
+            }
+          }
+        } else {
+          // No dropdown appeared OR too many options (wrong dropdown) - try Enter key to accept value
+          if (visibleOptions.length >= 50) {
+            console.warn('[Offlyn] Too many options detected (', visibleOptions.length, ') - likely wrong dropdown, using Enter key instead');
+          }
+          console.log('[Offlyn] Using Enter key fallback for:', finalValue);
+          element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+          element.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+          element.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+          await new Promise(resolve => setTimeout(resolve, 150));
+        }
+        
+        element.blur();
+        console.log('[Offlyn] ✓ Value set for autocomplete field');
       }
       // Fill based on element type
       else if (element instanceof HTMLInputElement) {
@@ -871,11 +1238,61 @@ async function executeFillPlan(plan: FillPlan): Promise<void> {
       }
       
       result.filledCount++;
+      
+      // Highlight as success
+      highlightFieldAsSuccess(mapping.selector);
+      
+      // Show label with field name
+      const fieldName = fieldSchema?.label || fieldSchema?.name || 'Field';
+      showFieldLabel(mapping.selector, `✓ ${fieldName}`);
+      
+      // Update progress
+      updateProgress(processedCount, plan.mappings.length, fieldName);
+      
       log(`Filled ${mapping.selector}`);
+      
+      // IMPORTANT: Longer delay between fills to let dropdowns close properly
+      await new Promise(resolve => setTimeout(resolve, 600));
     } catch (err) {
       result.failedSelectors.push(mapping.selector);
+      
+      // Highlight as error
+      highlightFieldAsError(mapping.selector);
+      showFieldLabel(mapping.selector, '✗ Failed');
+      
       error(`Error filling ${mapping.selector}:`, err);
     }
+  }
+  
+  // Show completion message
+  info(`✅ Autofill complete! Filled ${result.filledCount} fields, ${result.failedSelectors.length} failed.`);
+  
+  // Show progress completion
+  const allSuccess = result.failedSelectors.length === 0 && result.filledCount > 0;
+  showProgressComplete(allSuccess, result.filledCount, plan.mappings.length);
+  
+  // Show notification based on results
+  if (result.filledCount > 0) {
+    if (result.failedSelectors.length === 0) {
+      showSuccess(
+        'Auto-fill Complete!',
+        `Successfully filled all ${result.filledCount} fields.`,
+        5000
+      );
+    } else {
+      showWarning(
+        'Auto-fill Partially Complete',
+        `Filled ${result.filledCount} fields, ${result.failedSelectors.length} failed.`,
+        6000
+      );
+    }
+  } else {
+    showError(
+      'Auto-fill Failed',
+      'No fields could be filled. Please check your profile data.',
+      6000
+    );
+    hideProgress(0); // Hide immediately on total failure
   }
   
   // Send result back to background
@@ -915,118 +1332,27 @@ const DROPDOWN_OPTION_SELECTORS = [
   '[role="menuitem"]',
   'li[data-value]',
   '[role="listbox"] [role="option"]',
+  '[role="listbox"] li',
   '.dropdown-option',
   '.dropdown-item',
   '.select-option',
   '.menu-item',
   '[class*="option"]',
   '[class*="dropdown"][class*="item"]',
+  '[class*="select"][class*="item"]',
+  '[class*="menu"] li',
+  'ul li[role="option"]',
+  'ul[role="listbox"] li',
+  'div[role="option"]',
 ];
 
 /**
  * Find visible dropdown options in the document and click the one matching value.
  * Returns true if an option was clicked, false otherwise.
  */
-function findAndClickDropdownOption(value: string): boolean {
-  const valueNorm = value.trim().toLowerCase();
-  if (!valueNorm) return false;
-
-  let options: NodeListOf<Element> | Element[] = document.querySelectorAll('[role="listbox"] [role="option"]');
-  if (options.length === 0) {
-    options = document.querySelectorAll('[role="option"], [role="menuitem"], li[data-value]');
-  }
-  if (options.length === 0) {
-    for (const sel of DROPDOWN_OPTION_SELECTORS) {
-      options = document.querySelectorAll(sel);
-      if (options.length > 0) break;
-    }
-  }
-
-  const isVisible = (el: Element): boolean => {
-    const r = (el as HTMLElement).getBoundingClientRect();
-    return r.width > 0 && r.height > 0;
-  };
-
-  for (const opt of Array.from(options)) {
-    if (!isVisible(opt)) continue;
-    const text = (opt as HTMLElement).textContent?.trim().toLowerCase();
-    if (!text) continue;
-    const exact = text === valueNorm;
-    const includes = text.includes(valueNorm) || valueNorm.includes(text);
-    if (exact || includes) {
-      (opt as HTMLElement).click();
-      log(`[Offlyn] Selected dropdown option: "${(opt as HTMLElement).textContent?.trim()}"`);
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Wait for dropdown options to appear (polls up to maxWaitMs).
- * Returns true when options are found, false on timeout.
- */
-async function waitForDropdownOptions(maxWaitMs = 2000, pollIntervalMs = 200): Promise<boolean> {
-  const startTime = Date.now();
-  while (Date.now() - startTime < maxWaitMs) {
-    let options: NodeListOf<Element> | Element[] = document.querySelectorAll('[role="listbox"] [role="option"]');
-    if (options.length === 0) {
-      options = document.querySelectorAll('[role="option"], [role="menuitem"], li[data-value]');
-    }
-    if (options.length === 0) {
-      for (const sel of DROPDOWN_OPTION_SELECTORS) {
-        options = document.querySelectorAll(sel);
-        if (options.length > 0) break;
-      }
-    }
-    // Check if any are visible
-    const isVisible = (el: Element): boolean => {
-      const r = (el as HTMLElement).getBoundingClientRect();
-      return r.width > 0 && r.height > 0;
-    };
-    const visibleOptions = Array.from(options).filter(isVisible);
-    if (visibleOptions.length > 0) {
-      return true; // Options appeared
-    }
-    await new Promise((r) => setTimeout(r, pollIntervalMs));
-  }
-  return false; // Timeout
-}
-
-/**
- * Open a custom/autocomplete dropdown by clicking the input, then find and click the option
- * that matches the given value. Does NOT type into the input — selects by clicking the option.
- * Returns true if an option was clicked, false otherwise.
- */
-async function openDropdownAndSelectOption(inputEl: HTMLInputElement, value: string): Promise<boolean> {
-  if (!value.trim()) return false;
-
-  // 1. Click/focus the input to open the dropdown (do not set .value — that would "type" the option)
-  inputEl.focus();
-  (inputEl as HTMLElement).click();
-
-  // 2. Wait for options to load (polling for up to 2 seconds)
-  const optionsAppeared = await waitForDropdownOptions();
-  if (!optionsAppeared) {
-    log(`[Offlyn] Dropdown options did not appear for value: ${value}`);
-    return false;
-  }
-
-  // 3. Find and click the matching option
-  const clicked = findAndClickDropdownOption(value);
-  if (!clicked) return false;
-
-  // 4. Wait for the component to process the selection
-  await new Promise((r) => setTimeout(r, 300));
-
-  // 5. Finalize: trigger events on the input and blur to close dropdown
-  inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-  inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-  inputEl.blur();
-  
-  await new Promise((r) => setTimeout(r, 150));
-  return true;
-}
+// NOTE: Old dropdown interaction functions removed.
+// Now using simple approach: focus → set value → dispatch events → blur
+// This matches ApplyEase & AutoFillAI proven patterns.
 
 /**
  * Execute browser-use style actions (Ollama-generated fill/click/select)
@@ -1093,20 +1419,17 @@ async function executeBrowserUseActions(actions: BrowserUseAction[]): Promise<vo
             warn(`[Browser-Use] Option not found for ${selector}: ${value}`);
           }
         } else if (element instanceof HTMLInputElement) {
-          // Autocomplete/custom dropdown: open by click, then select option (do not type)
-          const clicked = await openDropdownAndSelectOption(element, value);
-          if (clicked) {
-            filledSelectors.add(selector);
-            log(`[Browser-Use] Selected option ${selector} = ${value}`);
-          } else {
-            // Fallback: type to filter then find and click option (for searchable dropdowns)
-            element.value = value;
-            element.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-            await new Promise((r) => setTimeout(r, 400));
-            const clickedAfterType = findAndClickDropdownOption(value);
-            if (clickedAfterType) filledSelectors.add(selector);
-            else warn(`[Browser-Use] Option not found for ${selector}: ${value}`);
-          }
+          // Autocomplete/custom dropdown: Use simple approach (ApplyEase/AutoFillAI pattern)
+          element.focus();
+          await new Promise((r) => setTimeout(r, 100));
+          element.value = value;
+          element.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+          element.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+          element.dispatchEvent(new Event('blur', { bubbles: true, composed: true }));
+          await new Promise((r) => setTimeout(r, 100));
+          element.blur();
+          filledSelectors.add(selector);
+          log(`[Browser-Use] Set value ${selector} = ${value}`);
         }
       } else if (a.action === 'click') {
         (element as HTMLElement).click();
@@ -1180,6 +1503,9 @@ function getFieldValue(element: Element): string {
 async function fillFieldWithValue(selector: string, value: string, fieldLabel: string): Promise<void> {
   autofillInProgress = true;
   
+  // Highlight field as being filled
+  highlightFieldAsFilling(selector);
+  
   try {
     // Get field schema to check type
     const fieldSchema = allDetectedFields.find(f => f.selector === selector);
@@ -1238,24 +1564,18 @@ async function fillFieldWithValue(selector: string, value: string, fieldLabel: s
     }
     // Handle regular autocomplete/dropdown fields (Lever, Greenhouse, Discord, etc.)
     else if (fieldType === 'autocomplete' && element instanceof HTMLInputElement) {
-      console.log('[Offlyn Smart] Selecting dropdown option (click, not type):', fieldLabel, 'with:', value);
-      const clicked = await openDropdownAndSelectOption(element, value);
-      if (clicked) {
-        filledSelectors.add(selector);
-        info(`✓ AI-selected "${value}" for dropdown: ${fieldLabel}`);
-      } else {
-        // Fallback: type to filter then find and click (for searchable dropdowns)
-        element.value = value;
-        element.dispatchEvent(new Event('input', { bubbles: true }));
-        await new Promise(resolve => setTimeout(resolve, 400));
-        const clickedAfterType = findAndClickDropdownOption(value);
-        if (clickedAfterType) {
-          filledSelectors.add(selector);
-          info(`✓ AI-selected "${value}" for dropdown (after typing): ${fieldLabel}`);
-        } else {
-          warn(`[Offlyn Smart] Could not find matching dropdown option for: ${fieldLabel} = ${value}`);
-        }
-      }
+      console.log('[Offlyn Smart] Setting dropdown value (simple approach):', fieldLabel, 'with:', value);
+      // Use simple approach: focus → value → events → blur
+      element.focus();
+      await new Promise(resolve => setTimeout(resolve, 100));
+      element.value = value;
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+      element.dispatchEvent(new Event('blur', { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 100));
+      element.blur();
+      filledSelectors.add(selector);
+      info(`✓ AI-filled "${value}" for dropdown: ${fieldLabel}`);
     }
     // Standard field types
     else if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
@@ -1273,6 +1593,15 @@ async function fillFieldWithValue(selector: string, value: string, fieldLabel: s
     
     // Small delay to let the form react
     await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Highlight as success
+    highlightFieldAsSuccess(selector);
+    showFieldLabel(selector, `✓ ${fieldLabel}`);
+  } catch (err) {
+    // Highlight as error
+    highlightFieldAsError(selector);
+    showFieldLabel(selector, `✗ ${fieldLabel}`);
+    throw err;
   } finally {
     autofillInProgress = false;
   }
@@ -1355,6 +1684,12 @@ async function init(): Promise<void> {
       
       // Check if this might navigate to next page or load form
       const text = target.textContent?.toLowerCase() || '';
+      
+      // Skip if this is our own suggestion panel (don't interfere with our UI)
+      if (target.closest('#offlyn-suggestion-panel')) {
+        return;
+      }
+      
       if (text.includes('next') || text.includes('continue')) {
         // Wait for navigation and re-detect
         setTimeout(() => {

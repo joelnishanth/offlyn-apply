@@ -596,6 +596,7 @@ async function saveFinalProfile(includeWorkAuth: boolean): Promise<void> {
 
 /**
  * Collect edited profile data from form
+ * Preserves work, education, selfId, and workAuth from existing profile
  */
 function collectProfileFromForm(): UserProfile | null {
   const form = document.getElementById('profileForm') as HTMLFormElement;
@@ -629,11 +630,22 @@ function collectProfileFromForm(): UserProfile | null {
       yearsOfExperience: parseInt((formData.get('yearsOfExperience') as string) || '0', 10),
     },
     skills: skills,
+    // IMPORTANT: Preserve work and education from extractedProfile (if editing existing profile)
     work: extractedProfile?.work || [],
     education: extractedProfile?.education || [],
     summary: (formData.get('summary') as string) || '',
     resumeText: extractedProfile?.resumeText || '',
+    // IMPORTANT: Preserve selfId and workAuth from extractedProfile (if editing existing profile)
+    selfId: extractedProfile?.selfId,
+    workAuth: extractedProfile?.workAuth,
   };
+  
+  console.log('[Onboarding] Collected profile from form:', {
+    hasWork: profile.work.length > 0,
+    hasEducation: profile.education.length > 0,
+    hasSelfId: !!profile.selfId,
+    hasWorkAuth: !!profile.workAuth,
+  });
   
   return profile;
 }
@@ -703,7 +715,347 @@ function setupWorkAuthConditionalFields(): void {
 /**
  * Initialize onboarding
  */
+/**
+ * Pre-fill Self-ID form with existing data
+ */
+function preFillSelfIdForm(selfId: any): void {
+  console.log('[Onboarding] Pre-filling Self-ID form with:', selfId);
+  
+  // Gender checkboxes
+  if (selfId.gender && Array.isArray(selfId.gender)) {
+    selfId.gender.forEach((genderValue: string) => {
+      const checkbox = document.querySelector(`input[name="gender"][value="${genderValue}"]`) as HTMLInputElement;
+      if (checkbox) {
+        checkbox.checked = true;
+      }
+    });
+  }
+  
+  // Race checkboxes
+  if (selfId.race && Array.isArray(selfId.race)) {
+    selfId.race.forEach((raceValue: string) => {
+      const checkbox = document.querySelector(`input[name="race"][value="${raceValue}"]`) as HTMLInputElement;
+      if (checkbox) {
+        checkbox.checked = true;
+      }
+    });
+  }
+  
+  // Orientation checkboxes
+  if (selfId.orientation && Array.isArray(selfId.orientation)) {
+    selfId.orientation.forEach((orientationValue: string) => {
+      const checkbox = document.querySelector(`input[name="orientation"][value="${orientationValue}"]`) as HTMLInputElement;
+      if (checkbox) {
+        checkbox.checked = true;
+      }
+    });
+  }
+  
+  // Veteran radio buttons
+  if (selfId.veteran) {
+    const veteranRadio = document.querySelector(`input[name="veteran"][value="${selfId.veteran}"]`) as HTMLInputElement;
+    if (veteranRadio) {
+      veteranRadio.checked = true;
+    }
+  }
+  
+  // Transgender radio buttons
+  if (selfId.transgender) {
+    const transgenderRadio = document.querySelector(`input[name="transgender"][value="${selfId.transgender}"]`) as HTMLInputElement;
+    if (transgenderRadio) {
+      transgenderRadio.checked = true;
+    }
+  }
+  
+  // Disability radio buttons
+  if (selfId.disability) {
+    const disabilityRadio = document.querySelector(`input[name="disability"][value="${selfId.disability}"]`) as HTMLInputElement;
+    if (disabilityRadio) {
+      disabilityRadio.checked = true;
+    }
+  }
+}
+
+/**
+ * Setup mutually exclusive gender selection (only one can be selected)
+ */
+function setupMutuallyExclusiveGender(): void {
+  const genderCheckboxes = document.querySelectorAll('input[name="gender"]');
+  
+  genderCheckboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', (e) => {
+      const target = e.target as HTMLInputElement;
+      
+      if (target.checked) {
+        // When one is checked, uncheck all others
+        genderCheckboxes.forEach(other => {
+          if (other !== target) {
+            (other as HTMLInputElement).checked = false;
+          }
+        });
+      }
+    });
+  });
+  
+  console.log('[Onboarding] Setup mutually exclusive gender selection');
+}
+
+/**
+ * Pre-fill Work Authorization form with existing data
+ */
+function preFillWorkAuthForm(workAuth: any): void {
+  console.log('[Onboarding] Pre-filling Work Auth form with:', workAuth);
+  
+  // Legally authorized radio (form uses "yes"/"no" strings)
+  if (typeof workAuth.legallyAuthorized === 'boolean') {
+    const radioValue = workAuth.legallyAuthorized ? 'yes' : 'no';
+    const legalRadio = document.querySelector(`input[name="legallyAuthorized"][value="${radioValue}"]`) as HTMLInputElement;
+    if (legalRadio) {
+      legalRadio.checked = true;
+      console.log('[Onboarding] Checked legally authorized:', radioValue);
+    }
+  }
+  
+  // Requires sponsorship radio (form uses "yes"/"no" strings)
+  if (typeof workAuth.requiresSponsorship === 'boolean') {
+    const radioValue = workAuth.requiresSponsorship ? 'yes' : 'no';
+    const sponsorRadio = document.querySelector(`input[name="requiresSponsorship"][value="${radioValue}"]`) as HTMLInputElement;
+    if (sponsorRadio) {
+      sponsorRadio.checked = true;
+      console.log('[Onboarding] Checked requires sponsorship:', radioValue);
+    }
+  }
+  
+  // Current status dropdown
+  if (workAuth.currentStatus) {
+    const statusSelect = document.querySelector('select[name="currentStatus"]') as HTMLSelectElement;
+    if (statusSelect) {
+      statusSelect.value = workAuth.currentStatus;
+      console.log('[Onboarding] Set current status:', workAuth.currentStatus);
+    }
+  }
+  
+  // Visa type dropdown
+  if (workAuth.visaType) {
+    const visaSelect = document.querySelector('select[name="visaType"]') as HTMLSelectElement;
+    if (visaSelect) {
+      visaSelect.value = workAuth.visaType;
+      console.log('[Onboarding] Set visa type:', workAuth.visaType);
+    }
+  }
+  
+  // Trigger conditional field visibility
+  setupWorkAuthConditionalFields();
+}
+
+/**
+ * Load and display learned values
+ */
+async function loadLearnedValues(showBackButton = false): Promise<void> {
+  try {
+    const result = await browser.storage.local.get('field_corrections');
+    const corrections = result.field_corrections || [];
+    
+    const container = document.getElementById('learnedValuesContainer');
+    if (!container) return;
+    
+    // Update button group to show/hide back button
+    const buttonGroup = document.getElementById('learnedButtonGroup');
+    if (buttonGroup) {
+      if (showBackButton) {
+        buttonGroup.innerHTML = `
+          <button id="backFromLearnedBtn" class="btn btn-secondary">Back</button>
+          <button id="doneFromLearnedBtn" class="btn btn-primary">Done</button>
+        `;
+        // Re-attach back button listener
+        const backBtn = document.getElementById('backFromLearnedBtn');
+        if (backBtn) {
+          backBtn.addEventListener('click', () => {
+            showStep('step-success');
+          });
+        }
+        // Re-attach done button listener
+        const doneBtn = document.getElementById('doneFromLearnedBtn');
+        if (doneBtn) {
+          doneBtn.addEventListener('click', () => {
+            window.close();
+          });
+        }
+      } else {
+        buttonGroup.innerHTML = `
+          <button id="doneFromLearnedBtn" class="btn btn-primary">Close</button>
+        `;
+        // Re-attach close button listener
+        const doneBtn = document.getElementById('doneFromLearnedBtn');
+        if (doneBtn) {
+          doneBtn.addEventListener('click', () => {
+            window.close();
+          });
+        }
+      }
+    }
+    
+    // Clear container
+    container.innerHTML = '';
+    
+    if (corrections.length === 0) {
+      container.innerHTML = `
+        <div class="empty-learned-state">
+          <h3>No learned values yet</h3>
+          <p>The system will learn from your manual edits as you use the extension.</p>
+        </div>
+      `;
+      return;
+    }
+    
+    // Display each learned value
+    corrections.forEach((correction: any, index: number) => {
+      const card = document.createElement('div');
+      card.className = 'learned-value-card';
+      card.dataset.index = String(index);
+      
+      const date = new Date(correction.timestamp).toLocaleString();
+      const company = correction.context?.company || 'Unknown';
+      const jobTitle = correction.context?.jobTitle || 'Unknown position';
+      
+      card.innerHTML = `
+        <div class="learned-value-info">
+          <div class="learned-value-field">${correction.fieldLabel || correction.fieldType}</div>
+          <div class="learned-value-change">
+            <span class="learned-value-label">Auto-filled:</span>
+            <span class="learned-value-text">${correction.autoFilledValue || '(empty)'}</span>
+          </div>
+          <div class="learned-value-change">
+            <span class="learned-value-label">You changed to:</span>
+            <span class="learned-value-text">${correction.userCorrectedValue}</span>
+          </div>
+          <div class="learned-value-meta">
+            ${company} - ${jobTitle} • ${date}
+          </div>
+        </div>
+        <div class="learned-value-actions">
+          <button class="btn-delete" data-index="${index}">🗑️ Delete</button>
+        </div>
+      `;
+      
+      container.appendChild(card);
+    });
+    
+    // Add delete listeners
+    const deleteButtons = container.querySelectorAll('.btn-delete');
+    deleteButtons.forEach(button => {
+      button.addEventListener('click', async (e) => {
+        const target = e.target as HTMLElement;
+        const index = parseInt(target.dataset.index || '0', 10);
+        await deleteLearnedValue(index);
+      });
+    });
+    
+    console.log('[Onboarding] Loaded', corrections.length, 'learned values');
+  } catch (err) {
+    console.error('[Onboarding] Failed to load learned values:', err);
+  }
+}
+
+/**
+ * Delete a learned value by index
+ */
+async function deleteLearnedValue(index: number): Promise<void> {
+  try {
+    const result = await browser.storage.local.get('field_corrections');
+    const corrections = result.field_corrections || [];
+    
+    if (index < 0 || index >= corrections.length) {
+      console.error('[Onboarding] Invalid index:', index);
+      return;
+    }
+    
+    // Remove the correction
+    corrections.splice(index, 1);
+    
+    // Save back to storage
+    await browser.storage.local.set({ field_corrections: corrections });
+    
+    console.log('[Onboarding] Deleted learned value. Remaining:', corrections.length);
+    
+    // Reload the display (preserve back button state)
+    const hasBackButton = document.getElementById('backFromLearnedBtn') !== null;
+    await loadLearnedValues(hasBackButton);
+  } catch (err) {
+    console.error('[Onboarding] Failed to delete learned value:', err);
+    alert('Failed to delete learned value. Please try again.');
+  }
+}
+
 async function init(): Promise<void> {
+  // Check if we should show learned values directly
+  const flags = await browser.storage.local.get('showLearnedValues');
+  if (flags.showLearnedValues) {
+    console.log('[Onboarding] Showing learned values page...');
+    await browser.storage.local.remove('showLearnedValues');
+    await loadLearnedValues(false); // No back button when coming from popup
+    showStep('step-learned');
+    return;
+  }
+  
+  // Check if we're editing an existing profile
+  const existingProfileData = await browser.storage.local.get('userProfile');
+  const existingProfile = existingProfileData.userProfile as UserProfile | undefined;
+  
+  if (existingProfile) {
+    console.log('[Onboarding] Existing profile found, pre-filling form...');
+    
+    // Clean up empty education entries before displaying
+    if (existingProfile.education) {
+      existingProfile.education = existingProfile.education.filter(edu => 
+        edu.school && edu.school.trim() !== '' || 
+        edu.degree && edu.degree.trim() !== '' ||
+        edu.field && edu.field.trim() !== ''
+      );
+    }
+    
+    // Skip directly to the review step with existing data
+    extractedProfile = existingProfile;
+    showStep('step-review');
+    renderProfilePreview(existingProfile);
+    
+    // Update the title to indicate we're editing
+    const titleEl = document.querySelector('h1');
+    if (titleEl) {
+      titleEl.textContent = 'Edit Your Profile';
+    }
+    
+    // Add a "Start Fresh" button at the top
+    const reviewStepDiv = document.getElementById('step-review');
+    if (reviewStepDiv) {
+      const existingButton = reviewStepDiv.querySelector('#startFreshBtn');
+      if (!existingButton) {
+        const startFreshBtn = document.createElement('button');
+        startFreshBtn.id = 'startFreshBtn';
+        startFreshBtn.className = 'btn btn-secondary';
+        startFreshBtn.textContent = '🔄 Start Fresh (Upload New Resume)';
+        startFreshBtn.style.cssText = 'margin-bottom: 16px; width: 100%;';
+        startFreshBtn.onclick = () => {
+          if (confirm('This will discard your current profile and start from scratch. Continue?')) {
+            extractedProfile = null;
+            showStep('step-upload');
+            
+            // Reset title
+            const titleEl = document.querySelector('h1');
+            if (titleEl) {
+              titleEl.textContent = 'Setup Your Profile';
+            }
+          }
+        };
+        
+        reviewStepDiv.insertBefore(startFreshBtn, reviewStepDiv.firstChild);
+      }
+    }
+    
+    // Show a notice
+    showStatus('info', 'Editing existing profile. Make your changes and click Save.');
+  }
+  
   // Check connection status on load
   const connected = await checkConnection();
   updateConnectionStatus(connected);
@@ -842,6 +1194,35 @@ async function init(): Promise<void> {
     });
   }
 
+  // Setup mutually exclusive gender selection (must be called after DOM is ready)
+  setTimeout(() => {
+    setupMutuallyExclusiveGender();
+    
+    if (existingProfile && existingProfile.selfId) {
+      preFillSelfIdForm(existingProfile.selfId);
+    }
+    
+    if (existingProfile && existingProfile.workAuth) {
+      preFillWorkAuthForm(existingProfile.workAuth);
+    }
+  }, 100);
+  
+  // Back button from Self-ID step
+  const backFromSelfIdBtn = document.getElementById('backFromSelfIdBtn');
+  if (backFromSelfIdBtn) {
+    backFromSelfIdBtn.addEventListener('click', () => {
+      showStep('step-review');
+    });
+  }
+  
+  // Back button from Work Auth step
+  const backFromWorkAuthBtn = document.getElementById('backFromWorkAuthBtn');
+  if (backFromWorkAuthBtn) {
+    backFromWorkAuthBtn.addEventListener('click', () => {
+      showStep('step-selfid');
+    });
+  }
+  
   // Self-ID buttons - move to work auth instead of saving
   const saveSelfIdBtn = document.getElementById('saveSelfIdBtn');
   const skipSelfIdBtn = document.getElementById('skipSelfIdBtn');
@@ -865,6 +1246,34 @@ async function init(): Promise<void> {
   } else {
     console.warn('[Onboarding] skipSelfIdBtn not found in DOM');
   }
+  
+  // Watch for when Self-ID step becomes visible to pre-fill it
+  const observer = new MutationObserver(() => {
+    const selfIdStep = document.getElementById('step-selfid');
+    const workAuthStep = document.getElementById('step-workauth');
+    
+    if (selfIdStep?.classList.contains('active')) {
+      // Setup mutually exclusive gender selection whenever Self-ID step is shown
+      setupMutuallyExclusiveGender();
+      
+      if (existingProfile?.selfId) {
+        preFillSelfIdForm(existingProfile.selfId);
+      }
+    }
+    
+    if (workAuthStep?.classList.contains('active') && existingProfile?.workAuth) {
+      preFillWorkAuthForm(existingProfile.workAuth);
+    }
+  });
+  
+  const stepsContainer = document.querySelector('.content');
+  if (stepsContainer) {
+    observer.observe(stepsContainer, { 
+      attributes: true, 
+      attributeFilter: ['class'],
+      subtree: true 
+    });
+  }
 
   // Work Authorization buttons
   const saveWorkAuthBtn = document.getElementById('saveWorkAuthBtn');
@@ -886,6 +1295,15 @@ async function init(): Promise<void> {
 
   // Work Auth form conditional logic
   setupWorkAuthConditionalFields();
+  
+  // View Learned Values button (from success step)
+  const viewLearnedBtn = document.getElementById('viewLearnedBtn');
+  if (viewLearnedBtn) {
+    viewLearnedBtn.addEventListener('click', async () => {
+      await loadLearnedValues(true); // Show back button when coming from success page
+      showStep('step-learned');
+    });
+  }
   
   // Done button
   if (doneBtn) {

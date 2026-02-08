@@ -188,19 +188,44 @@
     .btn-primary {
       background: #2196F3;
       color: white;
+      transition: all 0.2s;
     }
     
     .btn-primary:hover {
       background: #1976D2;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
     }
     
     .btn-primary:active {
       background: #0D47A1;
+      transform: translateY(0);
     }
     
     .btn-primary:disabled {
       background: #ccc;
       cursor: not-allowed;
+      transform: none;
+    }
+    
+    .btn-gradient-purple {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .btn-gradient-purple:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-gradient-pink {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+    }
+    
+    .btn-gradient-pink:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(240, 147, 251, 0.4);
     }
     
     .summary-status {
@@ -219,14 +244,56 @@
       background: #ffebee;
       color: #c62828;
     }
+    
+    .btn-warning {
+      background: #ff9800;
+      color: white;
+    }
+    
+    .btn-warning:hover {
+      background: #f57c00;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+    }
+    
+    .btn-warning:active {
+      background: #e65100;
+      transform: translateY(0);
+    }
+    
+    .btn-small {
+      font-size: 13px;
+      padding: 8px 12px;
+    }
   </style>
 </head>
 <body>
   <h1>Offlyn</h1>
   
-  <div class="section">
+  <div class="section" style="display: flex; flex-direction: column; gap: 8px;">
     <button class="btn btn-setup" id="setup-profile-btn">
       Setup Profile
+    </button>
+    <button class="btn btn-primary btn-small" id="edit-profile-btn">
+      ✏️ Edit Profile
+    </button>
+    <button class="btn btn-warning btn-small" id="clean-selfid-btn">
+      🧹 Clean Self-ID Data
+    </button>
+    <button class="btn btn-primary btn-small" id="debug-profile-btn">
+      🔍 Debug Profile Data
+    </button>
+    <button class="btn btn-primary btn-small" id="view-learned-btn">
+      🧠 View Learned Values
+    </button>
+  </div>
+  
+  <div class="section" style="display: flex; flex-direction: column; gap: 8px;">
+    <button class="btn btn-gradient-purple" id="manual-autofill-btn">
+      🚀 Auto-Fill Form
+    </button>
+    <button class="btn btn-gradient-pink" id="smart-suggestions-btn">
+      ✨ Smart Suggestions
     </button>
   </div>
   

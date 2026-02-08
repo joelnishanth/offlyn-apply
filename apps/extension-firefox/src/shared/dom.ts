@@ -209,11 +209,16 @@ function detectLikelyDropdown(field: HTMLInputElement | HTMLSelectElement | HTML
     return true;
   }
   
-  // Pattern 4: Education level (fixed options)
-  if (labelLower.includes('education') && (
-    labelLower.includes('level') || 
-    labelLower.includes('highest') || 
-    labelLower.includes('degree')
+  // Pattern 4: Education fields (School, Degree, Discipline, Major)
+  const educationPatterns = [
+    'school', 'university', 'college', 'institution',
+    'degree', 'diploma', 'certification',
+    'discipline', 'major', 'field of study', 'specialization',
+    'education level', 'highest education'
+  ];
+  
+  if (educationPatterns.some(pattern => 
+    labelLower.includes(pattern) || idLower.includes(pattern) || nameLower.includes(pattern)
   )) {
     console.log('[Offlyn] Detected Education dropdown:', label);
     return true;
@@ -239,6 +244,30 @@ function detectLikelyDropdown(field: HTMLInputElement | HTMLSelectElement | HTML
   if (role === 'combobox' || role === 'listbox') {
     console.log('[Offlyn] Detected ARIA combobox/listbox:', label);
     return true;
+  }
+  
+  // Pattern 8: Check placeholder text for "Select..." pattern
+  const placeholder = (field.placeholder || '').toLowerCase();
+  if (placeholder.includes('select') || 
+      placeholder === 'select...' ||
+      placeholder === 'choose' ||
+      placeholder.includes('pick one')) {
+    console.log('[Offlyn] Detected dropdown by placeholder:', label, placeholder);
+    return true;
+  }
+  
+  // Pattern 9: Has a dropdown arrow icon nearby (check parent for arrow/chevron)
+  const parent = field.parentElement;
+  if (parent) {
+    const parentHtml = parent.innerHTML.toLowerCase();
+    if (parentHtml.includes('▼') || 
+        parentHtml.includes('▾') || 
+        parentHtml.includes('dropdown') ||
+        parentHtml.includes('chevron') ||
+        parent.querySelector('[class*="arrow"], [class*="chevron"], [class*="caret"]')) {
+      console.log('[Offlyn] Detected dropdown by arrow icon:', label);
+      return true;
+    }
   }
   
   return false;

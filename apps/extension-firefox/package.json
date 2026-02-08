@@ -18,10 +18,14 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@types/firefox-webextension-browser": "^6.0.7",
     "@types/node": "^20.10.0",
     "esbuild": "^0.19.8",
     "typescript": "^5.3.3",
     "web-ext": "^7.8.0"
+  },
+  "dependencies": {
+    "ai": "^6.0.73",
+    "ollama-ai-provider-v2": "^2.0.0",
+    "zod": "^4.1.8"
   }
 }

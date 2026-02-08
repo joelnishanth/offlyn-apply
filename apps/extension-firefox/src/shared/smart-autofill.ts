@@ -37,9 +37,25 @@ export function analyzeUnfilledFields(
   const unfilled: UnfilledField[] = [];
 
   for (const field of allFields) {
-    // Skip if already filled
-    if (filledSelectors.has(field.selector)) {
+    // Check if field is actually filled by checking DOM value
+    const element = document.querySelector(field.selector);
+    let hasValue = false;
+    
+    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+      hasValue = element.value && element.value.trim() !== '';
+    } else if (element instanceof HTMLSelectElement) {
+      hasValue = element.value && element.value !== '';
+    }
+    
+    // Skip if already filled (check both filledSelectors and actual DOM value)
+    if (filledSelectors.has(field.selector) && hasValue) {
       continue;
+    }
+    
+    // If it's in filledSelectors but has no value, it failed - remove from set
+    if (filledSelectors.has(field.selector) && !hasValue) {
+      console.log('[SmartAutofill] Field marked as filled but has no value:', field.label);
+      filledSelectors.delete(field.selector);
     }
 
     // Skip hidden or disabled fields

@@ -629,6 +629,97 @@
       word-wrap: break-word;
       color: #333;
     }
+    
+    /* Learned Values Styles */
+    .learned-value-card {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      transition: all 0.2s;
+    }
+    
+    .learned-value-card:hover {
+      border-color: #667eea;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+    }
+    
+    .learned-value-info {
+      flex: 1;
+    }
+    
+    .learned-value-field {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+      font-size: 15px;
+    }
+    
+    .learned-value-change {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 4px;
+      font-size: 14px;
+    }
+    
+    .learned-value-label {
+      color: #666;
+      font-size: 12px;
+      min-width: 80px;
+    }
+    
+    .learned-value-text {
+      color: #333;
+      word-break: break-word;
+    }
+    
+    .learned-value-arrow {
+      color: #667eea;
+      margin: 0 4px;
+    }
+    
+    .learned-value-meta {
+      color: #999;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+    
+    .learned-value-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .btn-delete {
+      background: #ff5252;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    
+    .btn-delete:hover {
+      background: #ff1744;
+      transform: translateY(-1px);
+    }
+    
+    .empty-learned-state {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+    
+    .empty-learned-state h3 {
+      margin-bottom: 12px;
+      color: #666;
+    }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
@@ -719,16 +810,16 @@
         </div>
       </div>
       
-      <!-- Step 3: Self-ID (Optional) -->
+      <!-- Step 3: Self-ID -->
       <div id="step-selfid" class="step">
-        <h2>Self-Identification (Optional)</h2>
-        <p class="selfid-intro">We invite you to share some information about yourself. This information has no impact on applications and is kept confidential. It's used at an aggregate level to ensure equal opportunity. All questions are optional.</p>
+        <h2>Self-Identification</h2>
+        <p class="selfid-intro">We invite you to share some information about yourself. This information has no impact on applications and is kept confidential. It's used at an aggregate level to ensure equal opportunity.</p>
         
         <form id="selfIdForm">
           <!-- Gender Identity -->
           <div class="question-group">
-            <label class="question-label">Which gender identities do you most identify with? (Select all that apply)</label>
-            <div class="checkbox-group">
+            <label class="question-label">Which gender identity do you most identify with?</label>
+            <div class="checkbox-group" id="genderCheckboxGroup">
               <label><input type="checkbox" name="gender" value="Agender"> Agender</label>
               <label><input type="checkbox" name="gender" value="Gender non-conforming"> Gender non-conforming</label>
               <label><input type="checkbox" name="gender" value="Genderfluid"> Genderfluid</label>
@@ -805,15 +896,16 @@
         </form>
 
         <div class="button-group">
+          <button id="backFromSelfIdBtn" class="btn btn-secondary">Back</button>
           <button id="skipSelfIdBtn" class="btn btn-secondary">Skip</button>
           <button id="saveSelfIdBtn" class="btn btn-primary">Save & Continue</button>
         </div>
       </div>
       
-      <!-- Step 4: Work Authorization (Optional) -->
+      <!-- Step 4: Work Authorization -->
       <div id="step-workauth" class="step">
         <h2>Work Authorization</h2>
-        <p class="selfid-intro">These questions help us tailor applications to your work eligibility. All questions are optional.</p>
+        <p class="selfid-intro">These questions help us tailor applications to your work eligibility.</p>
         
         <form id="workAuthForm">
           <!-- US Work Authorization -->
@@ -890,12 +982,27 @@
         </form>
 
         <div class="button-group">
+          <button id="backFromWorkAuthBtn" class="btn btn-secondary">Back</button>
           <button id="skipWorkAuthBtn" class="btn btn-secondary">Skip</button>
           <button id="saveWorkAuthBtn" class="btn btn-primary">Save & Continue</button>
         </div>
       </div>
 
-      <!-- Step 5: Success -->
+      <!-- Step 5: Learned Values Management -->
+      <div id="step-learned" class="step">
+        <h2>🧠 Learned Values</h2>
+        <p class="selfid-intro">These are corrections the system learned from your manual edits. You can remove any incorrect patterns.</p>
+        
+        <div id="learnedValuesContainer" style="margin-top: 24px;">
+          <!-- Dynamically populated -->
+        </div>
+
+        <div class="button-group" id="learnedButtonGroup">
+          <button id="doneFromLearnedBtn" class="btn btn-primary">Done</button>
+        </div>
+      </div>
+
+      <!-- Step 6: Success -->
       <div id="step-success" class="step">
         <div style="text-align: center; padding: 40px 0;">
           <div style="font-size: 64px; margin-bottom: 24px;">[✓]</div>
@@ -903,6 +1010,7 @@
           <p style="color: #666; margin-bottom: 32px;">You can now visit job application pages and Offlyn will help you fill forms automatically.</p>
           
           <div class="button-group">
+            <button class="btn btn-primary" id="viewLearnedBtn">🧠 View Learned Values</button>
             <button class="btn btn-primary" id="doneBtn">Start Applying</button>
           </div>
         </div>

@@ -5,7 +5,7 @@
  */
 
 import type { UserProfile } from './profile';
-import { ollama } from './ollama-client';
+import { mastraAgent as ollama } from './mastra-agent';
 import { ragParser } from './rag-parser';
 
 export interface ParseComparison {

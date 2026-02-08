@@ -45,6 +45,10 @@ export function showFieldSummary(fields: FieldSchema[], jobTitle?: string, compa
           `(<span class="offlyn-required">${fields.filter(f => f.required).length} required</span>)` : ''}
       </div>
       
+      <div class="offlyn-info-box">
+        💡 <strong>Tip:</strong> Click the extension icon and use the <strong>🚀 Auto-Fill Form</strong> button to fill these fields!
+      </div>
+      
       <div class="offlyn-field-list">
         ${fields.length === 0 ? 
           '<div class="offlyn-no-fields">No form fields detected on this page.</div>' :
@@ -56,7 +60,6 @@ export function showFieldSummary(fields: FieldSchema[], jobTitle?: string, compa
     <div class="offlyn-summary-footer">
       <button class="offlyn-export-btn">Copy as JSON</button>
       <button class="offlyn-refresh-btn">Refresh</button>
-      <button class="offlyn-browser-use-btn" title="Use Ollama to generate and run fill actions (browser-use style)">AI Fill (Browser-Use)</button>
     </div>
   `;
   
@@ -93,19 +96,6 @@ export function showFieldSummary(fields: FieldSchema[], jobTitle?: string, compa
         refreshBtn.textContent = originalText;
         (refreshBtn as HTMLButtonElement).disabled = false;
       }, 2000);
-    });
-  }
-  
-  const browserUseBtn = summaryPanel.querySelector('.offlyn-browser-use-btn');
-  if (browserUseBtn) {
-    browserUseBtn.addEventListener('click', () => {
-      (browserUseBtn as HTMLButtonElement).disabled = true;
-      (browserUseBtn as HTMLButtonElement).textContent = 'Running...';
-      window.dispatchEvent(new CustomEvent('offlyn-browser-use-fill'));
-      setTimeout(() => {
-        (browserUseBtn as HTMLButtonElement).disabled = false;
-        (browserUseBtn as HTMLButtonElement).textContent = 'AI Fill (Browser-Use)';
-      }, 15000);
     });
   }
   
@@ -289,6 +279,10 @@ function updatePanelContent(panel: HTMLElement, fields: FieldSchema[], jobTitle?
         `(<span class="offlyn-required">${fields.filter(f => f.required).length} required</span>)` : ''}
     </div>
     
+    <div class="offlyn-info-box">
+      💡 <strong>Tip:</strong> Click the extension icon and use the <strong>🚀 Auto-Fill Form</strong> button to fill these fields!
+    </div>
+    
     <div class="offlyn-field-list">
       ${fields.length === 0 ? 
         '<div class="offlyn-no-fields">No form fields detected on this page.</div>' :
@@ -410,6 +404,21 @@ function addStyles(): void {
     .offlyn-required {
       color: #f44336;
       font-weight: 600;
+    }
+    
+    .offlyn-info-box {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      line-height: 1.5;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+    }
+    
+    .offlyn-info-box strong {
+      font-weight: 700;
     }
     
     .offlyn-field-list {

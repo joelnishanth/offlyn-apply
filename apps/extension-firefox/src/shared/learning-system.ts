@@ -4,7 +4,7 @@
  * Learns from user corrections and improves autofill accuracy over time
  */
 
-import { ollama } from './ollama-client';
+import { mastraAgent as ollama } from './mastra-agent';
 import type { FieldSchema } from './types';
 
 export interface FieldCorrection {

@@ -4,7 +4,7 @@
  * Uses semantic chunking + vector search for accurate extraction
  */
 
-import { ollama } from './ollama-client';
+import { mastraAgent as ollama } from './mastra-agent';
 
 export interface ResumeChunk {
   text: string;
