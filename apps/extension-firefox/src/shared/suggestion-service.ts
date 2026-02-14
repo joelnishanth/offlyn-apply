@@ -8,6 +8,7 @@ import type { UserProfile } from './profile';
 import { getBestAnswerForContext, getAllVariations, detectFieldType } from './context-aware-storage';
 import { inferFieldValue } from './ollama-service';
 import { validateFieldData } from './field-data-validator';
+import { learningSystem } from './learning-system';
 
 export interface FieldSuggestion {
   selector: string;
@@ -52,6 +53,35 @@ export async function generateFieldSuggestions(
     field.type || ''
   );
   
+  // 0. Check learning system for past user corrections (highest priority)
+  //    If the user has previously corrected this field, prefer their choice.
+  try {
+    const learned = await learningSystem.suggestValue(
+      field,
+      '', // No proposed value yet
+      { url: context.url, company: context.company }
+    );
+    
+    const learnedStr = learned?.suggestedValue != null ? String(learned.suggestedValue).trim() : '';
+    if (learned && learned.confidence > 0.5 && learnedStr !== '') {
+      // Validate before adding
+      const validation = validateFieldData(field, learnedStr, fieldType);
+      if (validation.isValid) {
+        suggestions.push({
+          id: 'learned_1',
+          value: learnedStr,
+          source: 'learned',
+          confidence: Math.min(0.95, learned.confidence + 0.1), // Boost: user explicitly corrected
+          reasoning: learned.reason,
+          isPrimary: true
+        });
+        console.log(`[Suggestions] Added learned value for "${fieldLabel}": "${learnedStr}" (confidence: ${learned.confidence.toFixed(2)})`);
+      }
+    }
+  } catch (err) {
+    console.warn('[Suggestions] Learning system query failed:', err);
+  }
+  
   // 1. Check contextual storage for this field type
   const contextualAnswer = await getBestAnswerForContext(fieldType, {
     company: context.company,
@@ -95,38 +125,60 @@ export async function generateFieldSuggestions(
     }
   });
   
-  // 3. Try basic profile matching
+  // 3. Try basic profile matching (skipped for long-form fields)
   const profileValue = matchFieldToProfileData(field, profile);
   if (profileValue && !suggestions.some(s => s.value === String(profileValue))) {
-    // Validate before adding
-    const validation = validateFieldData(field, String(profileValue));
-    if (validation.isValid) {
-      suggestions.push({
-        id: 'profile_1',
-        value: String(profileValue),
-        source: 'profile',
-        confidence: 0.85,
-        reasoning: 'From your profile',
-        isPrimary: suggestions.length === 0
-      });
-    } else if (validation.suggestedFix) {
-      // Try the suggested fix
-      const retryValidation = validateFieldData(field, validation.suggestedFix);
-      if (retryValidation.isValid) {
+    const profileStr = String(profileValue);
+    
+    // Sanity check: reject obviously wrong matches
+    // (e.g. a single number for a textarea, or a very short value for a long question)
+    const labelLower = fieldLabel.toLowerCase();
+    const isSuspicious = (
+      (field.tagName === 'TEXTAREA' && profileStr.length < 20) ||
+      (labelLower.length > 80 && profileStr.length < 10) ||
+      (labelLower.includes('describe') && profileStr.length < 20) ||
+      (labelLower.includes('explain') && profileStr.length < 20)
+    );
+    
+    if (isSuspicious) {
+      console.warn(`[Suggestions] Profile value "${profileStr}" looks suspicious for field "${fieldLabel.substring(0, 60)}..." — skipping`);
+    } else {
+      // Validate before adding
+      const validation = validateFieldData(field, profileStr);
+      if (validation.isValid) {
+        const hasLearnedSuggestion = suggestions.some(s => s.source === 'learned');
         suggestions.push({
-          id: 'profile_1_fixed',
-          value: validation.suggestedFix,
+          id: 'profile_1',
+          value: profileStr,
           source: 'profile',
-          confidence: 0.75,
-          reasoning: 'From your profile (adjusted)',
-          isPrimary: suggestions.length === 0
+          confidence: 0.85,
+          reasoning: 'From your profile',
+          isPrimary: !hasLearnedSuggestion && suggestions.length === 0
         });
+      } else if (validation.suggestedFix) {
+        // Try the suggested fix
+        const retryValidation = validateFieldData(field, validation.suggestedFix);
+        if (retryValidation.isValid) {
+          suggestions.push({
+            id: 'profile_1_fixed',
+            value: validation.suggestedFix,
+            source: 'profile',
+            confidence: 0.75,
+            reasoning: 'From your profile (adjusted)',
+            isPrimary: suggestions.length === 0
+          });
+        }
       }
     }
   }
   
-  // 4. Use AI inference if enabled and no high-confidence suggestions yet
-  if (useAI && (suggestions.length === 0 || suggestions[0].confidence < 0.8)) {
+  // 4. Use AI inference if enabled
+  //    - Always try AI for long-form / textarea fields (profile data is rarely correct)
+  //    - For simple fields, only try if no high-confidence suggestion exists yet
+  const isLongForm = isLongFormField(field, fieldLabel.toLowerCase());
+  const needsAI = suggestions.length === 0 || suggestions[0].confidence < 0.8 || isLongForm;
+  
+  if (useAI && needsAI) {
     try {
       const aiValue = await inferFieldValue(
         fieldLabel,
@@ -147,13 +199,24 @@ export async function generateFieldSuggestions(
         // Validate AI-generated value
         const validation = validateFieldData(field, aiValue, fieldType);
         if (validation.isValid) {
+          // For long-form fields, AI should be primary (it understands the question)
+          const aiConfidence = isLongForm ? 0.9 : 0.75;
+          const aiIsPrimary = isLongForm || suggestions.length === 0;
+          
+          // If AI is primary for long-form, demote any existing primaries
+          if (aiIsPrimary && isLongForm) {
+            for (const s of suggestions) {
+              s.isPrimary = false;
+            }
+          }
+          
           suggestions.push({
             id: 'ai_1',
             value: aiValue,
             source: 'ai',
-            confidence: 0.75,
-            reasoning: 'AI-generated based on your profile',
-            isPrimary: suggestions.length === 0
+            confidence: aiConfidence,
+            reasoning: isLongForm ? 'AI-generated response tailored to this question' : 'AI-generated based on your profile',
+            isPrimary: aiIsPrimary
           });
         } else {
           console.warn(`[Suggestions] AI value failed validation: ${validation.reason}`);
@@ -227,12 +290,22 @@ export async function generateBatchSuggestions(
 }
 
 /**
- * Match field to profile data (basic matching logic)
+ * Match field to profile data (basic matching logic).
+ *
+ * IMPORTANT: This should only match for simple, unambiguous fields like
+ * "First Name", "Email", etc. Long-form / description / textarea fields
+ * should NOT be matched to simple profile values — they need AI inference.
  */
 function matchFieldToProfileData(field: FieldSchema, profile: UserProfile): string | boolean | null {
   const label = (field.label || field.name || field.id || '').toLowerCase();
   const name = (field.name || '').toLowerCase();
   const id = (field.id || '').toLowerCase();
+  
+  // Detect if this is a long-form / description field — if so, skip simple profile matching
+  // (these need AI inference, not a single profile value)
+  if (isLongFormField(field, label)) {
+    return null;
+  }
   
   // Basic profile fields
   if (matchesAny([label, name, id], ['first', 'fname', 'firstname', 'given'])) {
@@ -267,16 +340,76 @@ function matchFieldToProfileData(field: FieldSchema, profile: UserProfile): stri
     return profile.professional.portfolio || '';
   }
   
-  if (matchesAny([label, name, id], ['experience', 'years'])) {
+  // "Years of experience" — only match if the label is specifically asking for
+  // a count/number, NOT if it says "describe your experience"
+  if (isYearsOfExperienceField(label, name, id)) {
     return profile.professional.yearsOfExperience?.toString() || '';
   }
   
-  // For textarea fields, try summary
+  // For textarea fields, try summary — but only for short-label summary fields
   if (field.tagName === 'TEXTAREA' && matchesAny([label, name, id], ['cover', 'summary', 'about', 'bio'])) {
-    return profile.summary || '';
+    // Only if the label is short (a real "summary" field, not a long question)
+    if (label.length < 40) {
+      return profile.summary || '';
+    }
   }
   
   return null;
+}
+
+/**
+ * Check if a field is a long-form / description field that needs AI,
+ * not simple profile matching.
+ */
+function isLongFormField(field: FieldSchema, labelLower: string): boolean {
+  // Textareas are almost always long-form
+  if (field.tagName === 'TEXTAREA') return true;
+  
+  // Long labels that are actually questions / prompts
+  if (labelLower.length > 60) return true;
+  
+  // Labels that contain description-requesting keywords
+  const descriptionKeywords = [
+    'describe', 'explain', 'tell us', 'please share', 'elaborate',
+    'why are you', 'why do you', 'what is your', 'what are your',
+    'how would you', 'how do you', 'how have you',
+    'provide detail', 'provide an example', 'share an example',
+    'personal or professional', 'projects that', 'working on',
+    'cover letter', 'additional information', 'anything else',
+    'why anthropic', 'why this', 'why our', 'motivation',
+  ];
+  
+  for (const keyword of descriptionKeywords) {
+    if (labelLower.includes(keyword)) return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Check if the field is specifically asking for years of experience (a number),
+ * NOT a description of experience.
+ */
+function isYearsOfExperienceField(label: string, name: string, id: string): boolean {
+  const allText = `${label} ${name} ${id}`;
+  
+  // Positive: specifically asking for years/count
+  const yearsPatterns = [
+    'years of experience', 'years experience', 'yrs of experience',
+    'how many years', 'number of years', 'total years',
+    'years_of_experience', 'yearsofexperience', 'experience_years',
+  ];
+  
+  for (const pattern of yearsPatterns) {
+    if (allText.includes(pattern)) return true;
+  }
+  
+  // If name/id explicitly says "years" but label doesn't say "describe"
+  if ((name.includes('years') || id.includes('years')) && !label.includes('describe')) {
+    return true;
+  }
+  
+  return false;
 }
 
 /**

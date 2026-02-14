@@ -14,6 +14,45 @@ export interface ValidationResult {
 }
 
 /**
+ * Normalize URL values before validation
+ */
+function normalizeUrl(value: string): string {
+  const trimmed = value.trim();
+  
+  // If empty, return as-is
+  if (!trimmed) return trimmed;
+  
+  // Already has scheme, return as-is
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  
+  // Reject obvious invalid values
+  if (trimmed === 'www' || trimmed === 'http' || trimmed === 'https') {
+    return ''; // Return empty to fail validation
+  }
+  
+  // Check if it looks like a URL (has a dot and no spaces)
+  if (trimmed.includes('.') && !trimmed.includes(' ')) {
+    // Check if it has a valid TLD
+    const parts = trimmed.split('.');
+    const lastPart = parts[parts.length - 1].toLowerCase();
+    
+    // Common TLDs - expand as needed
+    const validTlds = ['com', 'org', 'net', 'edu', 'gov', 'io', 'ai', 'co', 'us', 'uk', 'ca', 'dev'];
+    
+    // Remove trailing slashes/paths for TLD check
+    const tld = lastPart.split('/')[0];
+    
+    if (validTlds.includes(tld) || tld.length >= 2) {
+      // Prepend https://
+      return `https://${trimmed}`;
+    }
+  }
+  
+  // Doesn't look like a URL
+  return trimmed;
+}
+
+/**
  * Validate if a value makes sense for a field using Ollama
  */
 export async function validateFieldValue(
@@ -23,18 +62,30 @@ export async function validateFieldValue(
   useOllama: boolean = false
 ): Promise<ValidationResult> {
   
+  // Normalize URL fields before validation
+  let normalizedValue = proposedValue;
+  if (typeof proposedValue === 'string' && 
+      (field.type === 'url' || 
+       (field.label || field.name || '').toLowerCase().match(/url|website|link|linkedin|github|portfolio/))) {
+    normalizedValue = normalizeUrl(proposedValue);
+  }
+  
   // Basic validation first (fast, no AI needed)
-  const basicValidation = performBasicValidation(field, proposedValue);
+  const basicValidation = performBasicValidation(field, normalizedValue);
   if (!basicValidation.isValid) {
     return basicValidation;
   }
+  
+  // If value was normalized (changed), suggest the normalized value
+  const wasNormalized = normalizedValue !== proposedValue;
   
   // If Ollama not available or not requested, return basic validation
   if (!useOllama) {
     return {
       isValid: true,
       confidence: 0.8,
-      reason: 'Basic validation passed'
+      reason: 'Basic validation passed',
+      ...(wasNormalized && { suggestedValue: String(normalizedValue) })
     };
   }
   

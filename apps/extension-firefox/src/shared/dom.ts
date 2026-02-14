@@ -359,6 +359,13 @@ export function extractFormSchema(form: HTMLFormElement | Document): FieldSchema
     let valuePreview: string | null = null;
     if (field instanceof HTMLInputElement && (field.type === 'checkbox' || field.type === 'radio')) {
       valuePreview = field.getAttribute('value') || field.value || null;
+      console.log('[Offlyn] 🔍 Found checkbox/radio:', {
+        type: field.type,
+        label,
+        value: valuePreview,
+        id: field.id,
+        name: field.name
+      });
     } else {
       valuePreview = field.value ? redactValue(field.value) : null;
     }

@@ -227,7 +227,38 @@ export async function inferFieldValue(
   profileData: any,
   options?: string[]
 ): Promise<string | null> {
-  const prompt = `You are a job application assistant. Based on the candidate's profile, suggest the best value for this form field.
+  // Detect if this is a long-form / textarea field that needs a paragraph response
+  const labelLower = fieldLabel.toLowerCase();
+  const isLongForm = fieldType === 'textarea' ||
+    labelLower.includes('describe') || labelLower.includes('explain') ||
+    labelLower.includes('tell us') || labelLower.includes('please share') ||
+    labelLower.includes('why') || labelLower.includes('additional information') ||
+    labelLower.includes('cover letter') || labelLower.includes('motivation') ||
+    labelLower.includes('elaborate') || labelLower.includes('projects') ||
+    labelLower.length > 80;
+
+  let prompt: string;
+
+  if (isLongForm) {
+    prompt = `You are filling out a job application form for the candidate below. Write a direct, professional answer for this field.
+
+FIELD: "${fieldLabel}"
+
+CANDIDATE PROFILE:
+${JSON.stringify(profileData, null, 2)}
+
+RULES:
+- Write the answer as if YOU are the candidate (first person: "I", "my", "me").
+- Write 2-4 sentences that are specific and relevant to the question.
+- DO NOT include any preamble, introduction, labels, or meta-commentary.
+- DO NOT say things like "Here is my answer" or "Sure, here's a response".
+- DO NOT wrap the answer in quotes.
+- Just write the actual answer text directly.
+- Use real newlines (press Enter) for paragraph breaks, not "\\n".
+
+Answer:`;
+  } else {
+    prompt = `You are a job application assistant. Based on the candidate's profile, suggest the best value for this form field.
 
 FIELD INFORMATION:
 - Label: "${fieldLabel}"
@@ -240,7 +271,8 @@ ${JSON.stringify(profileData, null, 2)}
 
 Task: What is the most appropriate value for this field? ${options ? 'Choose from the available options.' : ''}
 
-Respond with ONLY the value, nothing else. If you cannot determine a good value, respond with "UNKNOWN".`;
+Respond with ONLY the value, nothing else. No quotes, no explanation, no preamble. If you cannot determine a good value, respond with "UNKNOWN".`;
+  }
 
   try {
     const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
@@ -256,9 +288,14 @@ Respond with ONLY the value, nothing else. If you cannot determine a good value,
     if (!response.ok) return null;
 
     const data = await response.json();
-    const value = data.response.trim();
+    let value = data.response?.trim() || '';
     
     if (value === 'UNKNOWN' || !value) return null;
+
+    // Post-process: clean up common LLM artifacts
+    value = cleanLLMResponse(value, isLongForm);
+
+    if (!value) return null;
 
     // If options provided, match to closest option
     if (options && options.length > 0) {
@@ -270,4 +307,58 @@ Respond with ONLY the value, nothing else. If you cannot determine a good value,
     console.error('Error inferring field value:', err);
     return null;
   }
+}
+
+/**
+ * Clean up common LLM response artifacts:
+ * - Strip preamble / meta-commentary
+ * - Convert literal \n to actual newlines
+ * - Remove surrounding quotes
+ * - Remove "Answer:" or "Response:" prefixes
+ */
+function cleanLLMResponse(raw: string, isLongForm: boolean): string {
+  let text = raw;
+
+  // 1. Convert literal \n sequences to actual newlines
+  text = text.replace(/\\n/g, '\n');
+
+  // 2. Remove surrounding quotes (single or double)
+  if ((text.startsWith('"') && text.endsWith('"')) ||
+      (text.startsWith("'") && text.endsWith("'"))) {
+    text = text.slice(1, -1);
+  }
+
+  // 3. Strip common LLM preamble patterns (case-insensitive)
+  const preamblePatterns = [
+    /^here\s+is\s+(a\s+|my\s+|the\s+|an?\s+)?.*?:\s*/i,
+    /^sure[,!.]?\s*(here\s*('s|is)\s+)?.*?:\s*/i,
+    /^(okay|ok)[,!.]?\s*(here\s*('s|is)\s+)?.*?:\s*/i,
+    /^(certainly|absolutely)[,!.]?\s*.*?:\s*/i,
+    /^(below\s+is|the\s+following\s+is)\s+.*?:\s*/i,
+    /^answer:\s*/i,
+    /^response:\s*/i,
+    /^value:\s*/i,
+    /^my\s+answer:\s*/i,
+  ];
+
+  for (const pattern of preamblePatterns) {
+    text = text.replace(pattern, '');
+  }
+
+  // 4. Remove surrounding quotes again (LLM might have quoted after preamble)
+  text = text.trim();
+  if ((text.startsWith('"') && text.endsWith('"')) ||
+      (text.startsWith("'") && text.endsWith("'"))) {
+    text = text.slice(1, -1);
+  }
+
+  // 5. For short-field responses, collapse to single line
+  if (!isLongForm) {
+    text = text.replace(/\n+/g, ' ').trim();
+  } else {
+    // For long-form, normalize excessive newlines (>2 consecutive)
+    text = text.replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  return text;
 }

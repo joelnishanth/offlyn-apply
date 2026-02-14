@@ -12,6 +12,7 @@ import type { JobMeta } from './types';
 import { analyzeFieldsWithOllama } from './ollama-service';
 import { getEmbedding, cosineSimilarity, smartMatchDropdown } from './ollama-service';
 import { generateFillMappings } from './autofill';
+import { learningSystem } from './learning-system';
 
 /** Action types matching browser-use's action schema */
 export type BrowserUseAction =
@@ -159,7 +160,8 @@ function buildProfileSlots(profile: UserProfile): Array<{ label: string; value: 
 const EMBEDDING_SIMILARITY_THRESHOLD = 0.45;
 
 /**
- * Get values for all fields: rule-based first, then embedding-based for the rest.
+ * Get values for all fields: learned corrections first, then rule-based,
+ * then embedding-based for the rest.
  * Uses exact selectors from schema so the executor never gets wrong selectors.
  */
 export async function getFieldValuesWithEmbeddings(
@@ -171,10 +173,49 @@ export async function getFieldValuesWithEmbeddings(
   for (const m of mappings) {
     bySelector.set(m.selector, m.value);
   }
+  
+  // Override rule-based mappings with learned corrections (user corrections
+  // take priority over profile data). Also fills fields that rule-based
+  // matching missed but the user has previously corrected.
+  for (const field of schema) {
+    if (field.type === 'file' || !field.selector) continue;
+    const learned = learningSystem.getLearnedValue(field);
+    if (learned) {
+      const previousValue = bySelector.get(field.selector);
+      if (previousValue !== learned.value) {
+        console.log(`[Browser-Use] Learning override for "${field.label}": "${previousValue ?? '(empty)'}" → "${learned.value}" (confidence: ${learned.confidence.toFixed(2)})`);
+      }
+      bySelector.set(field.selector, learned.value);
+    }
+  }
+  
   const unfilled = schema.filter((f) => f.type !== 'file' && f.selector && !bySelector.has(f.selector));
-  if (unfilled.length === 0) return mappings;
+  if (unfilled.length === 0) {
+    return Array.from(bySelector.entries()).map(([selector, value]) => ({ selector, value }));
+  }
 
+  // Build profile slots AND learned correction slots for embedding matching.
+  // Learned slots ensure the embedding pipeline uses user-corrected values
+  // (e.g., if user corrected LinkedIn URL, the embedding match returns the
+  // corrected URL instead of the original profile value).
   const slots = buildProfileSlots(profile);
+  
+  const learnedSlots = learningSystem.getLearnedSlots();
+  for (const ls of learnedSlots) {
+    // Check if an existing profile slot covers this label
+    const existingIdx = slots.findIndex(s =>
+      s.label.toLowerCase().includes(ls.label) || ls.label.includes(s.label.toLowerCase())
+    );
+    if (existingIdx !== -1) {
+      // Override profile slot with learned value (user preferred this)
+      console.log(`[Browser-Use] Embedding slot override: "${slots[existingIdx].label}" value "${slots[existingIdx].value}" → "${ls.value}"`);
+      slots[existingIdx].value = ls.value;
+    } else {
+      // Add as new slot so embedding matching can find it
+      slots.push({ label: ls.label, value: ls.value });
+    }
+  }
+  
   const slotLabels = slots.map((s) => s.label);
   const slotEmbeddings: (number[] | null)[] = [];
   for (const label of slotLabels) {

@@ -720,6 +720,129 @@
       margin-bottom: 12px;
       color: #666;
     }
+
+    /* AI Suggestion Hint for empty fields */
+    .input-wrapper {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .input-wrapper .profile-input,
+    .input-wrapper .profile-textarea {
+      width: 100%;
+    }
+
+    .ai-suggest-tile {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 4px;
+      padding: 5px 10px;
+      background: linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%);
+      border: 1px solid rgba(102, 126, 234, 0.15);
+      border-radius: 6px;
+      font-size: 12px;
+      color: #8b9be8;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      user-select: none;
+      opacity: 0;
+      animation: hintFadeIn 0.4s ease forwards;
+      animation-delay: 0.5s;
+    }
+
+    @keyframes hintFadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .ai-suggest-tile:hover {
+      background: linear-gradient(135deg, #eef1ff 0%, #e4e9ff 100%);
+      border-color: rgba(102, 126, 234, 0.35);
+      color: #667eea;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+    }
+
+    .ai-suggest-tile .ai-sparkle {
+      font-size: 13px;
+      line-height: 1;
+    }
+
+    .ai-suggest-tile .ai-label {
+      font-weight: 500;
+      letter-spacing: 0.2px;
+    }
+
+    .ai-suggest-tile.loading {
+      pointer-events: none;
+      opacity: 0.7;
+    }
+
+    .ai-suggest-tile.loading .ai-label {
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    /* AI suggestion result shown inline */
+    .ai-suggestion-result {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+      padding: 6px 10px;
+      background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
+      border: 1px solid rgba(76, 175, 80, 0.2);
+      border-radius: 6px;
+      font-size: 12px;
+      color: #2e7d32;
+      animation: hintFadeIn 0.3s ease forwards;
+    }
+
+    .ai-suggestion-result .suggestion-text {
+      flex: 1;
+      font-weight: 500;
+      word-break: break-word;
+    }
+
+    .ai-suggestion-result .accept-btn {
+      padding: 3px 10px;
+      background: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.2s;
+    }
+
+    .ai-suggestion-result .accept-btn:hover {
+      background: #388e3c;
+    }
+
+    .ai-suggestion-result .dismiss-btn {
+      padding: 3px 8px;
+      background: transparent;
+      color: #999;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .ai-suggestion-result .dismiss-btn:hover {
+      background: #f5f5f5;
+      color: #666;
+    }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>

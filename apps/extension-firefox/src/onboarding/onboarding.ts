@@ -333,6 +333,40 @@ function escapeHtml(text: string): string {
 /**
  * Render profile preview with editable fields
  */
+/**
+ * Build an input field, wrapped with an AI hint tile if the value is empty.
+ */
+function buildField(
+  tag: 'input' | 'textarea',
+  fieldName: string,
+  value: string,
+  attrs: string = '',
+  placeholder: string = ''
+): string {
+  const isEmpty = !value || value.trim() === '' || value === '0';
+  const escapedValue = escapeHtml(value);
+
+  let inputHtml: string;
+  if (tag === 'textarea') {
+    const phAttr = placeholder ? ` placeholder="${escapeHtml(placeholder)}"` : '';
+    inputHtml = `<textarea class="profile-textarea" name="${fieldName}"${phAttr}${attrs}>${escapedValue}</textarea>`;
+  } else {
+    const phAttr = placeholder ? ` placeholder="${escapeHtml(placeholder)}"` : '';
+    inputHtml = `<input class="profile-input" name="${fieldName}" value="${escapedValue}"${phAttr}${attrs} />`;
+  }
+
+  if (isEmpty) {
+    return (
+      `<div class="input-wrapper">${inputHtml}` +
+      `<div class="ai-suggest-tile" data-field="${fieldName}">` +
+        `<span class="ai-sparkle">&#10024;</span>` +
+        `<span class="ai-label">Ask AI to suggest</span>` +
+      `</div></div>`
+    );
+  }
+  return inputHtml;
+}
+
 function renderProfilePreview(profile: UserProfile): void {
   const preview = document.getElementById('profilePreview');
   if (!preview) return;
@@ -342,20 +376,20 @@ function renderProfilePreview(profile: UserProfile): void {
   // Personal info
   html += '<div class="profile-section">';
   html += '<h3>Personal Information</h3>';
-  html += `<div class="profile-field"><label class="profile-label">First Name: <span class="required">*</span></label><input type="text" class="profile-input" name="firstName" value="${escapeHtml(profile.personal.firstName || '')}" required /></div>`;
-  html += `<div class="profile-field"><label class="profile-label">Last Name: <span class="required">*</span></label><input type="text" class="profile-input" name="lastName" value="${escapeHtml(profile.personal.lastName || '')}" required /></div>`;
-  html += `<div class="profile-field"><label class="profile-label">Email: <span class="required">*</span></label><input type="email" class="profile-input" name="email" value="${escapeHtml(profile.personal.email || '')}" required /></div>`;
-  html += `<div class="profile-field"><label class="profile-label">Phone:</label><input type="tel" class="profile-input" name="phone" value="${escapeHtml(profile.personal.phone || '')}" /></div>`;
-  html += `<div class="profile-field"><label class="profile-label">Location:</label><input type="text" class="profile-input" name="location" value="${escapeHtml(profile.personal.location || '')}" /></div>`;
+  html += `<div class="profile-field"><label class="profile-label">First Name: <span class="required">*</span></label>${buildField('input', 'firstName', profile.personal.firstName || '', ' type="text" required')}</div>`;
+  html += `<div class="profile-field"><label class="profile-label">Last Name: <span class="required">*</span></label>${buildField('input', 'lastName', profile.personal.lastName || '', ' type="text" required')}</div>`;
+  html += `<div class="profile-field"><label class="profile-label">Email: <span class="required">*</span></label>${buildField('input', 'email', profile.personal.email || '', ' type="email" required')}</div>`;
+  html += `<div class="profile-field"><label class="profile-label">Phone:</label>${buildField('input', 'phone', profile.personal.phone || '', ' type="tel"')}</div>`;
+  html += `<div class="profile-field"><label class="profile-label">Location:</label>${buildField('input', 'location', profile.personal.location || '', ' type="text"')}</div>`;
   html += '</div>';
   
   // Professional links
   html += '<div class="profile-section">';
   html += '<h3>Professional Links</h3>';
-  html += `<div class="profile-field"><label class="profile-label">LinkedIn:</label><input type="url" class="profile-input" name="linkedin" value="${escapeHtml(profile.professional.linkedin || '')}" placeholder="https://linkedin.com/in/..." /></div>`;
-  html += `<div class="profile-field"><label class="profile-label">GitHub:</label><input type="url" class="profile-input" name="github" value="${escapeHtml(profile.professional.github || '')}" placeholder="https://github.com/..." /></div>`;
-  html += `<div class="profile-field"><label class="profile-label">Portfolio:</label><input type="url" class="profile-input" name="portfolio" value="${escapeHtml(profile.professional.portfolio || '')}" placeholder="https://..." /></div>`;
-  html += `<div class="profile-field"><label class="profile-label">Years of Exp:</label><input type="number" class="profile-input" name="yearsOfExperience" value="${profile.professional.yearsOfExperience || 0}" min="0" /></div>`;
+  html += `<div class="profile-field"><label class="profile-label">LinkedIn:</label>${buildField('input', 'linkedin', profile.professional.linkedin || '', ' type="url"', 'https://linkedin.com/in/...')}</div>`;
+  html += `<div class="profile-field"><label class="profile-label">GitHub:</label>${buildField('input', 'github', profile.professional.github || '', ' type="url"', 'https://github.com/...')}</div>`;
+  html += `<div class="profile-field"><label class="profile-label">Portfolio:</label>${buildField('input', 'portfolio', profile.professional.portfolio || '', ' type="url"', 'https://...')}</div>`;
+  html += `<div class="profile-field"><label class="profile-label">Years of Exp:</label>${buildField('input', 'yearsOfExperience', String(profile.professional.yearsOfExperience || 0), ' type="number" min="0"')}</div>`;
   html += '</div>';
   
   // Skills (editable list)
@@ -408,7 +442,7 @@ function renderProfilePreview(profile: UserProfile): void {
   // Summary
   html += '<div class="profile-section">';
   html += '<h3>Professional Summary</h3>';
-  html += `<div class="profile-field"><label class="profile-label">Summary:</label><textarea class="profile-textarea" name="summary" placeholder="Brief professional summary...">${escapeHtml(profile.summary || '')}</textarea></div>`;
+  html += `<div class="profile-field"><label class="profile-label">Summary:</label>${buildField('textarea', 'summary', profile.summary || '', '', 'Brief professional summary...')}</div>`;
   html += '</div>';
   
   html += '</form>';
@@ -417,6 +451,9 @@ function renderProfilePreview(profile: UserProfile): void {
   
   // Setup event listeners for skills
   setupSkillsEventListeners();
+  
+  // Setup AI suggestion tiles for empty fields
+  setupAiSuggestTiles();
   
   // Populate raw JSON data
   const rawDataJson = document.getElementById('rawDataJson');
@@ -470,6 +507,134 @@ function setupSkillsEventListeners(): void {
       }
     });
   }
+}
+
+/**
+ * Setup click handlers for AI suggestion tiles on empty fields.
+ * When clicked, sends a SUGGEST_FIELD message to the background script
+ * which uses Ollama to infer the value from the resume text.
+ */
+function setupAiSuggestTiles(): void {
+  const tiles = document.querySelectorAll<HTMLElement>('.ai-suggest-tile');
+  if (tiles.length === 0) return;
+
+  console.log(`[Onboarding] Setting up ${tiles.length} AI suggestion tiles`);
+
+  tiles.forEach(tile => {
+    tile.addEventListener('click', async () => {
+      const fieldName = tile.getAttribute('data-field');
+      if (!fieldName) return;
+
+      // Prevent double-click
+      if (tile.classList.contains('loading')) return;
+      tile.classList.add('loading');
+      tile.querySelector('.ai-label')!.textContent = 'Thinking...';
+
+      try {
+        // Get the resume text from the currently extracted profile
+        const resumeText = extractedProfile?.resumeText || '';
+        if (!resumeText) {
+          showSuggestionError(tile, 'No resume text available. Upload a resume first.');
+          return;
+        }
+
+        const response = await browser.runtime.sendMessage({
+          kind: 'SUGGEST_FIELD',
+          fieldName,
+          resumeText,
+        });
+
+        if (response?.kind === 'SUGGEST_FIELD_RESULT' && response.value) {
+          showSuggestionResult(tile, fieldName, response.value);
+        } else {
+          const errMsg = response?.error || 'Could not find this info in your resume.';
+          showSuggestionError(tile, errMsg);
+        }
+      } catch (err) {
+        console.error('[Onboarding] AI suggest failed:', err);
+        showSuggestionError(tile, 'AI suggestion failed. Is Ollama running?');
+      }
+    });
+  });
+
+  // Also hide tiles when user starts typing in the input
+  tiles.forEach(tile => {
+    const wrapper = tile.closest('.input-wrapper');
+    if (!wrapper) return;
+    const input = wrapper.querySelector('input, textarea') as HTMLInputElement | HTMLTextAreaElement | null;
+    if (!input) return;
+
+    input.addEventListener('input', () => {
+      if (input.value.trim()) {
+        tile.style.display = 'none';
+        // Also remove any suggestion result
+        const result = wrapper.querySelector('.ai-suggestion-result');
+        if (result) result.remove();
+      } else {
+        tile.style.display = '';
+      }
+    });
+  });
+}
+
+/**
+ * Show an AI suggestion result below the field, replacing the tile.
+ */
+function showSuggestionResult(tile: HTMLElement, fieldName: string, value: string): void {
+  const wrapper = tile.closest('.input-wrapper');
+  if (!wrapper) return;
+
+  // Hide the tile
+  tile.style.display = 'none';
+
+  // Remove any existing result
+  const existing = wrapper.querySelector('.ai-suggestion-result');
+  if (existing) existing.remove();
+
+  // Create suggestion result UI
+  const result = document.createElement('div');
+  result.className = 'ai-suggestion-result';
+  result.innerHTML = `
+    <span class="suggestion-text">${escapeHtml(value)}</span>
+    <button type="button" class="accept-btn">Accept</button>
+    <button type="button" class="dismiss-btn">Dismiss</button>
+  `;
+
+  // Accept: fill the input with the suggested value
+  result.querySelector('.accept-btn')!.addEventListener('click', () => {
+    const input = wrapper.querySelector('input, textarea') as HTMLInputElement | HTMLTextAreaElement | null;
+    if (input) {
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    result.remove();
+  });
+
+  // Dismiss: remove the suggestion, re-show tile
+  result.querySelector('.dismiss-btn')!.addEventListener('click', () => {
+    result.remove();
+    tile.style.display = '';
+    tile.classList.remove('loading');
+    tile.querySelector('.ai-label')!.textContent = 'Ask AI to suggest';
+  });
+
+  wrapper.appendChild(result);
+}
+
+/**
+ * Show an error on the tile, then reset after a delay.
+ */
+function showSuggestionError(tile: HTMLElement, message: string): void {
+  const label = tile.querySelector('.ai-label') as HTMLElement;
+  tile.classList.remove('loading');
+  label.textContent = message;
+  label.style.color = '#c62828';
+
+  setTimeout(() => {
+    label.textContent = 'Ask AI to suggest';
+    label.style.color = '';
+  }, 3000);
 }
 
 /**
@@ -566,30 +731,100 @@ async function saveFinalProfile(includeWorkAuth: boolean): Promise<void> {
       }
     }
     
-    // Save the profile
-    await saveUserProfile(extractedProfile);
+    // Try to save the profile
+    let profileSaved = false;
+    try {
+      await saveUserProfile(extractedProfile);
+      profileSaved = true;
+    } catch (saveErr) {
+      console.error('[Onboarding] Initial save failed:', saveErr);
+      
+      // Storage might be full/corrupted - repair it first
+      console.log('[Onboarding] Attempting storage repair before retry...');
+      const repaired = await repairStorage();
+      
+      if (repaired) {
+        try {
+          await saveUserProfile(extractedProfile);
+          profileSaved = true;
+          console.log('[Onboarding] Profile saved after storage repair');
+        } catch (retryErr) {
+          console.error('[Onboarding] Save still failing after repair:', retryErr);
+          
+          // Last resort: strip resumeText (can be very large) and try again
+          const lightProfile = { ...extractedProfile };
+          lightProfile.resumeText = ''; // Remove the heavy data
+          try {
+            await saveUserProfile(lightProfile);
+            profileSaved = true;
+            console.log('[Onboarding] Profile saved (without resume text) after stripping heavy data');
+          } catch (finalErr) {
+            console.error('[Onboarding] Even light save failed:', finalErr);
+          }
+        }
+      }
+    }
     
-    // Save resume file for auto-upload
+    if (!profileSaved) {
+      alert(
+        'Failed to save profile. Your browser storage may be full or corrupted.\n\n' +
+        'Try these steps:\n' +
+        '1. Go to about:addons in Firefox\n' +
+        '2. Find this extension and click "Remove"\n' +
+        '3. Reinstall the extension\n' +
+        '4. Upload your resume again'
+      );
+      return;
+    }
+    
+    // Save resume file for auto-upload (using base64 for efficient storage)
     if (uploadedFile) {
       try {
         const arrayBuffer = await uploadedFile.arrayBuffer();
+        
+        // Convert to base64 instead of number array (3x more storage efficient)
+        const uint8Array = new Uint8Array(arrayBuffer);
+        let binary = '';
+        const chunkSize = 8192;
+        for (let i = 0; i < uint8Array.length; i += chunkSize) {
+          const chunk = uint8Array.subarray(i, i + chunkSize);
+          binary += String.fromCharCode(...chunk);
+        }
+        const base64Data = btoa(binary);
+        
+        const resumeData = {
+          name: uploadedFile.name,
+          type: uploadedFile.type,
+          size: uploadedFile.size,
+          dataBase64: base64Data,
+          data: null as number[] | null,
+          lastUpdated: Date.now(),
+        };
+        
+        // Save the full file data
+        await browser.storage.local.set({ resumeFile: resumeData });
+        
+        // Also save metadata separately
         await browser.storage.local.set({
-          resumeFile: {
+          resumeFileMeta: {
             name: uploadedFile.name,
             type: uploadedFile.type,
             size: uploadedFile.size,
-            data: Array.from(new Uint8Array(arrayBuffer)),
             lastUpdated: Date.now(),
           }
         });
-        console.log('Resume file saved for auto-upload:', uploadedFile.name);
+        
+        console.log('Resume file saved for auto-upload:', uploadedFile.name, `(${uploadedFile.size} bytes, base64: ${base64Data.length} chars)`);
       } catch (err) {
-        console.warn('Failed to save resume file:', err);
+        console.warn('Failed to save resume file binary:', err);
+        // Profile was saved, just the file auto-upload won't work
+        // This is OK - the user can still use the extension, they just need to manually attach resume
       }
     }
     
     showStep('step-success');
   } catch (err) {
+    console.error('[Onboarding] saveFinalProfile error:', err);
     alert('Failed to save profile: ' + (err instanceof Error ? err.message : 'Unknown error'));
   }
 }
@@ -987,20 +1222,150 @@ async function deleteLearnedValue(index: number): Promise<void> {
   }
 }
 
+/**
+ * Attempt to repair corrupted/full storage.
+ * When ALL storage operations fail, the only fix is to clear everything.
+ * Returns true if storage is now working.
+ */
+async function repairStorage(): Promise<boolean> {
+  console.log('[Onboarding] Attempting storage repair...');
+  
+  // Step 1: Try removing just the resume file (most likely cause of bloat)
+  try {
+    await browser.storage.local.remove('resumeFile');
+    console.log('[Onboarding] Removed resumeFile key');
+    // Test if storage works now
+    await browser.storage.local.get('userProfile');
+    console.log('[Onboarding] Storage is working after removing resumeFile');
+    return true;
+  } catch (_) {
+    console.warn('[Onboarding] Remove resumeFile failed, trying harder...');
+  }
+  
+  // Step 2: Try removing multiple large keys
+  try {
+    await browser.storage.local.remove(['resumeFile', 'resumeFileMeta', 'field_corrections']);
+    await browser.storage.local.get('userProfile');
+    console.log('[Onboarding] Storage working after removing large keys');
+    return true;
+  } catch (_) {
+    console.warn('[Onboarding] Selective remove failed');
+  }
+  
+  // Step 3: Nuclear option - clear everything
+  try {
+    await browser.storage.local.clear();
+    console.log('[Onboarding] Cleared all storage');
+    // Test
+    await browser.storage.local.set({ _test: 1 });
+    await browser.storage.local.remove('_test');
+    console.log('[Onboarding] Storage is working after full clear');
+    return true;
+  } catch (clearErr) {
+    console.error('[Onboarding] Even clear() failed - storage may be permanently broken:', clearErr);
+    return false;
+  }
+}
+
+/**
+ * Migrate legacy resume file storage from number array to base64
+ * Number array: 1MB PDF → ~4MB JSON storage
+ * Base64: 1MB PDF → ~1.33MB JSON storage (3x improvement)
+ */
+async function migrateResumeFileStorage(): Promise<void> {
+  try {
+    const result = await browser.storage.local.get('resumeFile');
+    const resumeFile = result.resumeFile;
+    
+    if (!resumeFile) return;
+    
+    // Already migrated (has base64 data)
+    if (resumeFile.dataBase64 && resumeFile.dataBase64.length > 0) return;
+    
+    // Has legacy number array - migrate to base64
+    if (resumeFile.data && Array.isArray(resumeFile.data) && resumeFile.data.length > 0) {
+      console.log(`[Onboarding] Migrating resume file from number array (${resumeFile.data.length} bytes) to base64...`);
+      
+      try {
+        const uint8Array = new Uint8Array(resumeFile.data);
+        let binary = '';
+        const chunkSize = 8192;
+        for (let i = 0; i < uint8Array.length; i += chunkSize) {
+          const chunk = uint8Array.subarray(i, i + chunkSize);
+          binary += String.fromCharCode(...chunk);
+        }
+        const base64Data = btoa(binary);
+        
+        // Save migrated data (remove the bloated number array)
+        await browser.storage.local.set({
+          resumeFile: {
+            name: resumeFile.name,
+            type: resumeFile.type,
+            size: resumeFile.size,
+            dataBase64: base64Data,
+            data: null, // Clear the bloated array
+            lastUpdated: resumeFile.lastUpdated || Date.now(),
+          }
+        });
+        
+        console.log(`[Onboarding] Resume file migrated to base64 (${base64Data.length} chars, was ${resumeFile.data.length} numbers)`);
+      } catch (migErr) {
+        console.warn('[Onboarding] Failed to migrate resume file, clearing it:', migErr);
+        // If migration fails, just remove the resume file data to free storage
+        try {
+          await browser.storage.local.remove('resumeFile');
+        } catch (_) { /* ignore */ }
+      }
+    }
+  } catch (err) {
+    console.warn('[Onboarding] Resume file migration check failed, attempting storage repair:', err);
+    // Storage might be completely broken - try to repair it
+    await repairStorage();
+  }
+}
+
 async function init(): Promise<void> {
+  // First, try to migrate any legacy bloated resume file storage
+  await migrateResumeFileStorage();
+  
   // Check if we should show learned values directly
-  const flags = await browser.storage.local.get('showLearnedValues');
-  if (flags.showLearnedValues) {
-    console.log('[Onboarding] Showing learned values page...');
-    await browser.storage.local.remove('showLearnedValues');
-    await loadLearnedValues(false); // No back button when coming from popup
-    showStep('step-learned');
-    return;
+  try {
+    const flags = await browser.storage.local.get('showLearnedValues');
+    if (flags.showLearnedValues) {
+      console.log('[Onboarding] Showing learned values page...');
+      await browser.storage.local.remove('showLearnedValues');
+      await loadLearnedValues(false); // No back button when coming from popup
+      showStep('step-learned');
+      return;
+    }
+  } catch (err) {
+    console.warn('[Onboarding] Failed to check learned values flag:', err);
+    // Continue with normal initialization
   }
   
   // Check if we're editing an existing profile
-  const existingProfileData = await browser.storage.local.get('userProfile');
-  const existingProfile = existingProfileData.userProfile as UserProfile | undefined;
+  let existingProfile: UserProfile | undefined;
+  try {
+    const existingProfileData = await browser.storage.local.get('userProfile');
+    existingProfile = existingProfileData.userProfile as UserProfile | undefined;
+  } catch (err) {
+    console.error('[Onboarding] Failed to load existing profile from storage:', err);
+    // Storage is broken - repair it
+    const repaired = await repairStorage();
+    if (repaired) {
+      try {
+        const retryData = await browser.storage.local.get('userProfile');
+        existingProfile = retryData.userProfile as UserProfile | undefined;
+        console.log('[Onboarding] Profile loaded after storage repair:', !!existingProfile);
+      } catch (retryErr) {
+        console.error('[Onboarding] Still failing after repair, starting completely fresh:', retryErr);
+        existingProfile = undefined;
+      }
+    } else {
+      console.error('[Onboarding] Storage repair failed, starting fresh');
+      existingProfile = undefined;
+    }
+  }
   
   if (existingProfile) {
     console.log('[Onboarding] Existing profile found, pre-filling form...');
@@ -1328,4 +1693,26 @@ async function init(): Promise<void> {
   }
 }
 
-init();
+init().catch(err => {
+  console.error('[Onboarding] Initialization failed:', err);
+  
+  // If storage is corrupted, offer to clear and retry
+  const message = err instanceof Error ? err.message : 'Unknown error';
+  if (message.includes('unexpected') || message.includes('quota') || message.includes('corrupt')) {
+    const shouldClear = confirm(
+      'Failed to load profile data (storage may be full or corrupted). ' +
+      'Would you like to clear storage and start fresh?'
+    );
+    if (shouldClear) {
+      browser.storage.local.clear().then(() => {
+        window.location.reload();
+      }).catch(() => {
+        alert('Failed to clear storage. Please try reinstalling the extension.');
+      });
+    }
+  } else {
+    // Show the upload step as fallback
+    showStep('step-upload');
+    showStatus('error', `Failed to initialize: ${message}. You can still upload a new resume.`);
+  }
+});

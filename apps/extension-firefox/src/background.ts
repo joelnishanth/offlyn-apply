@@ -159,6 +159,61 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
       }
     }
     
+    // Handle SUGGEST_FIELD from onboarding page - AI-powered field suggestion
+    if (message.kind === 'SUGGEST_FIELD') {
+      const { fieldName, resumeText } = message as any;
+      info('Received SUGGEST_FIELD request for:', fieldName);
+
+      if (!connectionState.connected) {
+        await checkOllamaConnection();
+      }
+      if (!connectionState.connected) {
+        return { kind: 'SUGGEST_FIELD_RESULT', fieldName, value: '', error: 'Ollama not connected' };
+      }
+
+      const fieldHints: Record<string, string> = {
+        firstName: 'the person\'s first name',
+        lastName: 'the person\'s last name',
+        email: 'the person\'s email address',
+        phone: 'the person\'s phone number',
+        location: 'the person\'s city and state/country location',
+        linkedin: 'the person\'s LinkedIn profile URL',
+        github: 'the person\'s GitHub profile URL',
+        portfolio: 'the person\'s portfolio or personal website URL',
+        yearsOfExperience: 'the total years of professional experience (just the number)',
+        summary: 'a concise 2-3 sentence professional summary highlighting key qualifications',
+      };
+
+      const hint = fieldHints[fieldName] || `the value for the "${fieldName}" field`;
+
+      try {
+        const { OllamaClient } = await import('./shared/ollama-client');
+        const client = new OllamaClient();
+        const raw = await client.chat([
+          {
+            role: 'system',
+            content: 'You extract information from resumes. Return ONLY the requested value, nothing else. No labels, no quotes, no explanation. If the information is not found, return an empty string.',
+          },
+          {
+            role: 'user',
+            content: `From this resume, extract ${hint}:\n\n${(resumeText || '').substring(0, 4000)}`,
+          },
+        ], { temperature: 0.1 });
+
+        const value = (raw || '').trim().replace(/^["']|["']$/g, '');
+        info('SUGGEST_FIELD result for', fieldName, ':', value.substring(0, 80));
+        return { kind: 'SUGGEST_FIELD_RESULT', fieldName, value };
+      } catch (err) {
+        error('SUGGEST_FIELD failed:', err);
+        return {
+          kind: 'SUGGEST_FIELD_RESULT',
+          fieldName,
+          value: '',
+          error: err instanceof Error ? err.message : 'Failed to generate suggestion',
+        };
+      }
+    }
+
     // Handle JOB_APPLY_EVENT from content script
     if (message.kind === 'JOB_APPLY_EVENT') {
       const event = message as ApplyEvent;
@@ -258,11 +313,82 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
   }
 });
 
+// ── Context Menus (right-click text transform) ─────────────────────────────
+
+/**
+ * Create context menu items for text transformation.
+ * These appear when the user selects text inside an editable field.
+ */
+function createContextMenus(): void {
+  // Remove any stale menus first
+  browser.menus.removeAll();
+
+  // Parent menu
+  browser.menus.create({
+    id: 'offlyn-text-transform',
+    title: 'Offlyn AI',
+    contexts: ['editable'],
+  });
+
+  // Sub-items
+  browser.menus.create({
+    id: 'offlyn-professional-fix',
+    parentId: 'offlyn-text-transform',
+    title: 'Professional Fix',
+    contexts: ['editable'],
+  });
+
+  browser.menus.create({
+    id: 'offlyn-expand',
+    parentId: 'offlyn-text-transform',
+    title: 'Expand',
+    contexts: ['editable'],
+  });
+
+  browser.menus.create({
+    id: 'offlyn-shorten',
+    parentId: 'offlyn-text-transform',
+    title: 'Shorten',
+    contexts: ['editable'],
+  });
+
+  info('Context menus created');
+}
+
+/**
+ * Handle context menu clicks — relay to the content script.
+ */
+browser.menus.onClicked.addListener((menuInfo, tab) => {
+  if (!tab?.id) return;
+
+  const actionMap: Record<string, string> = {
+    'offlyn-professional-fix': 'professional-fix',
+    'offlyn-expand': 'expand',
+    'offlyn-shorten': 'shorten',
+  };
+
+  const action = actionMap[menuInfo.menuItemId as string];
+  if (!action) return;
+
+  info(`Context menu: "${action}" on tab ${tab.id}`);
+
+  // Send message to the content script in the active tab / frame
+  browser.tabs.sendMessage(tab.id, {
+    kind: 'TEXT_TRANSFORM',
+    action,
+  }, menuInfo.frameId != null ? { frameId: menuInfo.frameId } : undefined);
+});
+
+// ── Init ───────────────────────────────────────────────────────────────────
+
 /**
  * Initialize background script
  */
 async function init(): Promise<void> {
   log('Background script initializing...');
+  
+  // Create right-click context menus
+  createContextMenus();
   
   // Check Ollama connection on startup
   await checkOllamaConnection();

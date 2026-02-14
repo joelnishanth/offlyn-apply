@@ -57,3 +57,6 @@ superfill.ai/
 ApplyEase/
 automatic-job-application-filler-extension/
 mastra/
+
+# Daily tracking dashboard (local only, not committed to git)
+.dashboard/

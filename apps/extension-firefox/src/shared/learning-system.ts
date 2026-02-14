@@ -188,8 +188,14 @@ export class LearningSystem {
   }
 
   /**
-   * Query for similar past corrections
+   * Query for similar past corrections.
+   * Only returns corrections above a minimum similarity threshold to avoid
+   * polluting suggestions with unrelated corrections (e.g., suggesting a
+   * LinkedIn URL for a "State" field just because it has the highest score
+   * among all stored corrections).
    */
+  private static readonly MIN_SIMILARITY = 0.90; // Only very similar fields
+
   async querySimilarCorrections(
     field: FieldSchema,
     topK: number = 5
@@ -204,16 +210,19 @@ export class LearningSystem {
     const queryEmbedding = await ollama.createEmbedding(queryText);
 
     // Calculate similarity scores
-    const scored = this.corrections.map(correction => ({
-      correction,
-      score: this.cosineSimilarity(queryEmbedding, correction.embedding),
-    }));
+    const scored = this.corrections
+      .map(correction => ({
+        correction,
+        score: this.cosineSimilarity(queryEmbedding, correction.embedding),
+      }))
+      // Only keep corrections above the minimum threshold
+      .filter(s => s.score >= LearningSystem.MIN_SIMILARITY);
 
     // Sort by score and return top K
     scored.sort((a, b) => b.score - a.score);
     const topCorrections = scored.slice(0, topK);
 
-    console.log(`[Learning] Found ${topCorrections.length} similar corrections (scores: ${topCorrections.map(c => c.score.toFixed(3)).join(', ')})`);
+    console.log(`[Learning] Found ${topCorrections.length} similar corrections above threshold ${LearningSystem.MIN_SIMILARITY} (scores: ${topCorrections.map(c => c.score.toFixed(3)).join(', ')})`);
 
     return topCorrections.map(s => s.correction);
   }
@@ -224,6 +233,46 @@ export class LearningSystem {
   getPattern(field: FieldSchema): LearningPattern | null {
     const patternKey = `${(field.label || '').toLowerCase()}_${field.type || field.tagName}`;
     return this.patterns.get(patternKey) || null;
+  }
+
+  /**
+   * Quick synchronous lookup: get the learned value for a field if a pattern
+   * with sufficient confidence exists. Used by autofill/embedding pipelines
+   * to override profile values with user-corrected values.
+   */
+  getLearnedValue(field: FieldSchema): { value: string; confidence: number } | null {
+    const pattern = this.getPattern(field);
+    if (pattern && pattern.confidence >= 0.6 && pattern.preferredValue && pattern.preferredValue.trim() !== '') {
+      return {
+        value: pattern.preferredValue,
+        confidence: pattern.confidence,
+      };
+    }
+    return null;
+  }
+
+  /**
+   * Get all learned patterns as label→value slots for embedding-based matching.
+   * These can be merged into profile slots so the embedding pipeline picks up
+   * user corrections when matching fields to values.
+   */
+  getLearnedSlots(): Array<{ label: string; value: string; confidence: number }> {
+    const slots: Array<{ label: string; value: string; confidence: number }> = [];
+    
+    for (const [_key, pattern] of this.patterns.entries()) {
+      if (pattern.confidence >= 0.6 && pattern.preferredValue && pattern.preferredValue.trim() !== '') {
+        // Pattern key is "fieldlabel_fieldtype" — extract the label part
+        // e.g. "linkedin profile_text" → "linkedin profile"
+        const labelPart = pattern.pattern.replace(/_[^_]+$/, '').replace(/_/g, ' ');
+        slots.push({
+          label: labelPart,
+          value: pattern.preferredValue,
+          confidence: pattern.confidence,
+        });
+      }
+    }
+    
+    return slots;
   }
 
   /**
@@ -249,18 +298,37 @@ export class LearningSystem {
       };
     }
 
-    // Query similar corrections (semantic search)
+    // Query similar corrections (semantic search with minimum threshold)
     const similarCorrections = await this.querySimilarCorrections(field, 5);
 
     if (similarCorrections.length === 0) {
-      return null; // No learning data available
+      return null; // No learning data above similarity threshold
+    }
+
+    // Additional guard: only consider corrections whose field label is
+    // semantically related. This prevents e.g. a "LinkedIn Profile" correction
+    // from leaking into a "State" or "Work Authorization" field just because
+    // their embeddings happen to be close.
+    const queryLabel = (field.label || '').toLowerCase();
+    const relevantCorrections = similarCorrections.filter(c => {
+      const corrLabel = c.fieldLabel.toLowerCase();
+      // Require at least one meaningful word overlap between labels
+      const queryWords = queryLabel.split(/\s+/).filter(w => w.length > 2);
+      const corrWords = corrLabel.split(/\s+/).filter(w => w.length > 2);
+      return queryWords.some(qw => corrWords.some(cw => 
+        qw.includes(cw) || cw.includes(qw)
+      ));
+    });
+
+    if (relevantCorrections.length === 0) {
+      return null; // Similar embeddings but different field labels
     }
 
     // Analyze corrections
     const valueCounts = new Map<string, number>();
     let totalScore = 0;
 
-    for (const correction of similarCorrections) {
+    for (const correction of relevantCorrections) {
       const value = String(correction.userCorrectedValue);
       valueCounts.set(value, (valueCounts.get(value) || 0) + 1);
       totalScore += 1;
@@ -279,12 +347,13 @@ export class LearningSystem {
     // Calculate confidence (% of similar corrections agreeing)
     const confidence = maxCount / totalScore;
 
-    if (confidence > 0.5 && mostCommonValue !== String(proposedValue)) {
-      console.log(`[Learning] Suggesting "${mostCommonValue}" instead of "${proposedValue}" (confidence: ${confidence.toFixed(2)})`);
+    // Require at least 2 agreeing corrections and >60% agreement
+    if (confidence > 0.6 && maxCount >= 2 && mostCommonValue !== String(proposedValue)) {
+      console.log(`[Learning] Suggesting "${mostCommonValue}" instead of "${proposedValue}" (confidence: ${confidence.toFixed(2)}, from ${maxCount} corrections)`);
       return {
         suggestedValue: mostCommonValue,
         confidence,
-        reason: `Based on ${maxCount}/${similarCorrections.length} similar past corrections`,
+        reason: `Based on ${maxCount}/${relevantCorrections.length} similar past corrections`,
       };
     }
 

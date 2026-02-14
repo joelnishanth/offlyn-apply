@@ -6,7 +6,7 @@ import type { ApplyEvent, FillPlan, FillResult, JobMeta, FieldSchema } from './s
 import { extractJobMetadata, extractFormSchema, isJobApplicationPage } from './shared/dom';
 import { log, info, warn, error } from './shared/log';
 import { showFieldSummary, hideFieldSummary } from './ui/field-summary';
-import { getUserProfile } from './shared/profile';
+import { getUserProfile, type UserProfile } from './shared/profile';
 import { generateFillMappings } from './shared/autofill';
 import { 
   analyzeUnfilledFields, 
@@ -49,7 +49,17 @@ import {
   clearAllHighlights
 } from './ui/field-highlighter';
 import { showNotification, showSuccess, showError, showWarning, showInfo } from './ui/notification';
+import {
+  showInlineSuggestionTiles,
+  removeAllTiles
+} from './ui/inline-suggestion-tile';
 import { showProgress, updateProgress, hideProgress, showProgressComplete } from './ui/progress-indicator';
+import { 
+  smartFillField, 
+  fillReactSelectField, 
+  fillNativeSelect,
+  setReactCheckboxValue
+} from './shared/react-input';
 
 let lastJobMeta: JobMeta | null = null;
 let lastSchema: string | null = null;
@@ -347,13 +357,22 @@ async function tryAutoFill(schema: ReturnType<typeof extractFormSchema>): Promis
     // Execute immediately (settings will be checked in executeFillPlan)
     await executeFillPlan(fillPlan);
     
-    // Also try to fill resume file inputs
-    fillResumeFileInputs();
+    // Also try to fill resume file inputs (await to catch errors)
+    await fillResumeFileInputs();
     
-    // After basic autofill, offer smart suggestions for remaining fields
+    // Post-fill re-scan: Some fields appear dynamically after other fields are filled
+    // (e.g., "Please identify your race" appears after Hispanic/Latino = "No")
+    // Wait for React to re-render, then re-scan for newly appeared fields
+    await postFillRescan(profile);
+    
+    // Retry resume upload after post-fill rescan (file inputs may appear after form renders)
+    await fillResumeFileInputs();
+    
+    // After basic autofill, show inline AI tiles on remaining empty text fields
     const unfilledCount = allDetectedFields.length - filledSelectors.size;
     if (unfilledCount > 0) {
-      info(`ℹ️ ${unfilledCount} fields remain unfilled. Consider using Smart Suggestions.`);
+      info(`ℹ️ ${unfilledCount} fields remain unfilled. Showing AI suggestion tiles.`);
+      showInlineSuggestionTiles(allDetectedFields, filledSelectors, handleInlineTileClick);
     }
   } catch (err) {
     error('Error in auto-fill:', err);
@@ -646,13 +665,15 @@ async function trySmartAutoFill(): Promise<void> {
       }
     }
 
-    // Show notification about remaining unfilled fields
+    // Show notification and inline tiles for remaining unfilled fields
     const finalUnfilled = analyzeUnfilledFields(allDetectedFields, filledSelectors);
     if (finalUnfilled.length > 0) {
       info(`Smart autofill complete. ${finalUnfilled.length} fields still require manual attention.`);
       showUnfilledFieldsNotification(finalUnfilled.length);
+      showInlineSuggestionTiles(allDetectedFields, filledSelectors, handleInlineTileClick);
     } else {
       info('✅ All fields successfully filled!');
+      removeAllTiles();
     }
 
   } catch (err) {
@@ -669,9 +690,64 @@ function showUnfilledFieldsNotification(count: number): void {
 }
 
 /**
+ * Handle click on an inline AI suggestion tile.
+ * Generates a suggestion for the specific field and fills it.
+ * The tile auto-hides when the field gets a value, and auto-reappears
+ * when the user clears the field, enabling regeneration.
+ */
+async function handleInlineTileClick(field: FieldSchema, selector: string): Promise<void> {
+  try {
+    const profile = await getUserProfile();
+    if (!profile) {
+      warn('[InlineTile] No profile available');
+      return;
+    }
+
+    info(`[InlineTile] Generating AI suggestion for "${field.label || field.name}"...`);
+
+    // Generate suggestion using the existing suggestion service
+    const { generateFieldSuggestions } = await import('./shared/suggestion-service');
+    const suggestion = await generateFieldSuggestions(
+      field,
+      profile,
+      {
+        company: lastJobMeta?.company,
+        jobTitle: lastJobMeta?.jobTitle,
+        url: window.location.href
+      },
+      true // use AI
+    );
+
+    if (!suggestion || suggestion.suggestions.length === 0) {
+      warn(`[InlineTile] No suggestion found for "${field.label || field.name}"`);
+      showInfo('No Suggestion', `Could not generate a suggestion for "${field.label || field.name}".`);
+      return;
+    }
+
+    // Use the primary (best) suggestion
+    const primary = suggestion.suggestions.find(s => s.isPrimary) || suggestion.suggestions[0];
+    info(`[InlineTile] Applying suggestion: "${primary.value}" (source: ${primary.source}, confidence: ${primary.confidence})`);
+
+    // Fill the field — the tile will auto-hide via its visibility watcher
+    await fillFieldWithValue(selector, primary.value, field.label || field.name || 'field');
+
+    // Track as filled
+    filledSelectors.add(selector);
+    autoFilledValues.set(selector, { field, value: primary.value });
+
+    // Brief success highlight
+    highlightFieldAsSuccess(selector);
+  } catch (err) {
+    error('[InlineTile] Error generating suggestion:', err);
+  }
+}
+
+/**
  * Listen for refresh scan events from the UI
  */
 window.addEventListener('offlyn-refresh-scan', () => {
+  // Clean up stale inline tiles before re-scanning
+  removeAllTiles();
   // Don't hide the panel - just update it with new data
   detectPage();
 });
@@ -692,7 +768,23 @@ window.addEventListener('offlyn-show-suggestions', () => {
     info('Manual trigger: showing smart suggestions');
     trySmartSuggestions();
   } else {
-    warn('[Suggestions] No detected fields. Refresh the scan first.');
+    // If no fields in current frame, check if we're in the top frame
+    if (window.self === window.top) {
+      // We're in the parent page with no fields - try triggering in iframes
+      warn('[Suggestions] No fields in parent page, checking iframes...');
+      const iframes = Array.from(document.querySelectorAll('iframe'));
+      
+      for (const iframe of iframes) {
+        try {
+          iframe.contentWindow?.postMessage({ type: 'OFFLYN_TRIGGER_SUGGESTIONS' }, '*');
+          info(`[Suggestions] Sent suggestions trigger to iframe: ${iframe.src}`);
+        } catch (err) {
+          warn('[Suggestions] Cannot access iframe (cross-origin):', iframe.src);
+        }
+      }
+    } else {
+      warn('[Suggestions] No detected fields. Refresh the scan first.');
+    }
   }
 });
 
@@ -704,9 +796,164 @@ window.addEventListener('offlyn-manual-autofill', async () => {
     info('Manual trigger: starting autofill with highlighting');
     await tryAutoFill(allDetectedFields);
   } else {
-    warn('[Autofill] No detected fields. Refresh the scan first.');
+    // If no fields in current frame, check if we're in the top frame
+    if (window.self === window.top) {
+      // We're in the parent page with no fields - try triggering autofill in iframes
+      warn('[Autofill] No fields in parent page, checking iframes...');
+      const iframes = Array.from(document.querySelectorAll('iframe'));
+      let foundIframeWithFields = false;
+      
+      for (const iframe of iframes) {
+        try {
+          // Post message to iframe to trigger autofill
+          iframe.contentWindow?.postMessage({ type: 'OFFLYN_TRIGGER_AUTOFILL' }, '*');
+          foundIframeWithFields = true;
+          info(`[Autofill] Sent autofill trigger to iframe: ${iframe.src}`);
+        } catch (err) {
+          // Cross-origin iframe, can't access
+          warn('[Autofill] Cannot access iframe (cross-origin):', iframe.src);
+        }
+      }
+      
+      if (!foundIframeWithFields) {
+        warn('[Autofill] No detected fields. Refresh the scan first.');
+      }
+    } else {
+      // We're in an iframe with no fields
+      warn('[Autofill] No detected fields. Refresh the scan first.');
+    }
   }
 });
+
+/**
+ * Listen for autofill/suggestions trigger messages from parent frame
+ */
+window.addEventListener('message', async (event) => {
+  if (!event.data || !event.data.type) return;
+  
+  if (event.data.type === 'OFFLYN_TRIGGER_AUTOFILL') {
+    info('[Autofill] Received autofill trigger from parent frame');
+    if (allDetectedFields.length > 0) {
+      info(`[Autofill] Iframe has ${allDetectedFields.length} fields, starting autofill...`);
+      await tryAutoFill(allDetectedFields);
+    } else {
+      warn('[Autofill] Iframe has no detected fields');
+    }
+  } else if (event.data.type === 'OFFLYN_TRIGGER_SUGGESTIONS') {
+    info('[Suggestions] Received suggestions trigger from parent frame');
+    if (allDetectedFields.length > 0) {
+      info(`[Suggestions] Iframe has ${allDetectedFields.length} fields, showing suggestions...`);
+      trySmartSuggestions();
+    } else {
+      warn('[Suggestions] Iframe has no detected fields');
+    }
+  }
+});
+
+/**
+ * Wait for state transition after clicking Next/Continue button
+ * Checks for URL change, step title change, or old fields being detached
+ */
+async function waitForStateTransition(): Promise<void> {
+  return new Promise((resolve) => {
+    const startUrl = location.href;
+    const startStepTitle = document.querySelector('[class*="step"], [class*="page"], h1, h2')?.textContent || '';
+    const oldRequiredFields = new Set(
+      Array.from(document.querySelectorAll('input[required], select[required], textarea[required]'))
+        .map(el => el.getAttribute('name') || el.getAttribute('id') || '')
+        .filter(Boolean)
+    );
+    
+    let resolved = false;
+    let mutationTimeout: number | null = null;
+    let checkCount = 0;
+    const maxChecks = 30; // Max 6 seconds (30 * 200ms)
+    
+    const checkTransition = () => {
+      if (resolved) return;
+      checkCount++;
+      
+      // Check 1: URL changed
+      if (location.href !== startUrl) {
+        console.log('[Offlyn] State transition: URL changed');
+        resolved = true;
+        resolve();
+        return;
+      }
+      
+      // Check 2: Step title changed
+      const currentStepTitle = document.querySelector('[class*="step"], [class*="page"], h1, h2')?.textContent || '';
+      if (currentStepTitle && currentStepTitle !== startStepTitle) {
+        console.log('[Offlyn] State transition: Step title changed');
+        resolved = true;
+        resolve();
+        return;
+      }
+      
+      // Check 3: Old required fields are detached
+      const currentRequiredFields = new Set(
+        Array.from(document.querySelectorAll('input[required], select[required], textarea[required]'))
+          .map(el => el.getAttribute('name') || el.getAttribute('id') || '')
+          .filter(Boolean)
+      );
+      
+      // If >50% of old required fields are no longer present, transition happened
+      let detachedCount = 0;
+      for (const fieldName of oldRequiredFields) {
+        if (!currentRequiredFields.has(fieldName)) {
+          detachedCount++;
+        }
+      }
+      
+      if (oldRequiredFields.size > 0 && detachedCount > oldRequiredFields.size * 0.5) {
+        console.log('[Offlyn] State transition: >50% of old fields detached');
+        resolved = true;
+        resolve();
+        return;
+      }
+      
+      // Check 4: Timeout - give up after max checks
+      if (checkCount >= maxChecks) {
+        console.log('[Offlyn] State transition: timeout, proceeding anyway');
+        resolved = true;
+        resolve();
+        return;
+      }
+      
+      // Schedule next check
+      setTimeout(checkTransition, 200);
+    };
+    
+    // Use MutationObserver to detect DOM changes and wait for stability
+    const observer = new MutationObserver(() => {
+      if (resolved) return;
+      
+      // Clear previous timeout (DOM is still changing)
+      if (mutationTimeout !== null) {
+        clearTimeout(mutationTimeout);
+      }
+      
+      // Wait for 300ms of stability before checking transition
+      mutationTimeout = window.setTimeout(() => {
+        checkTransition();
+      }, 300);
+    });
+    
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: false
+    });
+    
+    // Start checking immediately
+    setTimeout(checkTransition, 300);
+    
+    // Cleanup after resolution
+    setTimeout(() => {
+      observer.disconnect();
+    }, 10000);
+  });
+}
 
 /**
  * Handle submit/apply button clicks
@@ -746,87 +993,543 @@ function handleSubmitAttempt(e: Event): void {
 
 /**
  * Auto-fill resume file inputs
+ * 
+ * Supports multiple approaches for attaching resumes:
+ * 1. Standard input[type="file"] (most ATS platforms)
+ * 2. Greenhouse-style hidden file inputs triggered by drop zones
+ * 3. React-controlled file upload components
+ * 4. Drag-and-drop upload zones
  */
 async function fillResumeFileInputs(): Promise<void> {
   try {
-    // Get stored resume file
-    const storage = await browser.storage.local.get('resumeFile');
-    const resumeFile = storage.resumeFile;
+    // Step 1: Retrieve stored resume file from extension storage
+    log('Attempting to load resume file from storage...');
+    let resumeFile: { name: string; type: string; size: number; data?: number[] | null; dataBase64?: string; lastUpdated?: number } | null = null;
     
-    if (!resumeFile || !resumeFile.data) {
+    try {
+      const storageResult = await browser.storage.local.get('resumeFile');
+      resumeFile = storageResult.resumeFile;
+    } catch (storageErr) {
+      error('Failed to read resume from storage (file may be too large):', storageErr);
+      // Try reading just the metadata to see if the file exists
+      try {
+        const metaResult = await browser.storage.local.get('resumeFileMeta');
+        if (metaResult.resumeFileMeta) {
+          warn(`Resume file metadata exists (${metaResult.resumeFileMeta.name}, ${metaResult.resumeFileMeta.size} bytes) but data retrieval failed. Try re-uploading a smaller resume.`);
+        }
+      } catch (_) { /* ignore */ }
+      return;
+    }
+    
+    // Check if we have data in either format (base64 or legacy number array)
+    const hasBase64 = resumeFile?.dataBase64 && resumeFile.dataBase64.length > 0;
+    const hasLegacyArray = resumeFile?.data && Array.isArray(resumeFile.data) && resumeFile.data.length > 0;
+    
+    if (!resumeFile || (!hasBase64 && !hasLegacyArray)) {
       log('No resume file stored for auto-upload');
       return;
     }
     
-    // Find file input fields that might be for resume upload
-    const fileInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="file"]'));
+    log(`Resume file loaded: ${resumeFile.name} (${resumeFile.size} bytes, type: ${resumeFile.type}, format: ${hasBase64 ? 'base64' : 'legacy-array'})`);
+    
+    // Step 2: Create the File object from stored data
+    let file: File;
+    try {
+      let uint8Array: Uint8Array;
+      
+      if (hasBase64 && resumeFile.dataBase64) {
+        // New base64 format (more efficient)
+        const binaryString = atob(resumeFile.dataBase64);
+        uint8Array = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          uint8Array[i] = binaryString.charCodeAt(i);
+        }
+      } else if (hasLegacyArray && resumeFile.data) {
+        // Legacy number array format
+        uint8Array = new Uint8Array(resumeFile.data);
+      } else {
+        log('No valid resume data found');
+        return;
+      }
+      
+      const blob = new Blob([uint8Array], { type: resumeFile.type });
+      file = new File([blob], resumeFile.name, { 
+        type: resumeFile.type,
+        lastModified: resumeFile.lastUpdated || Date.now()
+      });
+      log(`Created File object: ${file.name} (${file.size} bytes)`);
+    } catch (fileErr) {
+      error('Failed to create File object from stored data:', fileErr);
+      return;
+    }
+    
+    // Step 3: Find all file input fields (including hidden ones)
+    const fileInputs = findAllFileInputs();
     
     if (fileInputs.length === 0) {
+      log('No file inputs found on page, checking for upload buttons/drop zones...');
+      // Try to trigger file upload by clicking upload buttons
+      const triggered = await triggerFileInputViaButton();
+      if (triggered) {
+        // Wait for the file input to appear
+        await new Promise(resolve => setTimeout(resolve, 500));
+        const newFileInputs = findAllFileInputs();
+        if (newFileInputs.length > 0) {
+          info(`Found ${newFileInputs.length} file input(s) after triggering upload button`);
+          await attachFileToInputs(newFileInputs, file);
+        } else {
+          log('Still no file inputs after triggering upload button');
+        }
+      }
       return;
     }
     
     info(`Found ${fileInputs.length} file input(s), attempting resume upload`);
+    await attachFileToInputs(fileInputs, file);
     
-    for (const fileInput of fileInputs) {
+  } catch (err) {
+    error('Error in fillResumeFileInputs:', err);
+  }
+}
+
+/**
+ * Find all file input elements on the page, including hidden ones
+ */
+function findAllFileInputs(): HTMLInputElement[] {
+  const inputs: HTMLInputElement[] = [];
+  
+  // Standard visible file inputs
+  const standardInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+  inputs.push(...Array.from(standardInputs));
+  
+  // Greenhouse-specific: look for file inputs inside upload containers
+  const greenhouseSelectors = [
+    '[data-testid*="resume"] input[type="file"]',
+    '[data-testid*="file"] input[type="file"]',
+    '.upload-resume input[type="file"]',
+    '.drop-zone input[type="file"]',
+    '[class*="upload"] input[type="file"]',
+    '[class*="dropzone"] input[type="file"]',
+    '[class*="file-upload"] input[type="file"]',
+    '[id*="resume"] input[type="file"]',
+    'label[for*="resume"] + input[type="file"]',
+    // Greenhouse's specific structure
+    '[class*="attach"] input[type="file"]',
+  ];
+  
+  for (const sel of greenhouseSelectors) {
+    try {
+      const found = document.querySelectorAll<HTMLInputElement>(sel);
+      for (const el of found) {
+        if (!inputs.includes(el)) {
+          inputs.push(el);
+        }
+      }
+    } catch (_) { /* selector might be invalid */ }
+  }
+  
+  // Also check inside Shadow DOM
+  const shadowHosts = document.querySelectorAll('*');
+  for (const host of shadowHosts) {
+    if (host.shadowRoot) {
+      const shadowInputs = host.shadowRoot.querySelectorAll<HTMLInputElement>('input[type="file"]');
+      inputs.push(...Array.from(shadowInputs));
+    }
+  }
+  
+  return inputs;
+}
+
+/**
+ * Try to trigger a file input by clicking upload buttons or drop zones
+ */
+async function triggerFileInputViaButton(): Promise<boolean> {
+  // Look for upload/attach buttons
+  const buttonSelectors = [
+    'button[class*="upload"]',
+    'button[class*="attach"]',
+    'button[class*="resume"]',
+    '[role="button"][class*="upload"]',
+    '[role="button"][class*="attach"]',
+    'a[class*="upload"]',
+    // Greenhouse-specific
+    '[data-testid*="attach"]',
+    '[data-testid*="upload"]',
+    // Drop zones that act as buttons
+    '[class*="dropzone"]',
+    '[class*="drop-zone"]',
+    '[class*="file-drop"]',
+  ];
+  
+  for (const sel of buttonSelectors) {
+    try {
+      const buttons = document.querySelectorAll(sel);
+      for (const btn of buttons) {
+        const text = btn.textContent?.toLowerCase() || '';
+        if (text.includes('resume') || text.includes('attach') || text.includes('upload') || text.includes('choose file')) {
+          log(`Found upload trigger button: "${btn.textContent?.trim()}"`);
+          // Don't actually click - just report we found it
+          // Clicking could cause unwanted navigation
+          return true;
+        }
+      }
+    } catch (_) { /* ignore */ }
+  }
+  
+  return false;
+}
+
+/**
+ * Attach a File object to file input elements
+ */
+async function attachFileToInputs(fileInputs: HTMLInputElement[], file: File): Promise<void> {
+  for (const fileInput of fileInputs) {
+    try {
+      // Generate unique identifier for this input
+      const inputId = fileInput.id || fileInput.name || generateInputSelector(fileInput);
+      
+      // Check if we've already uploaded to this input
+      if (resumeFilesUploaded.has(inputId)) {
+        log(`Already uploaded resume to this input: ${inputId}`);
+        continue;
+      }
+      
+      // Check if this is likely a resume upload field
+      const isResume = isResumeFileInput(fileInput);
+      
+      if (!isResume) {
+        log(`Skipping file input (doesn't appear to be for resume): ${inputId}`);
+        continue;
+      }
+      
+      // Check if already has a file
+      if (fileInput.files && fileInput.files.length > 0) {
+        log(`File input already has a file: ${inputId}`);
+        continue;
+      }
+      
+      // Attempt to set files using DataTransfer
+      let success = false;
+      
+      // Method 1: DataTransfer API (works in most browsers)
       try {
-        // Generate unique identifier for this input
-        const inputId = fileInput.id || fileInput.name || fileInput.outerHTML;
-        
-        // Check if we've already uploaded to this input
-        if (resumeFilesUploaded.has(inputId)) {
-          log(`Already uploaded resume to this input: ${fileInput.name || fileInput.id}`);
-          continue;
-        }
-        
-        // Check if this is likely a resume upload field
-        const label = fileInput.labels?.[0]?.textContent?.toLowerCase() || '';
-        const placeholder = fileInput.placeholder?.toLowerCase() || '';
-        const name = fileInput.name?.toLowerCase() || '';
-        const id = fileInput.id?.toLowerCase() || '';
-        const accept = fileInput.accept?.toLowerCase() || '';
-        
-        const isResumeField = 
-          label.includes('resume') || label.includes('cv') ||
-          placeholder.includes('resume') || placeholder.includes('cv') ||
-          name.includes('resume') || name.includes('cv') ||
-          id.includes('resume') || id.includes('cv') ||
-          accept.includes('pdf') || accept.includes('doc');
-        
-        if (!isResumeField) {
-          log(`Skipping file input (doesn't appear to be for resume): ${fileInput.name || fileInput.id}`);
-          continue;
-        }
-        
-        // Check if already has a file
-        if (fileInput.files && fileInput.files.length > 0) {
-          log(`File input already has a file: ${fileInput.name || fileInput.id}`);
-          continue;
-        }
-        
-        // Convert stored array back to Uint8Array and create File
-        const uint8Array = new Uint8Array(resumeFile.data);
-        const blob = new Blob([uint8Array], { type: resumeFile.type });
-        const file = new File([blob], resumeFile.name, { type: resumeFile.type });
-        
-        // Create DataTransfer to set files
         const dataTransfer = new DataTransfer();
         dataTransfer.items.add(file);
-        fileInput.files = dataTransfer.files;
         
-        // Dispatch events
-        fileInput.dispatchEvent(new Event('input', { bubbles: true }));
-        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+        // Use Object.defineProperty as fallback if direct assignment is blocked
+        try {
+          fileInput.files = dataTransfer.files;
+          success = fileInput.files.length > 0;
+        } catch (assignErr) {
+          log('Direct files assignment failed, trying defineProperty approach');
+          Object.defineProperty(fileInput, 'files', {
+            value: dataTransfer.files,
+            writable: true,
+            configurable: true,
+          });
+          success = fileInput.files.length > 0;
+        }
+      } catch (dtErr) {
+        warn('DataTransfer approach failed:', dtErr);
+      }
+      
+      // Method 2: ClipboardEvent with items (Firefox fallback)
+      if (!success) {
+        try {
+          log('Trying ClipboardEvent fallback for file upload');
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          const event = new ClipboardEvent('paste', {
+            clipboardData: dt,
+            bubbles: true,
+            cancelable: true,
+          });
+          fileInput.dispatchEvent(event);
+          // Check if it worked
+          success = fileInput.files !== null && fileInput.files.length > 0;
+        } catch (clipErr) {
+          warn('ClipboardEvent fallback failed:', clipErr);
+        }
+      }
+      
+      // Method 3: Drag and drop simulation
+      if (!success) {
+        try {
+          log('Trying drag-and-drop simulation for file upload');
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          
+          // Find the drop zone container
+          const dropZone = fileInput.closest('[class*="drop"], [class*="upload"]') || fileInput.parentElement;
+          const target = dropZone || fileInput;
+          
+          // Simulate drag enter, over, and drop
+          target.dispatchEvent(new DragEvent('dragenter', { dataTransfer: dt, bubbles: true }));
+          target.dispatchEvent(new DragEvent('dragover', { dataTransfer: dt, bubbles: true }));
+          target.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true }));
+          
+          await new Promise(resolve => setTimeout(resolve, 200));
+          success = fileInput.files !== null && fileInput.files.length > 0;
+        } catch (dragErr) {
+          warn('Drag-and-drop simulation failed:', dragErr);
+        }
+      }
+      
+      if (success) {
+        // Dispatch standard events that React and other frameworks listen to
+        fileInput.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+        fileInput.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+        
+        // Also dispatch a custom React-compatible event
+        const nativeInputEvent = new InputEvent('input', {
+          bubbles: true,
+          cancelable: false,
+          composed: true,
+        });
+        fileInput.dispatchEvent(nativeInputEvent);
         
         // Mark this input as filled
         resumeFilesUploaded.add(inputId);
-        
-        info(`Auto-uploaded resume to: ${fileInput.name || fileInput.id || 'file input'}`);
-      } catch (err) {
-        error('Failed to fill file input:', err);
+        info(`✓ Auto-uploaded resume "${file.name}" to: ${inputId}`);
+      } else {
+        warn(`✗ All file upload methods failed for: ${inputId}. The file input may need manual interaction.`);
       }
+      
+    } catch (err) {
+      error('Failed to fill file input:', err);
+    }
+  }
+}
+
+/**
+ * Generate a CSS selector for a file input element
+ */
+function generateInputSelector(el: HTMLInputElement): string {
+  if (el.id) return `#${el.id}`;
+  if (el.name) return `input[name="${el.name}"]`;
+  // Fallback: use position relative to parent
+  const parent = el.parentElement;
+  if (parent) {
+    const siblings = parent.querySelectorAll('input[type="file"]');
+    const idx = Array.from(siblings).indexOf(el);
+    return `${parent.tagName.toLowerCase()} input[type="file"]:nth-of-type(${idx + 1})`;
+  }
+  return 'input[type="file"]';
+}
+
+/**
+ * Check if a file input is likely a resume upload field
+ */
+function isResumeFileInput(fileInput: HTMLInputElement): boolean {
+  // Gather text context from labels, nearby elements, and attributes
+  const label = fileInput.labels?.[0]?.textContent?.toLowerCase() || '';
+  const placeholder = fileInput.placeholder?.toLowerCase() || '';
+  const name = fileInput.name?.toLowerCase() || '';
+  const id = fileInput.id?.toLowerCase() || '';
+  const accept = fileInput.accept?.toLowerCase() || '';
+  const ariaLabel = fileInput.getAttribute('aria-label')?.toLowerCase() || '';
+  const dataTestId = fileInput.getAttribute('data-testid')?.toLowerCase() || '';
+  
+  // Check parent/container text
+  const parentText = fileInput.closest('div, fieldset, section')?.textContent?.toLowerCase() || '';
+  
+  // Check for resume-related keywords
+  const resumeKeywords = ['resume', 'cv', 'curriculum vitae'];
+  const fileKeywords = ['pdf', 'doc', 'docx', 'rtf'];
+  
+  const allText = [label, placeholder, name, id, ariaLabel, dataTestId].join(' ');
+  
+  // Direct match on field attributes
+  const hasResumeKeyword = resumeKeywords.some(kw => allText.includes(kw));
+  const hasFileType = fileKeywords.some(kw => accept.includes(kw));
+  
+  // Container text match (less specific, so also check it's in a form context)
+  const parentHasResumeKeyword = resumeKeywords.some(kw => parentText.includes(kw));
+  
+  // On job application pages, any file input accepting PDFs/DOCs is likely for resume
+  const isOnJobPage = document.querySelector('[class*="application"], [id*="application"], form') !== null;
+  
+  return hasResumeKeyword || (hasFileType && (parentHasResumeKeyword || isOnJobPage)) || (isOnJobPage && hasFileType);
+}
+
+/**
+ * Post-fill re-scan: after autofill completes, wait for React/dynamic content to re-render,
+ * then re-scan for newly appeared fields (e.g., "Please identify your race" appears after
+ * Hispanic/Latino = "No" is selected). Fill any new fields that weren't in the original scan.
+ */
+async function postFillRescan(profile: UserProfile): Promise<void> {
+  // Wait for dynamic content to render (React re-renders after dropdown selections)
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  
+  // Re-extract form fields (wrapped in try-catch for pages where DOM may have changed)
+  let newSchema: ReturnType<typeof extractFormSchema>;
+  try {
+    // Scan entire document for fields (same as initial detection for single-page apps)
+    const forms = document.querySelectorAll('form');
+    if (forms.length > 0) {
+      newSchema = [];
+      for (const form of forms) {
+        newSchema.push(...extractFormSchema(form));
+      }
+    } else {
+      newSchema = extractFormSchema(document);
     }
   } catch (err) {
-    error('Error in fillResumeFileInputs:', err);
+    warn('Post-fill re-scan: failed to extract form schema', err);
+    return;
+  }
+  if (newSchema.length <= allDetectedFields.length) {
+    return; // No new fields appeared
+  }
+  
+  // Find fields that are new (not in the original scan)
+  const oldSelectors = new Set(allDetectedFields.map(f => f.selector));
+  const newFields = newSchema.filter(f => !oldSelectors.has(f.selector));
+  
+  if (newFields.length === 0) {
+    return;
+  }
+  
+  info(`🔄 Post-fill re-scan: found ${newFields.length} new dynamic fields`);
+  
+  // Update the stored fields
+  allDetectedFields = newSchema;
+  
+  // Generate mappings only for new fields
+  const newMappings = generateFillMappings(newFields, profile);
+  if (newMappings.length === 0) {
+    info('ℹ️ New fields found but no profile matches');
+    return;
+  }
+  
+  info(`🔄 Filling ${newMappings.length} newly appeared fields`);
+  
+  const fillPlan: FillPlan = {
+    kind: 'FILL_PLAN',
+    requestId: `rescan_${Date.now()}`,
+    mappings: newMappings,
+    dryRun: false,
+  };
+  
+  await executeFillPlan(fillPlan);
+}
+
+/**
+ * Check for inline validation error after filling a field (Workday-specific)
+ */
+async function checkForValidationError(selector: string, fieldLabel: string): Promise<void> {
+  // Wait briefly for validation to trigger
+  await new Promise(resolve => setTimeout(resolve, 200));
+  
+  const element = document.querySelector(selector);
+  if (!element) return;
+  
+  // Common error message selectors (Workday, Greenhouse, etc.)
+  const errorSelectors = [
+    '.error-message',
+    '.field-error',
+    '.validation-error',
+    '[class*="error"]',
+    '[class*="invalid"]',
+    '[role="alert"]',
+    '.text-danger',
+    '[data-error]',
+    '[aria-invalid="true"] + *', // Error next to invalid field
+  ];
+  
+  // Check for error messages near the field
+  const container = element.closest('div, fieldset, .form-group, .field-wrapper, [class*="field"]');
+  
+  if (container) {
+    for (const errorSelector of errorSelectors) {
+      const errorElement = container.querySelector(errorSelector);
+      if (errorElement) {
+        const errorText = errorElement.textContent?.trim();
+        if (errorText && errorText.length > 0 && errorText.length < 200) {
+          console.warn(`[Offlyn] ⚠️ Validation error for "${fieldLabel}": ${errorText}`);
+          highlightFieldAsError(selector);
+          return;
+        }
+      }
+    }
+  }
+  
+  // Check if field itself is marked as invalid
+  if (element.getAttribute('aria-invalid') === 'true') {
+    console.warn(`[Offlyn] ⚠️ Field "${fieldLabel}" marked as invalid`);
+    highlightFieldAsError(selector);
+  }
+}
+
+/**
+ * Handle exclusive checkbox selection - uncheck others if this is an exclusive option
+ */
+function handleExclusiveCheckbox(checkbox: HTMLInputElement): void {
+  if (!checkbox.checked) return; // Only handle when checking
+  
+  const label = (checkbox.labels?.[0]?.textContent || checkbox.getAttribute('aria-label') || '').toLowerCase();
+  
+  // Check if this is an exclusive option
+  const exclusivePatterns = [
+    'none of the above',
+    'none of these apply',
+    'not applicable',
+    'none apply',
+    'n/a',
+    'prefer not to answer',
+    'decline to self-identify'
+  ];
+  
+  const isExclusive = exclusivePatterns.some(pattern => label.includes(pattern));
+  
+  if (!isExclusive) return;
+  
+  console.log('[Offlyn] Exclusive checkbox detected:', label);
+  
+  // Find other checkboxes in the same group
+  let groupCheckboxes: HTMLInputElement[] = [];
+  
+  // Strategy 1: Same name attribute (most reliable)
+  if (checkbox.name) {
+    groupCheckboxes = Array.from(
+      document.querySelectorAll<HTMLInputElement>(`input[type="checkbox"][name="${checkbox.name}"]`)
+    ).filter(cb => cb !== checkbox);
+  }
+  
+  // Strategy 2: Same fieldset
+  if (groupCheckboxes.length === 0) {
+    const fieldset = checkbox.closest('fieldset');
+    if (fieldset) {
+      groupCheckboxes = Array.from(
+        fieldset.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
+      ).filter(cb => cb !== checkbox);
+    }
+  }
+  
+  // Strategy 3: Same closest container with multiple checkboxes
+  if (groupCheckboxes.length === 0) {
+    const container = checkbox.closest('[role="group"], .checkbox-group, .form-group, div, section');
+    if (container) {
+      const allCheckboxes = Array.from(
+        container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')
+      );
+      
+      // Only consider it a group if there are 2+ checkboxes
+      if (allCheckboxes.length >= 2) {
+        groupCheckboxes = allCheckboxes.filter(cb => cb !== checkbox);
+      }
+    }
+  }
+  
+  // Uncheck all other checkboxes in the group
+  if (groupCheckboxes.length > 0) {
+    console.log(`[Offlyn] Unchecking ${groupCheckboxes.length} other checkboxes in exclusive group`);
+    for (const cb of groupCheckboxes) {
+      if (cb.checked) {
+        cb.checked = false;
+        cb.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
   }
 }
 
@@ -1012,7 +1715,7 @@ async function executeFillPlan(plan: FillPlan): Promise<void> {
         
         // Close any lingering dropdowns from previous fields
         document.body.click();
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         // If field has known options, validate against them first
         if (hasOptionsArray && fieldSchema && 'options' in fieldSchema) {
@@ -1025,7 +1728,6 @@ async function executeFillPlan(plan: FillPlan): Promise<void> {
           if (!hasMatch) {
             console.warn(`[Offlyn] Value "${finalValue}" not in known options for ${fieldSchema.label}`);
             console.warn('[Offlyn] Known options:', knownOptions.slice(0, 5).join(', '));
-            // Skip this field - wrong value for these options
             result.failedSelectors.push(mapping.selector);
             highlightFieldAsError(mapping.selector);
             showFieldLabel(mapping.selector, '✗ Invalid value');
@@ -1033,189 +1735,577 @@ async function executeFillPlan(plan: FillPlan): Promise<void> {
           }
         }
         
-        // TWO-PHASE APPROACH: Try setting value first, then interact with dropdown if needed
+        const valueStr = String(finalValue);
+        let optionClicked = false;
+        
+        // ── ESCALATION LADDER for Virtualized/Async Listboxes ───────────
+        // Workday and similar ATS systems render options lazily or require typing to fetch/expand
+        
+        // STEP 1: Open the dropdown and wait for listbox to appear
+        console.log('[Offlyn] Step 1: Opening combobox and waiting for listbox...');
         element.focus();
-        await new Promise(resolve => setTimeout(resolve, 200));
+        element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        element.click();
+        // Wait longer for dropdown options to render (some ATS platforms like Eightfold need time)
+        await new Promise(resolve => setTimeout(resolve, 700));
         
-        // Phase 1: Set value and dispatch events (works for some ATSs)
-        element.value = String(finalValue);
-        element.dispatchEvent(new Event('input', { bubbles: true }));
-        element.dispatchEvent(new Event('change', { bubbles: true }));
-        
-        // Wait longer for dropdown to appear (Greenhouse can be slow)
-        await new Promise(resolve => setTimeout(resolve, 400));
-        
-        // Phase 2: Check if dropdown appeared, if so, click the matching option
-        // Look for options that are in an active dropdown (parent container is visible)
-        const allOptions = document.querySelectorAll(DROPDOWN_OPTION_SELECTORS.join(','));
-        
-        const visibleOptions = Array.from(allOptions).filter(option => {
-          const style = window.getComputedStyle(option);
+        // Helper function to find and filter real options
+        const getRealOptions = (listbox: Element | null): Element[] => {
+          let candidateOptions: Element[] = [];
           
-          // Skip if explicitly hidden
-          if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
-            return false;
+          if (listbox) {
+            candidateOptions = Array.from(
+              listbox.querySelectorAll('[role="option"], li, div[data-value]')
+            );
+          } else {
+            // Fallback: query document with precise selectors
+            const allOptions = document.querySelectorAll(DROPDOWN_OPTION_SELECTORS.join(','));
+            const elementRect = element.getBoundingClientRect();
+            
+            candidateOptions = Array.from(allOptions).filter(opt => {
+              const rect = opt.getBoundingClientRect();
+              const style = window.getComputedStyle(opt);
+              
+              if (rect.height === 0 || rect.width === 0) return false;
+              if (style.display === 'none' || style.visibility === 'hidden') return false;
+              if (Math.abs(rect.top - elementRect.bottom) > 400 &&
+                  Math.abs(elementRect.top - rect.bottom) > 400) return false;
+              
+              return true;
+            });
           }
           
-          // Check if option or its parent container is part of a visible dropdown
-          // Look for parent container with meaningful dimensions
-          let current = option.parentElement;
-          let hasVisibleParent = false;
-          let depth = 0;
+          // Filter out summary/container elements and phone country code items
+          return candidateOptions.filter(opt => {
+            const text = (opt.textContent || '').trim();
+            if (text.length < 1 || text.length > 100) return false;
+            if (/^options?\s*:/i.test(text)) return false;
+            if (text.includes(',') && text.split(',').length > 2) return false;
+            // Exclude phone country code picker items
+            const optClass = opt.className || '';
+            if (optClass.includes('iti__country') || optClass.includes('iti__')) return false;
+            const parentClass = (opt.parentElement?.className || '');
+            if (parentClass.includes('iti__country-list')) return false;
+            return true;
+          });
+        };
+        
+        // Gender synonym map for matching "Male"↔"Man", "Female"↔"Woman" in dropdowns
+        const GENDER_SYNONYMS: Record<string, string[]> = {
+          'male': ['male', 'man'],
+          'man': ['male', 'man'],
+          'female': ['female', 'woman'],
+          'woman': ['female', 'woman'],
+        };
+        
+        // Get gender synonyms for a value (returns empty array if not a gender term)
+        const getGenderSynonyms = (val: string): string[] => GENDER_SYNONYMS[val] || [];
+        
+        // Check if an option text matches any of the gender synonyms
+        const isGenderSynonymMatch = (optText: string, val: string): boolean => {
+          const synonyms = getGenderSynonyms(val);
+          if (synonyms.length === 0) return false;
+          // "female"/"woman" exclusion check for male terms
+          const femalTerms = ['female', 'woman'];
+          const maleTerms = ['male', 'man'];
+          for (const syn of synonyms) {
+            if (optText === syn) return true;
+            if (optText.startsWith(syn + ' ') || optText.startsWith(syn + '(')) {
+              // For male synonyms, exclude if option also contains female terms
+              if (maleTerms.includes(syn) && femalTerms.some(f => optText.includes(f))) continue;
+              return true;
+            }
+          }
+          return false;
+        };
+        
+        // Helper function to try matching options
+        const tryMatchOption = async (options: Element[], valueToMatch: string): Promise<boolean> => {
+          // Score ALL options first, then pick the best
+          let bestMatch: { option: Element; score: number; text: string } | null = null;
           
-          while (current && depth < 10) {
-            const parentRect = current.getBoundingClientRect();
-            const parentStyle = window.getComputedStyle(current);
+          for (const option of options) {
+            const optionText = (option.textContent || '').toLowerCase().trim();
+            let score = 0;
             
-            // If parent has dimensions and is visible, this option is in an active dropdown
-            if (parentRect.height > 0 && 
-                parentStyle.display !== 'none' && 
-                parentStyle.visibility !== 'hidden') {
-              hasVisibleParent = true;
-              break;
+            // Exact match (highest priority)
+            if (optionText === valueToMatch) {
+              score = 10000; // Very high score for exact match
+            }
+            // Gender synonym match (e.g., value="male" matches option="man")
+            else if (isGenderSynonymMatch(optionText, valueToMatch)) {
+              score = 9000; // Very high, just below exact
+            }
+            // Option starts with value (high priority, but prefer shorter)
+            else if (optionText.startsWith(valueToMatch)) {
+              // Base score 900, but penalize length
+              // "United States" → 900 - 0 = 900
+              // "United States Minor Outlying Islands" → 900 - 28 = 872
+              const lengthPenalty = optionText.length - valueToMatch.length;
+              score = 900 - lengthPenalty;
+            }
+            // Value is contained in option (medium priority)
+            else if (optionText.includes(valueToMatch)) {
+              // Lower base score, also penalize length
+              const lengthPenalty = optionText.length - valueToMatch.length;
+              score = 500 - lengthPenalty;
+            }
+            // Option is contained in value (low priority)
+            else if (valueToMatch.includes(optionText) && optionText.length > 3) {
+              score = 400;
             }
             
-            current = current.parentElement;
-            depth++;
+            // Track best match (highest score wins)
+            if (score > 0 && (bestMatch === null || score > bestMatch.score)) {
+              bestMatch = { option, score, text: optionText };
+            }
           }
           
-          return hasVisibleParent;
-        });
+          // Click the best match if found
+          if (bestMatch) {
+            console.log('[Offlyn] ✓ Best match:', bestMatch.text, `(score: ${bestMatch.score})`);
+            console.log('[Offlyn] Option element:', bestMatch.option.tagName, 'role:', bestMatch.option.getAttribute('role'), 'class:', bestMatch.option.className);
+            
+            // Scroll option into view
+            (bestMatch.option as HTMLElement).scrollIntoView({ block: 'nearest' });
+            
+            // Record input value before click
+            const valueBefore = element.value;
+            
+            // Find the actual clickable element (might be a child button/div)
+            const optionEl = bestMatch.option as HTMLElement;
+            let clickTarget = optionEl;
+            
+            // Check for clickable children (button, div with onClick, etc.)
+            const clickableChild = optionEl.querySelector('button, [role="button"], div[class*="item"]');
+            if (clickableChild) {
+              console.log('[Offlyn] Found clickable child:', clickableChild.tagName, clickableChild.className);
+              clickTarget = clickableChild as HTMLElement;
+            }
+            
+            // Dispatch full mouse event sequence (React dropdowns need this)
+            clickTarget.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true }));
+            clickTarget.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }));
+            clickTarget.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+            clickTarget.click(); // Use native click() instead of dispatchEvent for better compatibility
+            clickTarget.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+            
+            // Wait longer for React to process and verify the value was set
+            await new Promise(resolve => setTimeout(resolve, 400));
+            const valueAfter = element.value;
+            console.log('[Offlyn] Input value before click:', valueBefore || '<empty string>', '| after click:', valueAfter || '<empty string>');
+            
+            // Check if this is a React-Select component (clicking an option clears the input - that's expected behavior)
+            const isReactSelect = !!element.closest('[class*="select__"]') || 
+                                  !!bestMatch.option.closest('[class*="select__"]') ||
+                                  (bestMatch.option.className || '').includes('select__option');
+            
+            // For React-Select: input clearing after click means selection succeeded
+            // Check for a value container or single-value element to confirm
+            if (isReactSelect) {
+              const selectContainer = element.closest('[class*="select__"]') || element.parentElement?.closest('[class*="select__"]');
+              const singleValue = selectContainer?.querySelector('[class*="single-value"], [class*="singleValue"]');
+              if (singleValue || (valueBefore && !valueAfter)) {
+                console.log('[Offlyn] React-Select: option click accepted (input cleared = selection made)');
+                // Don't force value - React-Select manages it internally
+              } else if (valueAfter === valueBefore || !valueAfter) {
+                console.log('[Offlyn] React-Select: click may not have worked, forcing value...');
+                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+                if (nativeInputValueSetter) { nativeInputValueSetter.call(element, bestMatch.text); } else { element.value = bestMatch.text; }
+                element.dispatchEvent(new Event('input', { bubbles: true }));
+                element.dispatchEvent(new Event('change', { bubbles: true }));
+                element.dispatchEvent(new Event('blur', { bubbles: true }));
+                await new Promise(resolve => setTimeout(resolve, 100));
+              }
+            }
+            // For non-React-Select: if click didn't update input, force it
+            else if (valueAfter === valueBefore || !valueAfter) {
+              console.log('[Offlyn] Click did not update input, forcing value via React...');
+              const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+              if (nativeInputValueSetter) { nativeInputValueSetter.call(element, bestMatch.text); } else { element.value = bestMatch.text; }
+              element.dispatchEvent(new Event('input', { bubbles: true }));
+              element.dispatchEvent(new Event('change', { bubbles: true }));
+              element.dispatchEvent(new Event('blur', { bubbles: true }));
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
+            return true;
+          }
+          
+          return false;
+        };
         
-        console.log('[Offlyn] Found', visibleOptions.length, 'dropdown options in visible containers (out of', allOptions.length, 'total)');
+        const valueToMatch = valueStr.toLowerCase().trim();
+        let listbox = findAssociatedListbox(element);
+        let realOptions = getRealOptions(listbox);
         
-        // Debug: Log all option texts to understand what we're matching against
-        if (visibleOptions.length > 0 && visibleOptions.length < 30) {
-          console.log('[Offlyn] Available options:', visibleOptions.map(opt => 
-            (opt.textContent || '').trim().substring(0, 50)
-          ));
+        console.log('[Offlyn] Found', realOptions.length, 'options after initial open');
+        
+        if (realOptions.length > 0) {
+          optionClicked = await tryMatchOption(realOptions, valueToMatch);
         }
         
-        if (visibleOptions.length > 0 && visibleOptions.length < 50) { // Sanity check - dropdown shouldn't have 255 options
-          let optionClicked = false;
-          const valueToMatch = String(finalValue).toLowerCase().trim();
+        // STEP 2: Type-to-search — for dropdowns that only show options after typing (Greenhouse/React-Select)
+        if (!optionClicked && realOptions.length === 0) {
+          console.log('[Offlyn] Step 2: No options after initial open, typing prefix to trigger search...');
           
-          // Skip if value is empty
-          if (!valueToMatch) {
-            console.log('[Offlyn] Skipping empty value - using Enter key');
-            element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-            await new Promise(resolve => setTimeout(resolve, 100));
-            element.blur();
-          } else {
-            // Try to find and click matching option
-            for (const option of visibleOptions) {
-              const optionText = (option.textContent || '').toLowerCase().trim();
-              
-              // Debug: Log each option we're checking
-              console.log('[Offlyn] Checking option:', optionText.substring(0, 50), 'against:', valueToMatch);
-              
-              // Skip empty or very short options
-              if (optionText.length < 2) continue;
-              
-              // Skip container elements that show "options: ..." labels
-              if (optionText.startsWith('options:') || optionText.startsWith('option:')) {
-                continue;
-              }
-              
-              // Skip if option text is way too long (likely a container with multiple options)
-              if (optionText.length > 100) {
-                continue;
-              }
-              
-              // For short values like "yes" or "no", require exact match or very close match
-              if (valueToMatch.length <= 4) {
-                // Exact match only for short values
-                if (optionText === valueToMatch || optionText.startsWith(valueToMatch + ' ') || optionText.endsWith(' ' + valueToMatch)) {
-                  console.log('[Offlyn] Clicking exact-match option:', optionText.substring(0, 50));
-                  (option as HTMLElement).click();
-                  optionClicked = true;
-                  await new Promise(resolve => setTimeout(resolve, 100));
-                  break;
-                }
-              } else {
-                // For longer values, allow partial matching
-                if (optionText.includes(valueToMatch) || valueToMatch.includes(optionText)) {
-                  console.log('[Offlyn] Clicking partial-match option:', optionText.substring(0, 50));
-                  (option as HTMLElement).click();
-                  optionClicked = true;
-                  await new Promise(resolve => setTimeout(resolve, 100));
-                  break;
+          // Type the first few characters to trigger the dropdown's search/filter
+          const prefix = valueStr.substring(0, Math.min(4, valueStr.length));
+          console.log('[Offlyn] Step 2: Typing prefix:', JSON.stringify(prefix));
+          
+          // Clear any existing value first
+          element.value = '';
+          element.dispatchEvent(new Event('input', { bubbles: true }));
+          
+          // Simulate real character-by-character typing (React-Select needs InputEvent with insertText)
+          for (let i = 0; i < prefix.length; i++) {
+            const char = prefix[i];
+            
+            // Dispatch keydown
+            element.dispatchEvent(new KeyboardEvent('keydown', { 
+              key: char, bubbles: true, cancelable: true 
+            }));
+            
+            // Update the value incrementally
+            element.value = prefix.substring(0, i + 1);
+            
+            // Dispatch InputEvent with insertText type (this is what React-Select listens for)
+            element.dispatchEvent(new InputEvent('input', { 
+              bubbles: true, 
+              cancelable: false,
+              inputType: 'insertText', 
+              data: char 
+            }));
+            
+            // Dispatch keyup
+            element.dispatchEvent(new KeyboardEvent('keyup', { 
+              key: char, bubbles: true, cancelable: true 
+            }));
+            
+            // Small delay between characters to let React process
+            await new Promise(resolve => setTimeout(resolve, 60));
+          }
+          
+          // Poll for options to appear (search-as-you-type dropdowns need time to fetch/render)
+          let pollAttempts = 0;
+          const maxPolls = 10; // 10 x 300ms = 3 seconds max wait
+          while (pollAttempts < maxPolls && !optionClicked) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+            pollAttempts++;
+            
+            // Re-check for listbox and options
+            listbox = findAssociatedListbox(element);
+            realOptions = getRealOptions(listbox);
+            
+            // Also check for portaled dropdown menus (React-Select renders outside the input's DOM tree)
+            if (realOptions.length === 0) {
+              // Look specifically for React-Select menus (class contains "select__menu" or "menu-list")
+              // Exclude phone country code pickers (class contains "iti__" or "country-list")
+              const portalMenus = document.querySelectorAll(
+                '[class*="select__menu"], [class*="menu-list"], [class*="listbox"]:not([class*="iti__"]), [id*="listbox"], [role="listbox"]:not([class*="iti__"])'
+              );
+              for (const menu of portalMenus) {
+                const menuRect = menu.getBoundingClientRect();
+                const menuClass = menu.className || '';
+                // Skip phone country code dropdowns
+                if (menuClass.includes('iti__') || menuClass.includes('country-list')) continue;
+                if (menuRect.height > 0 && menuRect.width > 0) {
+                  const menuOptions = Array.from(
+                    menu.querySelectorAll('[role="option"]:not([class*="iti__"]), [class*="option"]:not([class*="iti__"])')
+                  ).filter(opt => {
+                    const text = (opt.textContent || '').trim();
+                    const optClass = opt.className || '';
+                    // Exclude phone country items
+                    if (optClass.includes('iti__country')) return false;
+                    return text.length > 0 && text.length < 100;
+                  });
+                  if (menuOptions.length > 0) {
+                    realOptions = menuOptions;
+                    break;
+                  }
                 }
               }
             }
             
-            if (!optionClicked) {
-              console.warn('[Offlyn] No matching option found, trying keyboard navigation...');
-              // Use keyboard to select - Type each character to trigger filtering
-              element.value = ''; // Clear first
-              element.dispatchEvent(new Event('input', { bubbles: true }));
-              await new Promise(resolve => setTimeout(resolve, 100));
-              
-              // Type the value character by character
-              for (const char of String(finalValue)) {
-                element.value += char;
-                element.dispatchEvent(new Event('input', { bubbles: true }));
-                await new Promise(resolve => setTimeout(resolve, 30));
+            if (realOptions.length > 0) {
+              console.log('[Offlyn] Step 2: Found', realOptions.length, 'options after', pollAttempts * 300, 'ms');
+              optionClicked = await tryMatchOption(realOptions, valueToMatch);
+              if (optionClicked) {
+                console.log('[Offlyn] Step 2: Successfully selected from dropdown');
               }
-              
-              // Wait for dropdown to filter
-              await new Promise(resolve => setTimeout(resolve, 200));
-              
-              // Press Enter to select first filtered option
-              element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
-              element.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
-              element.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
-              await new Promise(resolve => setTimeout(resolve, 150));
-              console.log('[Offlyn] Sent keyboard Enter to accept filtered value');
+              break;
             }
           }
-        } else {
-          // No dropdown appeared OR too many options (wrong dropdown) - try Enter key to accept value
-          if (visibleOptions.length >= 50) {
-            console.warn('[Offlyn] Too many options detected (', visibleOptions.length, ') - likely wrong dropdown, using Enter key instead');
+          
+          if (!optionClicked && realOptions.length === 0) {
+            console.log('[Offlyn] Step 2: No options appeared after', maxPolls * 300, 'ms of polling');
           }
-          console.log('[Offlyn] Using Enter key fallback for:', finalValue);
-          element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
-          element.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
-          element.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
-          await new Promise(resolve => setTimeout(resolve, 150));
+        }
+        
+        // STEP 2b: Retry with gender synonyms if Step 2 didn't find a match
+        // e.g., if we typed "Male" but dropdown has "Man", clear and try "Man" instead
+        if (!optionClicked && getGenderSynonyms(valueToMatch).length > 0) {
+          const synonyms = getGenderSynonyms(valueToMatch).filter(s => s !== valueToMatch);
+          for (const synonym of synonyms) {
+            if (optionClicked) break;
+            console.log('[Offlyn] Step 2b: Retrying with gender synonym:', JSON.stringify(synonym));
+            
+            // Clear the input first
+            element.value = '';
+            element.dispatchEvent(new Event('input', { bubbles: true }));
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Type the synonym prefix character-by-character
+            const synPrefix = synonym.substring(0, Math.min(4, synonym.length));
+            for (let i = 0; i < synPrefix.length; i++) {
+              const char = synPrefix[i];
+              element.dispatchEvent(new KeyboardEvent('keydown', { key: char, bubbles: true, cancelable: true }));
+              element.value = synPrefix.substring(0, i + 1);
+              element.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: false, inputType: 'insertText', data: char }));
+              element.dispatchEvent(new KeyboardEvent('keyup', { key: char, bubbles: true, cancelable: true }));
+              await new Promise(resolve => setTimeout(resolve, 60));
+            }
+            
+            // Poll for options
+            let synPollAttempts = 0;
+            while (synPollAttempts < 8 && !optionClicked) {
+              await new Promise(resolve => setTimeout(resolve, 300));
+              synPollAttempts++;
+              
+              listbox = findAssociatedListbox(element);
+              realOptions = getRealOptions(listbox);
+              
+              if (realOptions.length === 0) {
+                const portalMenus = document.querySelectorAll(
+                  '[class*="select__menu"], [class*="menu-list"], [class*="listbox"]:not([class*="iti__"]), [id*="listbox"], [role="listbox"]:not([class*="iti__"])'
+                );
+                for (const menu of portalMenus) {
+                  const menuRect = menu.getBoundingClientRect();
+                  const menuClass = menu.className || '';
+                  if (menuClass.includes('iti__') || menuClass.includes('country-list')) continue;
+                  if (menuRect.height > 0 && menuRect.width > 0) {
+                    const menuOptions = Array.from(
+                      menu.querySelectorAll('[role="option"]:not([class*="iti__"]), [class*="option"]:not([class*="iti__"])')
+                    ).filter(opt => {
+                      const text = (opt.textContent || '').trim();
+                      const optClass = opt.className || '';
+                      if (optClass.includes('iti__country')) return false;
+                      return text.length > 0 && text.length < 100;
+                    });
+                    if (menuOptions.length > 0) {
+                      realOptions = menuOptions;
+                      break;
+                    }
+                  }
+                }
+              }
+              
+              if (realOptions.length > 0) {
+                console.log('[Offlyn] Step 2b: Found', realOptions.length, 'options for synonym', JSON.stringify(synonym));
+                // Match against the synonym value, not the original
+                optionClicked = await tryMatchOption(realOptions, synonym);
+                if (optionClicked) {
+                  console.log('[Offlyn] Step 2b: Successfully selected synonym option');
+                }
+                break;
+              }
+            }
+          }
+        }
+        
+        // STEP 3: If still no match, try scrolling listbox to load virtualized options
+        if (!optionClicked && listbox) {
+          console.log('[Offlyn] Step 3: Scrolling listbox to load virtualized options...');
+          
+          for (let scrollAttempt = 0; scrollAttempt < 3; scrollAttempt++) {
+            listbox.scrollTop = listbox.scrollTop + 200; // Scroll down
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            realOptions = getRealOptions(listbox);
+            if (realOptions.length > 0) {
+              optionClicked = await tryMatchOption(realOptions, valueToMatch);
+              if (optionClicked) break;
+            }
+          }
+          
+          console.log('[Offlyn] After scrolling:', realOptions.length, 'options');
+        }
+        
+        // STEP 4: Fallback to tokenized partial matching
+        if (!optionClicked && realOptions.length > 0) {
+          console.log('[Offlyn] Step 4: Trying tokenized partial matching...');
+          
+          // Tokenize the desired value (e.g., "United States" → ["united", "states"])
+          // For very short values like "+1", split by any non-alphanumeric character
+          let tokens: string[];
+          if (valueToMatch.length <= 3) {
+            // Don't tokenize very short values - they need exact or prefix match
+            tokens = [valueToMatch];
+          } else {
+            // Split by whitespace for normal values
+            tokens = valueToMatch.split(/\s+/).filter(t => t.length > 2);
+          }
+          
+          // Skip tokenized matching if no valid tokens (empty array would match everything)
+          if (tokens.length === 0) {
+            console.log('[Offlyn] No valid tokens for matching, skipping tokenized step');
+          } else {
+            for (const option of realOptions) {
+              const optionText = (option.textContent || '').toLowerCase().trim();
+              
+              // Check if option contains all tokens
+              const matchesAllTokens = tokens.every(token => optionText.includes(token));
+              if (matchesAllTokens) {
+                console.log('[Offlyn] ✓ Tokenized match:', optionText);
+                (option as HTMLElement).click();
+                optionClicked = true;
+                break;
+              }
+            }
+          }
+        }
+        
+        // STEP 5: Keyboard fallback (last resort) — type full value char-by-char, then ArrowDown+Enter
+        if (!optionClicked) {
+          console.log('[Offlyn] Step 5: Keyboard fallback (type full value + ArrowDown + Enter)...');
+          
+          // Clear any existing value
+          element.value = '';
+          element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'deleteContent' }));
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // Type full value character by character (triggers React-Select search)
+          for (let i = 0; i < valueStr.length; i++) {
+            const char = valueStr[i];
+            element.dispatchEvent(new KeyboardEvent('keydown', { key: char, bubbles: true }));
+            element.value = valueStr.substring(0, i + 1);
+            element.dispatchEvent(new InputEvent('input', { 
+              bubbles: true, inputType: 'insertText', data: char 
+            }));
+            element.dispatchEvent(new KeyboardEvent('keyup', { key: char, bubbles: true }));
+            // Faster typing for full value
+            if (i < 3) await new Promise(resolve => setTimeout(resolve, 50));
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Check if options appeared after typing full value
+          listbox = findAssociatedListbox(element);
+          realOptions = getRealOptions(listbox);
+          
+          // Also check portaled menus (exclude phone country code pickers)
+          if (realOptions.length === 0) {
+            const portalMenus = document.querySelectorAll(
+              '[class*="select__menu"], [class*="menu-list"], [class*="listbox"]:not([class*="iti__"]), [id*="listbox"], [role="listbox"]:not([class*="iti__"])'
+            );
+            for (const menu of portalMenus) {
+              const menuRect = menu.getBoundingClientRect();
+              const menuClass = menu.className || '';
+              if (menuClass.includes('iti__') || menuClass.includes('country-list')) continue;
+              if (menuRect.height > 0 && menuRect.width > 0) {
+                const menuOptions = Array.from(
+                  menu.querySelectorAll('[role="option"]:not([class*="iti__"]), [class*="option"]:not([class*="iti__"])')
+                ).filter(opt => {
+                  const text = (opt.textContent || '').trim();
+                  const optClass = opt.className || '';
+                  if (optClass.includes('iti__country')) return false;
+                  return text.length > 0 && text.length < 100;
+                });
+                if (menuOptions.length > 0) {
+                  realOptions = menuOptions;
+                  break;
+                }
+              }
+            }
+          }
+          
+          if (realOptions.length > 0) {
+            console.log('[Offlyn] Step 5: Found', realOptions.length, 'options after full value, trying to select...');
+            optionClicked = await tryMatchOption(realOptions, valueToMatch);
+          }
+          
+          // If still no match from clicking, use ArrowDown + Enter to select first option
+          if (!optionClicked) {
+            element.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', code: 'ArrowDown', keyCode: 40, bubbles: true }));
+            await new Promise(resolve => setTimeout(resolve, 150));
+            element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            // Check if value was accepted
+            const currentVal = element.value.trim();
+            if (!currentVal || currentVal === valueStr) {
+              // Try Tab to confirm
+              element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', code: 'Tab', keyCode: 9, bubbles: true }));
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
+          }
+          
+          console.log('[Offlyn] Keyboard fallback completed, current value:', element.value || '<empty>');
         }
         
         element.blur();
-        console.log('[Offlyn] ✓ Value set for autocomplete field');
+        console.log('[Offlyn] ✓ Autocomplete field done:', fieldSchema?.label);
+        
+        // Check for validation errors after blur
+        await checkForValidationError(mapping.selector, fieldSchema?.label || '');
       }
-      // Fill based on element type
+      // Fill based on element type — using superfill.ai-inspired smart fill strategy:
+      // 1. Human-like typing for short values (best React compatibility)
+      // 2. Native setter fallback for longer values or if typing fails
+      // 3. Dedicated handlers for checkboxes, selects, and React Select components
       else if (element instanceof HTMLInputElement) {
         if (element.type === 'checkbox' || element.type === 'radio') {
           const boolValue = typeof finalValue === 'boolean' 
             ? finalValue 
             : String(finalValue).toLowerCase() === 'true' || finalValue === 'checked';
-          element.checked = boolValue;
-        } else {
-          element.value = String(finalValue);
-        }
-      } else if (element instanceof HTMLSelectElement) {
-        // Try to match by value first
-        const optionByValue = Array.from(element.options).find(
-          opt => opt.value === String(finalValue)
-        );
-        if (optionByValue) {
-          element.value = optionByValue.value;
-        } else {
-          // Try to match by label text
-          const optionByText = Array.from(element.options).find(
-            opt => opt.textContent?.trim() === String(finalValue)
-          );
-          if (optionByText) {
-            element.value = optionByText.value;
-          } else {
-            result.failedSelectors.push(mapping.selector);
-            warn(`Could not match value "${finalValue}" for select ${mapping.selector}`);
-            continue;
+          
+          // Use React-compatible checkbox setter
+          setReactCheckboxValue(element, boolValue);
+          
+          // If this is an exclusive checkbox, uncheck others in the same group
+          if (boolValue && element.type === 'checkbox') {
+            handleExclusiveCheckbox(element);
           }
+          
+          // Check for validation errors
+          await checkForValidationError(mapping.selector, fieldSchema?.label || '');
+        } else if (element.getAttribute('role') === 'combobox') {
+          // React Select / combobox - use dedicated handler
+          const success = await fillReactSelectField(element, String(finalValue));
+          if (!success) {
+            // Fallback to native setter
+            setNativeInputValue(element, String(finalValue));
+          }
+          
+          // Check for validation errors
+          await checkForValidationError(mapping.selector, fieldSchema?.label || '');
+        } else {
+          // Regular text input - use smart fill (human-like typing → native setter fallback)
+          const success = await smartFillField(element, String(finalValue));
+          if (!success) {
+            warn(`Smart fill failed for ${mapping.selector}, value may not have stuck`);
+          }
+          
+          // Check for validation errors
+          await checkForValidationError(mapping.selector, fieldSchema?.label || '');
         }
       } else if (element instanceof HTMLTextAreaElement) {
-        element.value = String(finalValue);
+        // Textarea - use smart fill (human typing for short, native setter for long)
+        const success = await smartFillField(element, String(finalValue));
+        if (!success) {
+          warn(`Smart fill failed for textarea ${mapping.selector}`);
+        }
+        
+        // Check for validation errors
+        await checkForValidationError(mapping.selector, fieldSchema?.label || '');
+      } else if (element instanceof HTMLSelectElement) {
+        // Native select - use dedicated handler with value/text/partial matching
+        const matched = fillNativeSelect(element, String(finalValue));
+        if (!matched) {
+          result.failedSelectors.push(mapping.selector);
+          warn(`Could not match value "${finalValue}" for select ${mapping.selector}`);
+          continue;
+        }
       } else {
         result.failedSelectors.push(mapping.selector);
         warn(`Unsupported element type for ${mapping.selector}`);
@@ -1326,25 +2416,114 @@ function resolveElement(selector: string): Element | null {
   return el;
 }
 
-/** Selectors used to find dropdown options (ATS / custom combobox). */
+/** Selectors used to find dropdown options (ATS / custom combobox).
+ * IMPORTANT: Keep these precise — overly broad selectors like [class*="option"]
+ * match summary/label elements (e.g. "Options: Yes, No") that aren't clickable.
+ */
 const DROPDOWN_OPTION_SELECTORS = [
+  // ARIA roles (highest priority, most reliable)
   '[role="option"]',
   '[role="menuitem"]',
+  
+  // Data-attribute options
   'li[data-value]',
-  '[role="listbox"] [role="option"]',
-  '[role="listbox"] li',
+  'div[data-value]',
+  
+  // Listbox children
+  '[role="listbox"] > *',
+  
+  // Specific class names (exact, not wildcard)
   '.dropdown-option',
   '.dropdown-item',
   '.select-option',
-  '.menu-item',
-  '[class*="option"]',
-  '[class*="dropdown"][class*="item"]',
-  '[class*="select"][class*="item"]',
-  '[class*="menu"] li',
-  'ul li[role="option"]',
-  'ul[role="listbox"] li',
-  'div[role="option"]',
+  '.autocomplete-option',
+  '.combobox-option',
 ];
+
+/**
+ * Set an input's value in a way that React/Preact/Vue sees the change.
+ * React overrides the `value` property setter, so assigning `el.value = x`
+ * bypasses React's state. Using the native HTMLInputElement setter triggers
+ * the internal change tracking, and the subsequent `input` event notifies
+ * the React onChange handler.
+ */
+function setNativeInputValue(element: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+  const proto = element instanceof HTMLTextAreaElement
+    ? HTMLTextAreaElement.prototype
+    : HTMLInputElement.prototype;
+  const nativeSetter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+  
+  if (nativeSetter) {
+    nativeSetter.call(element, value);
+  } else {
+    element.value = value;
+  }
+  
+  // Dispatch the input event — React listens to this via its synthetic event system
+  element.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/**
+ * Simulate typing a string character-by-character into a React-controlled input.
+ * Dispatches proper keyboard events so React comboboxes filter their dropdown.
+ */
+async function simulateTyping(element: HTMLInputElement, value: string, charDelayMs: number = 40): Promise<void> {
+  // Clear existing value first
+  setNativeInputValue(element, '');
+  await new Promise(r => setTimeout(r, 50));
+  
+  for (const char of value) {
+    // Dispatch keydown
+    element.dispatchEvent(new KeyboardEvent('keydown', { key: char, code: `Key${char.toUpperCase()}`, bubbles: true }));
+    
+    // Append character and notify React
+    const current = element.value + char;
+    setNativeInputValue(element, current);
+    
+    // Dispatch keyup
+    element.dispatchEvent(new KeyboardEvent('keyup', { key: char, code: `Key${char.toUpperCase()}`, bubbles: true }));
+    
+    await new Promise(r => setTimeout(r, charDelayMs));
+  }
+}
+
+/**
+ * Find the associated listbox for an ARIA combobox input.
+ * Checks aria-controls, aria-owns, and then falls back to nearby listboxes.
+ */
+function findAssociatedListbox(input: HTMLInputElement): Element | null {
+  // 1. Try aria-controls / aria-owns (the standard way)
+  const controlsId = input.getAttribute('aria-controls') || input.getAttribute('aria-owns');
+  if (controlsId) {
+    const listbox = document.getElementById(controlsId);
+    if (listbox) return listbox;
+  }
+  
+  // 2. Look for a sibling/nearby listbox in the same container
+  const container = input.closest('[role="combobox"], [class*="field"], [class*="form-group"], fieldset') || input.parentElement;
+  if (container) {
+    const listbox = container.querySelector('[role="listbox"]');
+    if (listbox) return listbox;
+  }
+  
+  // 3. Look for any visible listbox near this input (portal rendered at body level)
+  const allListboxes = document.querySelectorAll('[role="listbox"]');
+  const inputRect = input.getBoundingClientRect();
+  
+  for (const lb of allListboxes) {
+    const lbRect = lb.getBoundingClientRect();
+    // Skip phone country code listboxes
+    const lbClass = lb.className || '';
+    if (lbClass.includes('iti__') || lbClass.includes('country-list')) continue;
+    // Must be visible and reasonably close vertically
+    if (lbRect.height > 0 && lbRect.width > 0 &&
+        Math.abs(lbRect.top - inputRect.bottom) < 400) {
+      return lb;
+    }
+  }
+  
+  return null;
+}
 
 /**
  * Find visible dropdown options in the document and click the one matching value.
@@ -1564,23 +2743,57 @@ async function fillFieldWithValue(selector: string, value: string, fieldLabel: s
     }
     // Handle regular autocomplete/dropdown fields (Lever, Greenhouse, Discord, etc.)
     else if (fieldType === 'autocomplete' && element instanceof HTMLInputElement) {
-      console.log('[Offlyn Smart] Setting dropdown value (simple approach):', fieldLabel, 'with:', value);
-      // Use simple approach: focus → value → events → blur
+      console.log('[Offlyn Smart] Setting dropdown value (React-compat):', fieldLabel, 'with:', value);
+      
+      // Focus + click to open dropdown (React needs both)
       element.focus();
-      await new Promise(resolve => setTimeout(resolve, 100));
-      element.value = value;
-      element.dispatchEvent(new Event('input', { bubbles: true }));
-      element.dispatchEvent(new Event('change', { bubbles: true }));
-      element.dispatchEvent(new Event('blur', { bubbles: true }));
-      await new Promise(resolve => setTimeout(resolve, 100));
+      element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      element.click();
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Type value using React-compatible setter
+      await simulateTyping(element, value, 30);
+      await new Promise(resolve => setTimeout(resolve, 400));
+      
+      // Try to find and click the matching option in the listbox
+      const listbox = findAssociatedListbox(element);
+      let clicked = false;
+      
+      if (listbox) {
+        const options = Array.from(listbox.querySelectorAll('[role="option"], li, div[data-value]'));
+        const valLower = value.toLowerCase().trim();
+        
+        for (const opt of options) {
+          const optText = (opt.textContent || '').trim();
+          if (optText.length < 1 || optText.length > 100) continue;
+          if (/^options?\s*:/i.test(optText)) continue;
+          
+          const optLower = optText.toLowerCase();
+          if (optLower === valLower || optLower.includes(valLower) || valLower.includes(optLower)) {
+            console.log('[Offlyn Smart] ✓ Clicking option:', optText);
+            (opt as HTMLElement).click();
+            clicked = true;
+            await new Promise(resolve => setTimeout(resolve, 100));
+            break;
+          }
+        }
+      }
+      
+      if (!clicked) {
+        // Keyboard fallback: ArrowDown + Enter
+        element.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', code: 'ArrowDown', keyCode: 40, bubbles: true }));
+        await new Promise(resolve => setTimeout(resolve, 80));
+        element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
       element.blur();
       filledSelectors.add(selector);
       info(`✓ AI-filled "${value}" for dropdown: ${fieldLabel}`);
     }
     // Standard field types
     else if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
-      element.value = value;
-      element.dispatchEvent(new Event('input', { bubbles: true }));
+      setNativeInputValue(element, value);
       element.dispatchEvent(new Event('change', { bubbles: true }));
       filledSelectors.add(selector);
       info(`✓ AI-filled field "${fieldLabel}" with: ${value}`);
@@ -1608,6 +2821,112 @@ async function fillFieldWithValue(selector: string, value: string, fieldLabel: s
 }
 
 /**
+ * Handle right-click text transform actions (Professional Fix / Expand / Shorten).
+ * Gets the selected text from the active editable element, sends it to Ollama,
+ * and replaces the selection (or the full value) with the transformed text.
+ */
+async function handleTextTransform(action: string): Promise<void> {
+  const activeEl = document.activeElement;
+  if (!activeEl) return;
+
+  const isInput = activeEl instanceof HTMLInputElement || activeEl instanceof HTMLTextAreaElement;
+  if (!isInput) {
+    warn('[TextTransform] Active element is not an editable field');
+    return;
+  }
+
+  const inputEl = activeEl as HTMLInputElement | HTMLTextAreaElement;
+
+  // Get selected text, or fall back to the full value
+  const selStart = inputEl.selectionStart ?? 0;
+  const selEnd = inputEl.selectionEnd ?? 0;
+  const fullValue = inputEl.value || '';
+
+  const hasSelection = selEnd > selStart;
+  const selectedText = hasSelection ? fullValue.substring(selStart, selEnd) : fullValue;
+
+  if (!selectedText.trim()) {
+    warn('[TextTransform] No text selected / field is empty');
+    return;
+  }
+
+  info(`[TextTransform] Action: "${action}" on ${selectedText.length} chars`);
+
+  // Show an inline loading indicator on the field
+  const originalBorder = inputEl.style.border;
+  const originalBoxShadow = inputEl.style.boxShadow;
+  inputEl.style.transition = 'box-shadow 0.2s ease';
+  inputEl.style.boxShadow = '0 0 0 2px rgba(102, 126, 234, 0.4)';
+
+  // Show a small toast
+  showNotification('Offlyn AI', `Applying "${action}"...`, 'info', 3000);
+
+  try {
+    const { transformText } = await import('./shared/text-transform-service');
+    const result = await transformText(selectedText, action as any);
+
+    if (!result) {
+      showWarning('Transform Failed', 'AI could not transform the text. Is Ollama running?');
+      return;
+    }
+
+    // Replace the text
+    autofillInProgress = true; // Prevent learning system from treating this as a user edit
+
+    if (hasSelection) {
+      // Replace only the selected portion
+      const before = fullValue.substring(0, selStart);
+      const after = fullValue.substring(selEnd);
+      const newValue = before + result + after;
+
+      // Use native setter for React compatibility
+      const nativeSet = Object.getOwnPropertyDescriptor(
+        inputEl instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
+        'value'
+      )?.set;
+
+      if (nativeSet) {
+        nativeSet.call(inputEl, newValue);
+      } else {
+        inputEl.value = newValue;
+      }
+
+      // Set cursor at the end of the replaced text
+      const newCursorPos = selStart + result.length;
+      inputEl.setSelectionRange(newCursorPos, newCursorPos);
+    } else {
+      // Replace the full value
+      const nativeSet = Object.getOwnPropertyDescriptor(
+        inputEl instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
+        'value'
+      )?.set;
+
+      if (nativeSet) {
+        nativeSet.call(inputEl, result);
+      } else {
+        inputEl.value = result;
+      }
+    }
+
+    // Fire events so React/frameworks pick up the change
+    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+    inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+
+    autofillInProgress = false;
+
+    info(`[TextTransform] Done. Replaced ${selectedText.length} chars → ${result.length} chars`);
+    showSuccess('Text Transformed', `"${action}" applied successfully.`);
+  } catch (err) {
+    error('[TextTransform] Error:', err);
+    showError('Transform Error', 'An error occurred while transforming the text.');
+  } finally {
+    // Restore field style
+    autofillInProgress = false;
+    inputEl.style.boxShadow = originalBoxShadow;
+  }
+}
+
+/**
  * Listen for messages from background script
  */
 browser.runtime.onMessage.addListener((message: unknown) => {
@@ -1616,6 +2935,13 @@ browser.runtime.onMessage.addListener((message: unknown) => {
       if (message.kind === 'FILL_PLAN') {
         executeFillPlan(message as FillPlan);
         return Promise.resolve(); // Async handler
+      }
+
+      // Handle right-click text transforms (Professional Fix / Expand / Shorten)
+      if ((message as any).kind === 'TEXT_TRANSFORM') {
+        const action = (message as any).action as string;
+        handleTextTransform(action);
+        return Promise.resolve();
       }
     }
   } catch (err) {
@@ -1691,11 +3017,12 @@ async function init(): Promise<void> {
       }
       
       if (text.includes('next') || text.includes('continue')) {
-        // Wait for navigation and re-detect
-        setTimeout(() => {
-          info('Detected "Next" button, re-scanning for new fields...');
+        // Multi-page flow: wait for actual state transition before rescanning
+        info('Detected "Next" button click, waiting for state transition...');
+        waitForStateTransition().then(() => {
+          info('State transition detected, re-scanning for new fields...');
           detectPage();
-        }, 1500);
+        });
       } else if (text.includes('apply') || text.includes('start application')) {
         // "Apply" button clicked - form might load
         info('Detected "Apply" button click, waiting for form to load...');

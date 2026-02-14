@@ -81,7 +81,7 @@ export function highlightField(selector: string, type: 'filling' | 'success' | '
  * Remove highlight from a field
  */
 export function removeHighlight(selector: string, delay: number = 2000): void {
-  setTimeout(() => {
+  const doRemove = () => {
     try {
       const highlighted = highlightedFields.get(selector);
       if (!highlighted) return;
@@ -102,7 +102,13 @@ export function removeHighlight(selector: string, delay: number = 2000): void {
     } catch (err) {
       console.error('[Highlighter] Error removing highlight:', err);
     }
-  }, delay);
+  };
+  
+  if (delay === 0) {
+    doRemove();
+  } else {
+    setTimeout(doRemove, delay);
+  }
 }
 
 /**

@@ -21,6 +21,7 @@ export interface FieldSchema {
   label: string | null;
   selector: string;
   valuePreview: string | null;
+  radioOptions?: Array<{ selector: string; label: string; value: string }>;
 }
 
 export type ApplyEventType = 'PAGE_DETECTED' | 'SUBMIT_ATTEMPT';

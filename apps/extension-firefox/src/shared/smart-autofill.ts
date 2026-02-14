@@ -28,6 +28,48 @@ export interface SmartFillSuggestion {
 }
 
 /**
+ * Get visible selected value for React-Select fields
+ * Same logic as content.ts to ensure consistency
+ */
+function getVisibleSelectedValue(element: HTMLElement): string {
+  const control = element.closest('[class*="control"]') || element.closest('[class*="Select"]') || element.parentElement;
+  
+  if (!control) {
+    return '';
+  }
+  
+  const singleValue = control.querySelector('[class*="singleValue"]') || 
+                      control.querySelector('.react-select__single-value') ||
+                      control.querySelector('[id$="-value"]');
+  
+  if (singleValue) {
+    const text = singleValue.textContent?.trim() || '';
+    if (text && text.toLowerCase() !== 'select...' && text.toLowerCase() !== 'select') {
+      return text;
+    }
+  }
+  
+  return '';
+}
+
+/**
+ * Normalize phone number for comparison (E.164-like format)
+ */
+function normalizePhoneNumber(phone: string): string {
+  const hasLeadingPlus = phone.trim().startsWith('+');
+  const digitsOnly = phone.replace(/\D/g, '');
+  return hasLeadingPlus ? `+${digitsOnly}` : digitsOnly;
+}
+
+/**
+ * Check if a value looks like a phone number
+ */
+function looksLikePhoneNumber(value: string): boolean {
+  const digitCount = (value.match(/\d/g) || []).length;
+  return digitCount >= 7 && (value.includes('+') || value.match(/^\d/));
+}
+
+/**
  * Analyze unfilled fields and gather context
  */
 export function analyzeUnfilledFields(
@@ -38,13 +80,81 @@ export function analyzeUnfilledFields(
 
   for (const field of allFields) {
     // Check if field is actually filled by checking DOM value
-    const element = document.querySelector(field.selector);
+    let element = document.querySelector(field.selector);
+    
+    // If selector not found but field is marked as filled, try alternative selectors
+    if (!element && filledSelectors.has(field.selector)) {
+      // Try by ID if available
+      if (field.id) {
+        element = document.getElementById(field.id);
+      }
+      // Try by name if available
+      if (!element && field.name) {
+        element = document.querySelector(`[name="${field.name}"]`);
+      }
+    }
+    
     let hasValue = false;
     
     if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
-      hasValue = element.value && element.value.trim() !== '';
+      // Check if it's a React-Select/autocomplete field
+      const isCombobox = element.getAttribute('role') === 'combobox' || 
+                         field.type === 'autocomplete' ||
+                         element.closest('[class*="Select"]');
+      
+      if (isCombobox) {
+        // For React-Select, check visible selected value
+        const visibleValue = getVisibleSelectedValue(element);
+        hasValue = visibleValue && visibleValue.trim() !== '';
+        if (hasValue) {
+          console.log(`[SmartAutofill] ${field.label} has visible selected value: "${visibleValue}"`);
+        }
+      } else if (element.type === 'tel' || field.label?.toLowerCase().includes('phone') || 
+                 element.name?.toLowerCase().includes('phone')) {
+        // For phone fields, check multiple sources for the actual value
+        let phoneValue = element.value;
+        
+        // Also check getAttribute('value') - sometimes React sets it here
+        if (!phoneValue || phoneValue.trim() === '') {
+          phoneValue = element.getAttribute('value') || '';
+        }
+        
+        // Check for hidden sibling input that might contain the phone
+        if (!phoneValue || phoneValue.trim() === '') {
+          const container = element.closest('div, fieldset, form');
+          if (container) {
+            const hiddenPhone = container.querySelector<HTMLInputElement>(
+              'input[type="hidden"][name*="phone"], input[type="hidden"][name*="tel"]'
+            );
+            if (hiddenPhone) {
+              phoneValue = hiddenPhone.value;
+            }
+          }
+        }
+        
+        // Normalize and check if valid
+        if (phoneValue && looksLikePhoneNumber(phoneValue)) {
+          const normalized = normalizePhoneNumber(phoneValue);
+          hasValue = normalized && normalized.length >= 7;
+          if (hasValue) {
+            console.log(`[SmartAutofill] ${field.label} has phone value: "${phoneValue}" (normalized: "${normalized}")`);
+          }
+        } else {
+          hasValue = false;
+        }
+      } else {
+        // For regular inputs, check element.value
+        hasValue = element.value && element.value.trim() !== '';
+        if (hasValue) {
+          console.log(`[SmartAutofill] ${field.label} has value: "${element.value}"`);
+        }
+      }
     } else if (element instanceof HTMLSelectElement) {
       hasValue = element.value && element.value !== '';
+      if (hasValue) {
+        const selectedText = element.options[element.selectedIndex]?.textContent?.trim() || element.value;
+        console.log(`[SmartAutofill] ${field.label} has selected value: "${selectedText}"`);
+      }
     }
     
     // Skip if already filled (check both filledSelectors and actual DOM value)
@@ -52,9 +162,15 @@ export function analyzeUnfilledFields(
       continue;
     }
     
-    // If it's in filledSelectors but has no value, it failed - remove from set
+    // If it's in filledSelectors but has no value, it may have failed
     if (filledSelectors.has(field.selector) && !hasValue) {
-      console.log('[SmartAutofill] Field marked as filled but has no value:', field.label);
+      // Only warn if we have a valid element (not a resolution issue)
+      if (!element) {
+        console.log('[SmartAutofill] ⚠️ Field marked as filled but element not found:', field.label);
+      } else {
+        console.log('[SmartAutofill] ⚠️ Field marked as filled but has no value:', field.label);
+        console.log('[SmartAutofill] Debug - element type:', element.tagName, 'role:', element.getAttribute('role'));
+      }
       filledSelectors.delete(field.selector);
     }
 
@@ -107,13 +223,30 @@ function gatherFieldContext(field: FieldSchema): FieldContext {
     }
   }
 
+  // Get current value - use visible value for React-Select fields
+  let currentValue = field.valuePreview || '';
+  if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+    const isCombobox = element.getAttribute('role') === 'combobox' || 
+                       field.type === 'autocomplete' ||
+                       element.closest('[class*="Select"]');
+    
+    if (isCombobox) {
+      currentValue = getVisibleSelectedValue(element);
+    } else {
+      currentValue = element.value || '';
+    }
+  } else if (element instanceof HTMLSelectElement) {
+    const selectedOption = element.options[element.selectedIndex];
+    currentValue = selectedOption?.textContent?.trim() || element.value;
+  }
+
   return {
     label: field.label || '',
     placeholder: element instanceof HTMLInputElement ? element.placeholder : '',
     nearbyText,
     fieldType: field.type || field.tagName,
     options,
-    currentValue: field.valuePreview || ''
+    currentValue
   };
 }
 
