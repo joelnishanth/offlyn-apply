@@ -253,8 +253,22 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
     // Handle GET_STATE from popup
     if (message.kind === 'GET_STATE') {
       const settings = await getSettings();
-      const tabId = sender.tab?.id;
       let lastJob = null;
+      
+      // The popup doesn't have a sender.tab, so look up the currently active tab
+      let tabId = sender.tab?.id;
+      
+      if (!tabId) {
+        // Query for the active tab in the current window
+        try {
+          const activeTabs = await browser.tabs.query({ active: true, currentWindow: true });
+          if (activeTabs[0]?.id) {
+            tabId = activeTabs[0].id;
+          }
+        } catch {
+          // Ignore query errors
+        }
+      }
       
       if (tabId) {
         const jobInfo = tabJobInfo.get(tabId);
@@ -270,6 +284,11 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
             // Ignore
           }
         }
+      }
+      
+      // Re-check Ollama connection so the popup gets a fresh status
+      if (!connectionState.connected) {
+        await checkOllamaConnection();
       }
       
       return {

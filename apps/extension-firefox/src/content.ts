@@ -35,11 +35,16 @@ import {
   getPrimarySuggestions,
   type FieldSuggestion
 } from './shared/suggestion-service';
-import { 
-  showSuggestionPanel, 
-  hideSuggestionPanel,
-  isSuggestionPanelVisible
-} from './ui/suggestion-panel';
+import { scrapeJobDescription } from './shared/job-description-scraper';
+import { generateCoverLetter, refineCoverLetter } from './shared/cover-letter-service';
+import {
+  openCoverLetterPanel,
+  updateCoverLetterPreview,
+  showCoverLetterResult,
+  showCoverLetterError,
+  hideCoverLetterPanel,
+  isCoverLetterPanelVisible,
+} from './ui/cover-letter-panel';
 import { getContextualStorage, migrateProfileToContextual } from './shared/context-aware-storage';
 import {
   highlightFieldAsFilling,
@@ -338,8 +343,8 @@ async function tryAutoFill(schema: ReturnType<typeof extractFormSchema>): Promis
     
     const mappings = generateFillMappings(schema, profile);
     if (mappings.length === 0) {
-      info('ℹ️ No fields matched profile data. Try Smart Suggestions instead.');
-      showNotification('No matches found', 'No fields could be auto-filled. Try Smart Suggestions for better results.', 'info');
+      info('ℹ️ No fields matched profile data.');
+      showNotification('No matches found', 'No fields could be auto-filled from your profile.', 'info');
       return;
     }
     
@@ -761,32 +766,179 @@ window.addEventListener('offlyn-browser-use-fill', () => {
 });
 
 /**
- * Listen for smart suggestions trigger
+ * Listen for cover letter generation trigger
  */
-window.addEventListener('offlyn-show-suggestions', () => {
-  if (allDetectedFields.length > 0) {
-    info('Manual trigger: showing smart suggestions');
-    trySmartSuggestions();
-  } else {
-    // If no fields in current frame, check if we're in the top frame
-    if (window.self === window.top) {
-      // We're in the parent page with no fields - try triggering in iframes
-      warn('[Suggestions] No fields in parent page, checking iframes...');
-      const iframes = Array.from(document.querySelectorAll('iframe'));
-      
-      for (const iframe of iframes) {
-        try {
-          iframe.contentWindow?.postMessage({ type: 'OFFLYN_TRIGGER_SUGGESTIONS' }, '*');
-          info(`[Suggestions] Sent suggestions trigger to iframe: ${iframe.src}`);
-        } catch (err) {
-          warn('[Suggestions] Cannot access iframe (cross-origin):', iframe.src);
-        }
-      }
-    } else {
-      warn('[Suggestions] No detected fields. Refresh the scan first.');
-    }
+window.addEventListener('offlyn-generate-cover-letter', () => {
+  triggerCoverLetterGeneration();
+});
+
+/**
+ * Listen for cover letter regeneration (from the panel's "Regenerate" button)
+ */
+window.addEventListener('offlyn-regenerate-cover-letter', () => {
+  triggerCoverLetterGeneration();
+});
+
+/**
+ * Listen for cover letter refinement (shorten / lengthen / more impactful)
+ */
+window.addEventListener('offlyn-refine-cover-letter', async (e: Event) => {
+  const detail = (e as CustomEvent).detail as { action: string; currentText: string } | undefined;
+  if (!detail) return;
+
+  const { action, currentText } = detail;
+  info(`Refining cover letter: ${action}…`);
+
+  try {
+    const refined = await refineCoverLetter(
+      currentText,
+      action as 'shorten' | 'lengthen' | 'impactful',
+      (partial) => updateCoverLetterPreview(partial),
+    );
+
+    showCoverLetterResult({
+      text: refined,
+      jobTitle: lastJobMeta?.jobTitle || '',
+      company: lastJobMeta?.company || '',
+      generatedAt: Date.now(),
+    });
+
+    showSuccess('Refined!', `Cover letter has been ${action === 'impactful' ? 'made more impactful' : action + 'ed'}.`);
+  } catch (err: any) {
+    error('Cover letter refinement failed:', err);
+    showCoverLetterError(err?.message || 'Refinement failed. Is Ollama running?');
   }
 });
+
+/**
+ * Generate a cover letter using the user's profile and the scraped job description
+ */
+async function triggerCoverLetterGeneration(): Promise<void> {
+  try {
+    // 1. Check Ollama
+    const ollamaOk = await checkOllamaConnection();
+    if (!ollamaOk) {
+      showError('Ollama Offline', 'Ollama is not running. Start it to generate a cover letter.');
+      return;
+    }
+
+    // 2. Get profile
+    const profile = await getUserProfile();
+    if (!profile) {
+      showError('No Profile', 'Set up your profile first so we can personalise the letter.');
+      return;
+    }
+
+    // 3. Scrape job description from current page
+    const jobDesc = scrapeJobDescription(lastJobMeta?.jobTitle, lastJobMeta?.company);
+    if (!jobDesc.description || jobDesc.description.length < 30) {
+      showWarning('Limited Job Info', 'Could not find a detailed job description on this page. The cover letter may be generic.');
+    }
+
+    info(`Generating cover letter for "${jobDesc.title}" at ${jobDesc.company}…`);
+
+    // 4. Detect a cover letter textarea / file input on the page for auto-apply
+    const coverLetterField = detectCoverLetterField();
+
+    // 5. Open the preview panel
+    openCoverLetterPanel(
+      jobDesc.title || 'Position',
+      jobDesc.company || 'Company',
+      coverLetterField ? (text: string) => applyCoverLetterToField(coverLetterField, text) : undefined,
+    );
+
+    // 6. Stream the cover letter
+    const result = await generateCoverLetter(profile, jobDesc, (partial) => {
+      updateCoverLetterPreview(partial);
+    });
+
+    showCoverLetterResult(result);
+    showSuccess('Cover Letter Ready', 'Your tailored cover letter has been generated.');
+  } catch (err: any) {
+    error('Cover letter generation failed:', err);
+    showCoverLetterError(err?.message || 'Generation failed. Is Ollama running?');
+  }
+}
+
+/**
+ * Detect a cover letter textarea or text input on the current page.
+ * Returns the CSS selector if found.
+ */
+function detectCoverLetterField(): string | null {
+  // Common patterns for cover letter fields
+  const keywords = ['cover.?letter', 'coverletter', 'cover_letter', 'additional.?info', 'message.?to.?hiring'];
+  const allTextareas = document.querySelectorAll('textarea');
+  for (const ta of allTextareas) {
+    const label = (ta.getAttribute('aria-label') || '').toLowerCase();
+    const name = (ta.name || '').toLowerCase();
+    const id = (ta.id || '').toLowerCase();
+    const placeholder = (ta.placeholder || '').toLowerCase();
+
+    // Check the associated <label> element
+    let labelText = '';
+    if (ta.id) {
+      const labelEl = document.querySelector(`label[for="${CSS.escape(ta.id)}"]`);
+      if (labelEl) labelText = (labelEl.textContent || '').toLowerCase();
+    }
+
+    const haystack = `${label} ${name} ${id} ${placeholder} ${labelText}`;
+    if (keywords.some(kw => new RegExp(kw, 'i').test(haystack))) {
+      // Build a selector
+      if (ta.id) return `#${CSS.escape(ta.id)}`;
+      if (ta.name) return `textarea[name="${CSS.escape(ta.name)}"]`;
+      return null;
+    }
+  }
+
+  // Also check large text inputs
+  const inputs = document.querySelectorAll('input[type="text"], input:not([type])');
+  for (const inp of inputs) {
+    const el = inp as HTMLInputElement;
+    const haystack = `${el.name} ${el.id} ${el.placeholder} ${el.getAttribute('aria-label') || ''}`.toLowerCase();
+    if (keywords.some(kw => new RegExp(kw, 'i').test(haystack))) {
+      if (el.id) return `#${CSS.escape(el.id)}`;
+      if (el.name) return `input[name="${CSS.escape(el.name)}"]`;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Apply the generated cover letter text into a form field.
+ */
+function applyCoverLetterToField(selector: string, text: string): void {
+  const el = document.querySelector(selector) as HTMLInputElement | HTMLTextAreaElement | null;
+  if (!el) {
+    showWarning('Field Not Found', 'The cover letter field could not be located.');
+    return;
+  }
+
+  // Use native value setter for React compatibility
+  const nativeSetter = Object.getOwnPropertyDescriptor(
+    el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
+    'value',
+  )?.set;
+
+  if (nativeSetter) nativeSetter.call(el, text);
+  else el.value = text;
+
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+
+  // Visual feedback
+  el.style.transition = 'outline .2s, box-shadow .2s';
+  el.style.outline = '3px solid #10b981';
+  el.style.boxShadow = '0 0 0 6px rgba(16,185,129,.25)';
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  setTimeout(() => {
+    el.style.outline = '';
+    el.style.boxShadow = '';
+    el.style.transition = '';
+  }, 2000);
+
+  showSuccess('Applied!', 'Cover letter has been pasted into the form field.');
+}
 
 /**
  * Listen for manual autofill trigger
@@ -956,7 +1108,8 @@ async function waitForStateTransition(): Promise<void> {
 }
 
 /**
- * Handle submit/apply button clicks
+ * Handle submit/apply button clicks.
+ * On submit, we also snapshot all current field values for the learning system.
  */
 function handleSubmitAttempt(e: Event): void {
   try {
@@ -986,8 +1139,59 @@ function handleSubmitAttempt(e: Event): void {
     
     info('Submit attempt detected');
     sendToBackground(event);
+
+    // ── Learn from submission ──────────────────────────────────────────
+    // Snapshot all current field values and save them for future autofill.
+    // Use the detected fields (which include all fields we know about).
+    const fieldsToLearn = allDetectedFields.length > 0 ? allDetectedFields : allFields;
+    learnFromCurrentFormValues(fieldsToLearn, jobMeta);
   } catch (err) {
     error('Error handling submit attempt:', err);
+  }
+}
+
+/**
+ * Snapshot all current field values and pass them to the learning system.
+ * Called on form submit / "Apply" / "Next" clicks.
+ */
+async function learnFromCurrentFormValues(
+  fields: FieldSchema[],
+  jobMeta: JobMeta | null
+): Promise<void> {
+  try {
+    const fieldValues = new Map<string, string>();
+
+    for (const field of fields) {
+      const el = document.querySelector(field.selector);
+      if (!el) continue;
+
+      const value = getFieldValue(el);
+      if (value && value.trim()) {
+        fieldValues.set(field.selector, value.trim());
+      }
+    }
+
+    if (fieldValues.size === 0) {
+      info('[Learning] No field values to learn from submission');
+      return;
+    }
+
+    const count = await learningSystem.learnFromSubmission(
+      fields,
+      fieldValues,
+      {
+        url: window.location.href,
+        company: jobMeta?.company,
+        jobTitle: jobMeta?.jobTitle,
+      }
+    );
+
+    if (count > 0) {
+      info(`[Learning] ✓ Learned ${count} field values from form submission`);
+      showNotification('Learning', `Saved ${count} field values for future applications`, 'info', 2000);
+    }
+  } catch (err) {
+    error('[Learning] Error learning from submission:', err);
   }
 }
 

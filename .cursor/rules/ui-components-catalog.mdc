@@ -1,0 +1,43 @@
+---
+description: Keep the UI components catalog up to date whenever UI files are modified
+alwaysApply: true
+---
+
+# UI Components Catalog Rule
+
+The file `.cursor/UIcomponents.md` is the single source of truth for all UI components in the Offlyn extension. A full UI redesign is planned, so this catalog must stay accurate.
+
+## When to Update `.cursor/UIcomponents.md`
+
+You MUST update the catalog whenever you:
+
+1. **Create** a new UI component (file in `src/ui/`, new popup page, new onboarding step, etc.)
+2. **Delete or rename** an existing UI component
+3. **Add or remove exported functions** from a UI component
+4. **Change the DOM structure** — add/remove/rename CSS classes, IDs, or root elements
+5. **Change the injection method** — e.g., switching from `document.body` append to Shadow DOM
+6. **Add a new UI surface** — context menu, sidebar, devtools panel, etc.
+
+## What to Record
+
+For each component, the catalog entry must include:
+- **File path** (relative to `apps/extension-firefox/`)
+- **Purpose** (one sentence)
+- **Exported functions** (name + brief description)
+- **Injection method** (how it enters the DOM)
+- **Key DOM elements / CSS classes** (root IDs, class prefixes, data attributes)
+- **Dependencies** (imports from shared modules)
+
+## How to Update
+
+- Edit the existing entry in `.cursor/UIcomponents.md` in place — do not append duplicates.
+- If creating a new component, add it under the correct section (Content Script UI, Popup UI, Onboarding UI, or create a new section).
+- Update the "Last updated" date at the top of the file.
+
+## Rationale
+
+This catalog exists because a full UI redesign is planned. Accurate documentation ensures:
+- No component is forgotten during the redesign
+- The new UI can replicate all existing functionality
+- CSS class names and DOM structure are known for migration tooling
+- Shared style patterns (z-index, prefix conventions, color scheme) are documented

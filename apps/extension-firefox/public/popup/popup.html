@@ -5,335 +5,332 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Offlyn</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
     body {
-      width: 320px;
-      padding: 16px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      width: 300px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 14px;
-      color: #333;
+      color: #1a1a1a;
       background: #fff;
     }
-    
-    h1 {
-      font-size: 18px;
-      margin-bottom: 16px;
-      color: #1a1a1a;
-    }
-    
-    .section {
-      margin-bottom: 16px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid #e0e0e0;
-    }
-    
-    .section:last-child {
-      border-bottom: none;
-    }
-    
-    .toggle-group {
+
+    /* ── Header ─── */
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 14px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 12px;
     }
-    
-    .toggle-group:last-child {
-      margin-bottom: 0;
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    
-    label {
-      font-weight: 500;
-      cursor: pointer;
-      user-select: none;
+    .header-logo {
+      width: 24px; height: 24px;
+      background: rgba(255,255,255,.25);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 13px; color: #fff;
     }
-    
-    .toggle {
+    .header-title {
+      font-weight: 700; font-size: 15px; color: #fff; letter-spacing: .3px;
+    }
+    .header-toggle {
       position: relative;
-      width: 44px;
-      height: 24px;
-      background: #ccc;
-      border-radius: 12px;
+      width: 36px; height: 20px;
+      background: rgba(255,255,255,.3);
+      border-radius: 10px;
       cursor: pointer;
-      transition: background 0.2s;
+      transition: background .2s;
     }
-    
-    .toggle.active {
-      background: #4CAF50;
-    }
-    
-    .toggle::after {
+    .header-toggle.active { background: rgba(255,255,255,.7); }
+    .header-toggle::after {
       content: '';
       position: absolute;
-      width: 18px;
-      height: 18px;
+      width: 16px; height: 16px;
       border-radius: 50%;
-      background: white;
-      top: 3px;
-      left: 3px;
-      transition: transform 0.2s;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      background: #fff;
+      top: 2px; left: 2px;
+      transition: transform .2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,.2);
     }
-    
-    .toggle.active::after {
-      transform: translateX(20px);
-    }
-    
-    .status {
-      padding: 8px 12px;
-      border-radius: 4px;
-      font-size: 13px;
-      margin-bottom: 8px;
-    }
-    
-    .status.connected {
-      background: #e8f5e9;
-      color: #2e7d32;
-    }
-    
-    .status.disconnected {
-      background: #ffebee;
-      color: #c62828;
-    }
-    
-    .error-text {
-      font-size: 12px;
-      color: #c62828;
-      margin-top: 4px;
-      word-break: break-word;
-    }
-    
-    .job-info {
-      padding: 8px 12px;
-      background: #f5f5f5;
-      border-radius: 4px;
-      font-size: 13px;
-    }
-    
-    .job-info-title {
-      font-weight: 600;
-      margin-bottom: 4px;
-      color: #1a1a1a;
-    }
-    
-    .job-info-meta {
+    .header-toggle.active::after { transform: translateX(16px); }
+
+    /* ── Body ─── */
+    .body { padding: 12px 16px; }
+
+    /* Job info bar */
+    .job-bar {
+      padding: 8px 10px;
+      background: #f7f7fb;
+      border-radius: 8px;
+      margin-bottom: 12px;
       font-size: 12px;
       color: #666;
     }
-    
-    .job-info-empty {
-      color: #999;
-      font-style: italic;
+    .job-bar-title {
+      font-weight: 600;
+      color: #1a1a1a;
+      font-size: 13px;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    
-    .btn {
-      width: 100%;
-      padding: 10px 16px;
-      border: none;
-      border-radius: 4px;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    
-    .btn-setup {
-      background: #2196F3;
-      color: white;
-    }
-    
-    .btn-setup:hover {
-      background: #1976D2;
-    }
-    
-    .btn-setup:active {
-      background: #0D47A1;
-    }
-    
-    .summary-section {
+    .job-bar-empty { color: #aaa; font-style: italic; }
+
+    /* Button row */
+    .actions {
       display: flex;
       flex-direction: column;
       gap: 8px;
+      margin-bottom: 12px;
     }
-    
-    .summary-count {
-      font-size: 13px;
-      color: #666;
-      padding: 8px 12px;
-      background: #f5f5f5;
-      border-radius: 4px;
+    .actions-row {
+      display: flex;
+      gap: 8px;
     }
-    
-    .summary-count strong {
-      color: #1a1a1a;
-      font-weight: 600;
-    }
-    
+
     .btn {
-      padding: 10px 16px;
+      flex: 1;
+      padding: 10px 12px;
       border: none;
-      border-radius: 4px;
-      font-size: 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      text-align: center;
+      color: #fff;
+      font-family: inherit;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+
+    .btn-fill {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .btn-fill:hover { box-shadow: 0 4px 14px rgba(102, 126, 234, .35); }
+
+    .btn-suggest {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    .btn-suggest:hover { box-shadow: 0 4px 14px rgba(240, 147, 251, .35); }
+
+    .btn-profile {
+      background: #fff;
+      color: #667eea;
+      border: 1.5px solid #667eea;
+    }
+    .btn-profile:hover {
+      background: #f5f6ff;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, .15);
+    }
+
+    /* ── Stats row ─── */
+    .stats {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .stat-card {
+      flex: 1;
+      padding: 8px 10px;
+      background: #f7f7fb;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-num {
+      font-size: 20px;
+      font-weight: 700;
+      color: #667eea;
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 10px;
+      color: #999;
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    /* ── Connection ─── */
+    .conn {
+      font-size: 11px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .conn-ok { background: #e8f5e9; color: #2e7d32; }
+    .conn-err { background: #ffebee; color: #c62828; }
+
+    /* ── Advanced toggle ─── */
+    .advanced-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      background: none;
+      border: none;
+      color: #aaa;
+      font-size: 11px;
+      cursor: pointer;
+      padding: 6px 0;
+      width: 100%;
+      font-family: inherit;
+      transition: color .15s;
+    }
+    .advanced-toggle:hover { color: #667eea; }
+    .advanced-toggle .arrow {
+      display: inline-block;
+      transition: transform .2s;
+      font-size: 9px;
+    }
+    .advanced-toggle.open .arrow { transform: rotate(180deg); }
+
+    .advanced-panel {
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      padding-top: 6px;
+    }
+    .advanced-panel.open { display: flex; }
+
+    .btn-adv {
+      padding: 7px 10px;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      background: #fff;
+      color: #555;
+      font-size: 11px;
       font-weight: 500;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all .15s;
       text-align: center;
+      font-family: inherit;
     }
-    
-    .btn-primary {
-      background: #2196F3;
-      color: white;
-      transition: all 0.2s;
+    .btn-adv:hover {
+      background: #f9fafb;
+      border-color: #cbd5e1;
+      color: #333;
     }
-    
-    .btn-primary:hover {
-      background: #1976D2;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+
+    /* ── Footer ─── */
+    .footer {
+      border-top: 1px solid #f0f0f0;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
-    
-    .btn-primary:active {
-      background: #0D47A1;
-      transform: translateY(0);
-    }
-    
-    .btn-primary:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-      transform: none;
-    }
-    
-    .btn-gradient-purple {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-    }
-    
-    .btn-gradient-purple:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-    
-    .btn-gradient-pink {
-      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-      color: white;
-    }
-    
-    .btn-gradient-pink:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(240, 147, 251, 0.4);
-    }
-    
-    .summary-status {
-      font-size: 12px;
-      padding: 6px 10px;
+    .footer-link {
+      background: none;
+      border: none;
+      color: #aaa;
+      font-size: 11px;
+      cursor: pointer;
+      padding: 3px 4px;
       border-radius: 4px;
-      text-align: center;
+      transition: all .15s;
+      font-family: inherit;
     }
-    
-    .summary-status.success {
-      background: #e8f5e9;
-      color: #2e7d32;
+    .footer-link:hover { color: #667eea; background: #f5f6ff; }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #888;
+      padding: 2px 0;
     }
-    
-    .summary-status.error {
-      background: #ffebee;
-      color: #c62828;
+    .mini-toggle {
+      position: relative;
+      width: 32px; height: 18px;
+      background: #ddd;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: background .2s;
     }
-    
-    .btn-warning {
-      background: #ff9800;
-      color: white;
+    .mini-toggle.active { background: #4CAF50; }
+    .mini-toggle::after {
+      content: '';
+      position: absolute;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      top: 2px; left: 2px;
+      transition: transform .2s;
+      box-shadow: 0 1px 2px rgba(0,0,0,.15);
     }
-    
-    .btn-warning:hover {
-      background: #f57c00;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
-    }
-    
-    .btn-warning:active {
-      background: #e65100;
-      transform: translateY(0);
-    }
-    
-    .btn-small {
-      font-size: 13px;
-      padding: 8px 12px;
-    }
+    .mini-toggle.active::after { transform: translateX(14px); }
   </style>
 </head>
 <body>
-  <h1>Offlyn</h1>
-  
-  <div class="section" style="display: flex; flex-direction: column; gap: 8px;">
-    <button class="btn btn-setup" id="setup-profile-btn">
-      Setup Profile
-    </button>
-    <button class="btn btn-primary btn-small" id="edit-profile-btn">
-      ✏️ Edit Profile
-    </button>
-    <button class="btn btn-warning btn-small" id="clean-selfid-btn">
-      🧹 Clean Self-ID Data
-    </button>
-    <button class="btn btn-primary btn-small" id="debug-profile-btn">
-      🔍 Debug Profile Data
-    </button>
-    <button class="btn btn-primary btn-small" id="view-learned-btn">
-      🧠 View Learned Values
-    </button>
-  </div>
-  
-  <div class="section" style="display: flex; flex-direction: column; gap: 8px;">
-    <button class="btn btn-gradient-purple" id="manual-autofill-btn">
-      🚀 Auto-Fill Form
-    </button>
-    <button class="btn btn-gradient-pink" id="smart-suggestions-btn">
-      ✨ Smart Suggestions
-    </button>
-  </div>
-  
-  <div class="section">
-    <div class="toggle-group">
-      <label for="enabled-toggle">Enabled</label>
-      <div class="toggle" id="enabled-toggle"></div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-brand">
+      <span class="header-logo">O</span>
+      <span class="header-title">Offlyn</span>
     </div>
-    <div class="toggle-group">
-      <label for="dryrun-toggle">Dry Run</label>
-      <div class="toggle" id="dryrun-toggle"></div>
-    </div>
+    <div class="header-toggle active" id="enabled-toggle" title="Enable / Disable"></div>
   </div>
-  
-  <div class="section">
-    <div class="status" id="status">
-      Checking connection...
+
+  <div class="body">
+    <!-- Job info -->
+    <div class="job-bar" id="job-info">
+      <div class="job-bar-empty">No job detected yet</div>
     </div>
-    <div class="error-text" id="error-text" style="display: none;"></div>
-  </div>
-  
-  <div class="section">
-    <div class="job-info" id="job-info">
-      <div class="job-info-empty">No job detected yet</div>
-    </div>
-  </div>
-  
-  <div class="section">
-    <div class="summary-section">
-      <div class="summary-count" id="summary-count">
-        Loading today's applications...
+
+    <!-- Primary actions -->
+    <div class="actions">
+      <div class="actions-row">
+        <button class="btn btn-fill" id="manual-autofill-btn">Auto-Fill</button>
+        <button class="btn btn-suggest" id="cover-letter-btn">Cover Letter</button>
       </div>
-      <button class="btn btn-primary" id="copy-summary-btn">
-        📋 Copy Summary
-      </button>
-      <div class="summary-status" id="summary-status" style="display: none;"></div>
-      <textarea id="summary-text" style="width: 100%; height: 200px; margin-top: 8px; padding: 8px; font-family: monospace; font-size: 12px; display: none; border: 1px solid #ddd; border-radius: 4px;"></textarea>
+      <button class="btn btn-profile" id="profile-btn">Manage Profile</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-num" id="stat-submitted">0</div>
+        <div class="stat-label">submitted</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="stat-detected" style="color:#f5576c;">0</div>
+        <div class="stat-label">detected</div>
+      </div>
+    </div>
+
+    <!-- Connection status -->
+    <div class="conn conn-err" id="status">Checking...</div>
+
+    <!-- Advanced tools (collapsed) -->
+    <button class="advanced-toggle" id="advanced-toggle">
+      Advanced <span class="arrow">&#9660;</span>
+    </button>
+    <div class="advanced-panel" id="advanced-panel">
+      <div class="toggle-row">
+        <span>Dry Run</span>
+        <div class="mini-toggle" id="dryrun-toggle"></div>
+      </div>
+      <button class="btn-adv" id="view-learned-btn">View Learned Values</button>
+      <button class="btn-adv" id="clean-selfid-btn">Clean Self-ID Data</button>
+      <button class="btn-adv" id="debug-profile-btn">Debug Profile Data</button>
+      <button class="btn-adv" id="copy-summary-btn">Copy Daily Summary</button>
     </div>
   </div>
-  
+
+  <!-- Hidden elements for summary -->
+  <div class="summary-status" id="summary-status" style="display:none;"></div>
+  <textarea id="summary-text" style="display:none;"></textarea>
+  <div id="error-text" style="display:none;"></div>
+
   <script src="popup.js"></script>
 </body>
 </html>

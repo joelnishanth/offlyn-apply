@@ -53,8 +53,8 @@ export async function generateFieldSuggestions(
     field.type || ''
   );
   
-  // 0. Check learning system for past user corrections (highest priority)
-  //    If the user has previously corrected this field, prefer their choice.
+  // 0. Check learning system (highest priority)
+  //    Checks: submitted form values > learned patterns > semantic corrections
   try {
     const learned = await learningSystem.suggestValue(
       field,
