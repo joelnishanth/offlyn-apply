@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Offlyn Apply — Privacy-First Job Application Assistant</title>
+  <meta name="description" content="Firefox extension that auto-fills job applications, generates AI cover letters, and tracks your progress. 100% local. No cloud. No data collection." />
+  <link rel="icon" href="assets/icon.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#1a2536', light: '#243044', dark: '#111827' },
+            brand: { DEFAULT: '#22c55e', dark: '#16a34a', light: '#dcfce7' },
+          },
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+        }
+      }
+    }
+  </script>
+  <style>
+    html { scroll-behavior: smooth; }
+    .hero-gradient { background: linear-gradient(135deg, #111827 0%, #1a2536 50%, #14532d 100%); }
+    .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .card-hover:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,0,0,0.10); }
+    .popup-shadow { box-shadow: 0 24px 60px rgba(0,0,0,0.30), 0 8px 24px rgba(0,0,0,0.20); }
+    .step-connector::after {
+      content: '';
+      position: absolute;
+      top: 2rem;
+      left: calc(50% + 2.5rem);
+      width: calc(100% - 5rem);
+      height: 2px;
+      background: linear-gradient(to right, #22c55e, #86efac);
+    }
+  </style>
+</head>
+<body class="font-sans bg-white text-gray-900 antialiased">
+
+  <!-- ======== NAV ======== -->
+  <header class="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-gray-200">
+    <div class="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-2">
+        <img src="assets/logo.png" alt="Offlyn Apply" class="h-9" />
+      </a>
+      <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
+        <a href="#features" class="hover:text-gray-900 transition-colors">Features</a>
+        <a href="#screenshots" class="hover:text-gray-900 transition-colors">Screenshots</a>
+        <a href="#how-it-works" class="hover:text-gray-900 transition-colors">How It Works</a>
+        <a href="#privacy" class="hover:text-gray-900 transition-colors">Privacy</a>
+        <a href="#open-source" class="hover:text-gray-900 transition-colors">Open Source</a>
+      </nav>
+      <a href="https://github.com/joelnishanth/offlyn-apply" target="_blank" rel="noopener"
+         class="flex items-center gap-2 bg-navy text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-navy-light transition-colors">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        Star on GitHub
+      </a>
+    </div>
+  </header>
+
+  <!-- ======== HERO ======== -->
+  <section class="hero-gradient text-white py-20 md:py-28 overflow-hidden">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="grid md:grid-cols-2 gap-16 items-center">
+
+        <!-- Left -->
+        <div>
+          <div class="flex flex-wrap gap-2 mb-6">
+            <span class="inline-flex items-center gap-1.5 bg-brand/20 text-brand border border-brand/30 text-xs font-semibold px-3 py-1.5 rounded-full">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+              100% Free & Open Source
+            </span>
+            <span class="inline-flex items-center gap-1.5 bg-white/10 text-white/80 text-xs font-semibold px-3 py-1.5 rounded-full border border-white/20">
+              MIT License
+            </span>
+            <span class="inline-flex items-center gap-1.5 bg-orange-500/20 text-orange-300 text-xs font-semibold px-3 py-1.5 rounded-full border border-orange-500/30">
+              Firefox Extension
+            </span>
+          </div>
+
+          <h1 class="text-5xl md:text-6xl font-extrabold leading-tight mb-6 tracking-tight">
+            Apply to Jobs<br/>
+            <span class="text-brand">10x Faster</span>
+          </h1>
+          <p class="text-lg text-gray-300 leading-relaxed mb-8 max-w-lg">
+            The Firefox extension that auto-fills job applications, generates AI cover letters with local Ollama, and tracks every application. All on your device — zero cloud, zero tracking.
+          </p>
+
+          <div class="flex flex-col sm:flex-row gap-3 mb-8">
+            <a href="https://github.com/joelnishanth/offlyn-apply" target="_blank" rel="noopener"
+               class="inline-flex items-center justify-center gap-2 bg-brand hover:bg-brand-dark text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              Get the Extension
+            </a>
+            <a href="#how-it-works"
+               class="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm">
+              How It Works
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+            </a>
+          </div>
+
+          <div class="flex items-center gap-6 text-sm text-gray-400">
+            <span class="flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              No account required
+            </span>
+            <span class="flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              Fully offline
+            </span>
+            <span class="flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              MIT licensed
+            </span>
+          </div>
+        </div>
+
+        <!-- Right: Popup Mockup -->
+        <div class="relative flex justify-center">
+          <div class="popup-shadow rounded-2xl overflow-hidden w-80 bg-[#eef0f5]">
+            <!-- Popup header -->
+            <div class="bg-navy px-5 py-4 flex items-center gap-3">
+              <div class="w-9 h-9 rounded-full bg-white flex items-center justify-center flex-shrink-0">
+                <img src="assets/icon.png" alt="" class="w-7 h-7" />
+              </div>
+              <span class="text-white font-semibold text-base flex-1">Offlyn Apply</span>
+              <button class="w-7 h-7 rounded-full bg-gray-600/60 flex items-center justify-center">
+                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <!-- Fields row -->
+            <div class="px-5 pt-4 pb-2 flex items-center gap-3">
+              <span class="flex items-center gap-1.5 text-sm text-gray-600">
+                <span class="w-2 h-2 rounded-full bg-gray-400 inline-block"></span>
+                <strong class="text-gray-900 font-semibold">33</strong> fields
+              </span>
+              <span class="flex items-center gap-1.5 text-sm text-red-500 font-semibold">
+                <span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span>
+                5 required
+              </span>
+            </div>
+            <!-- Buttons -->
+            <div class="px-4 pb-3 grid grid-cols-2 gap-2">
+              <button class="flex items-center justify-center gap-2 bg-navy text-white font-semibold text-sm py-3 rounded-xl">
+                <svg class="w-4 h-4 text-yellow-300" fill="currentColor" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                Auto-Fill Form
+              </button>
+              <button class="flex items-center justify-center gap-2 bg-brand text-white font-semibold text-sm py-3 rounded-xl">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                Cover Letter
+              </button>
+              <button class="flex items-center justify-center gap-2 bg-white text-gray-700 font-medium text-sm py-2.5 rounded-xl border border-gray-200">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Refresh
+              </button>
+              <button class="flex items-center justify-center gap-2 bg-white text-gray-700 font-medium text-sm py-2.5 rounded-xl border border-gray-200">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                Details
+              </button>
+            </div>
+            <!-- Compatibility Score -->
+            <div class="mx-4 mb-4 bg-white rounded-xl p-4 border border-gray-100">
+              <div class="flex items-center gap-3">
+                <span class="w-12 h-12 rounded-xl bg-brand flex items-center justify-center text-white font-bold text-sm flex-shrink-0">80%</span>
+                <div>
+                  <div class="font-semibold text-gray-900 text-sm">Compatibility Score</div>
+                  <div class="text-brand text-xs font-medium">Great Match</div>
+                </div>
+                <svg class="w-4 h-4 text-gray-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Floating badge -->
+          <div class="absolute -right-4 bottom-6 bg-brand text-white text-xs font-bold px-3 py-2 rounded-xl shadow-lg flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            Filled in 2s
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ======== STATS ======== -->
+  <section class="bg-[#eef0f5] border-y border-gray-200 py-12">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div class="text-center">
+          <div class="text-4xl font-extrabold text-brand mb-1">10x</div>
+          <div class="text-sm text-gray-600">Faster Applications</div>
+        </div>
+        <div class="text-center">
+          <div class="text-4xl font-extrabold text-brand mb-1">100%</div>
+          <div class="text-sm text-gray-600">Private & Local</div>
+        </div>
+        <div class="text-center">
+          <div class="text-4xl font-extrabold text-brand mb-1">50+</div>
+          <div class="text-sm text-gray-600">Supported ATS Systems</div>
+        </div>
+        <div class="text-center">
+          <div class="text-4xl font-extrabold text-brand mb-1">0</div>
+          <div class="text-sm text-gray-600">Data Uploaded</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======== FEATURES ======== -->
+  <section id="features" class="py-24 bg-white">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-4xl font-extrabold text-gray-900 mb-4">Everything You Need to Land Your Next Role</h2>
+        <p class="text-lg text-gray-500 max-w-2xl mx-auto">
+          Offlyn Apply handles the repetitive parts of job hunting so you can focus on what actually matters.
+        </p>
+      </div>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Feature card -->
+        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100">
+          <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          </div>
+          <h3 class="font-bold text-gray-900 mb-2">Smart Auto-Fill</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">Detects all form fields and fills them instantly from your profile. Works on Workday, Greenhouse, Lever, and plain HTML forms.</p>
+        </div>
+
+        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100">
+          <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+          </div>
+          <h3 class="font-bold text-gray-900 mb-2">AI Cover Letters</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">Generate tailored cover letters using a local Ollama model. Professional output, tuned to each job — never sent to any third party.</p>
+        </div>
+
+        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100">
+          <div class="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          </div>
+          <h3 class="font-bold text-gray-900 mb-2">Application Tracker</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">Kanban-style dashboard to track every application from submitted to offer. All stored locally in your browser.</p>
+        </div>
+
+        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100">
+          <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          </div>
+          <h3 class="font-bold text-gray-900 mb-2">100% Private</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">All profile data and history live in your browser's local storage. No backend, no cloud, no analytics. What we can't see, we can't sell.</p>
+        </div>
+
+        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100">
+          <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          </div>
+          <h3 class="font-bold text-gray-900 mb-2">ATS Detection</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">Automatically identifies job pages and application systems. Shows a compatibility score so you know how strong a match you are before applying.</p>
+        </div>
+
+        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100">
+          <div class="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </div>
+          <h3 class="font-bold text-gray-900 mb-2">Learns From You</h3>
+          <p class="text-sm text-gray-500 leading-relaxed">Reinforcement learning from your manual corrections. The more you use it, the smarter the autofill gets for your specific profile.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======== SCREENSHOTS ======== -->
+  <section id="screenshots" class="py-24 bg-[#eef0f5]">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-4xl font-extrabold text-gray-900 mb-4">See It in Action</h2>
+        <p class="text-lg text-gray-500 max-w-xl mx-auto">Real screenshots from the extension running in Firefox.</p>
+      </div>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="card-hover bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200">
+          <img src="assets/ss1.png" alt="Extension popup — Auto-Fill and Cover Letter" class="w-full object-cover" />
+          <div class="p-4">
+            <div class="font-semibold text-gray-900 text-sm">Extension Popup</div>
+            <div class="text-xs text-gray-500 mt-1">One-click auto-fill and cover letter generation right from the toolbar</div>
+          </div>
+        </div>
+
+        <div class="card-hover bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200">
+          <img src="assets/ss2.png" alt="Compatibility Score and skills match" class="w-full object-cover" />
+          <div class="p-4">
+            <div class="font-semibold text-gray-900 text-sm">Compatibility Score</div>
+            <div class="text-xs text-gray-500 mt-1">AI-powered match analysis showing skills, experience, location, and salary alignment</div>
+          </div>
+        </div>
+
+        <div class="card-hover bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200">
+          <img src="assets/ss4.png" alt="Extension home and dashboard" class="w-full object-cover" />
+          <div class="p-4">
+            <div class="font-semibold text-gray-900 text-sm">Extension Home & Dashboard</div>
+            <div class="text-xs text-gray-500 mt-1">Track total applications, weekly activity, interviews, and response rates</div>
+          </div>
+        </div>
+
+        <div class="card-hover bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200">
+          <img src="assets/ss3.png" alt="Profile setup onboarding" class="w-full object-cover" />
+          <div class="p-4">
+            <div class="font-semibold text-gray-900 text-sm">Profile Onboarding</div>
+            <div class="text-xs text-gray-500 mt-1">Guided 8-step setup — upload resume, configure AI, set personal info and preferences</div>
+          </div>
+        </div>
+
+        <div class="card-hover bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200">
+          <img src="assets/ss5.png" alt="Features overview" class="w-full object-cover" />
+          <div class="p-4">
+            <div class="font-semibold text-gray-900 text-sm">Core Features</div>
+            <div class="text-xs text-gray-500 mt-1">Smart Auto-Fill, AI Cover Letters, and 100% Private — all running locally</div>
+          </div>
+        </div>
+
+        <div class="card-hover bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200">
+          <img src="assets/ss6.png" alt="Extension pages and privacy" class="w-full object-cover" />
+          <div class="p-4">
+            <div class="font-semibold text-gray-900 text-sm">Extension Pages</div>
+            <div class="text-xs text-gray-500 mt-1">Access your dashboard, profile, exported data, and privacy settings from one place</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======== HOW IT WORKS ======== -->
+  <section id="how-it-works" class="py-24 bg-white">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-4xl font-extrabold text-gray-900 mb-4">Get Running in 5 Minutes</h2>
+        <p class="text-lg text-gray-500 max-w-xl mx-auto">No accounts, no API keys. Just install and go.</p>
+      </div>
+
+      <div class="grid md:grid-cols-4 gap-8 relative">
+        <div class="text-center relative">
+          <div class="w-16 h-16 bg-brand text-white rounded-full flex items-center justify-center text-2xl font-extrabold mx-auto mb-5 shadow-lg shadow-brand/30">1</div>
+          <h3 class="font-bold text-gray-900 mb-2">Install Extension</h3>
+          <p class="text-sm text-gray-500">Clone the repo and load the built extension into Firefox developer mode</p>
+        </div>
+        <div class="text-center">
+          <div class="w-16 h-16 bg-brand text-white rounded-full flex items-center justify-center text-2xl font-extrabold mx-auto mb-5 shadow-lg shadow-brand/30">2</div>
+          <h3 class="font-bold text-gray-900 mb-2">Start Ollama</h3>
+          <p class="text-sm text-gray-500">Run <code class="bg-gray-100 px-1.5 py-0.5 rounded text-xs font-mono">ollama serve</code> and pull a model like <code class="bg-gray-100 px-1.5 py-0.5 rounded text-xs font-mono">llama3.2</code></p>
+        </div>
+        <div class="text-center">
+          <div class="w-16 h-16 bg-brand text-white rounded-full flex items-center justify-center text-2xl font-extrabold mx-auto mb-5 shadow-lg shadow-brand/30">3</div>
+          <h3 class="font-bold text-gray-900 mb-2">Set Up Your Profile</h3>
+          <p class="text-sm text-gray-500">Upload your resume and fill in your info through the guided 8-step onboarding</p>
+        </div>
+        <div class="text-center">
+          <div class="w-16 h-16 bg-brand text-white rounded-full flex items-center justify-center text-2xl font-extrabold mx-auto mb-5 shadow-lg shadow-brand/30">4</div>
+          <h3 class="font-bold text-gray-900 mb-2">Apply with One Click</h3>
+          <p class="text-sm text-gray-500">Visit any job listing, click the extension icon, and hit Auto-Fill Form</p>
+        </div>
+      </div>
+
+      <div class="text-center mt-14">
+        <a href="https://github.com/joelnishanth/offlyn-apply#getting-started" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-2 bg-navy text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-navy-light transition-colors">
+          Read the Setup Guide
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======== PRIVACY ======== -->
+  <section id="privacy" class="py-24 bg-[#eef0f5]">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="grid md:grid-cols-2 gap-16 items-center">
+        <div>
+          <span class="inline-flex items-center gap-2 bg-green-100 text-green-800 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            Privacy First Architecture
+          </span>
+          <h2 class="text-4xl font-extrabold text-gray-900 mb-6">Your Data Stays Yours</h2>
+          <p class="text-lg text-gray-600 mb-8 leading-relaxed">
+            Unlike most job tools that funnel your resume and personal info through their servers, Offlyn Apply never sends your data anywhere. Everything — your profile, applications, AI results — lives in your browser.
+          </p>
+          <ul class="space-y-5">
+            <li class="flex items-start gap-3">
+              <div class="w-6 h-6 rounded-full bg-brand flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              </div>
+              <div>
+                <strong class="text-gray-900">Local storage only</strong>
+                <p class="text-sm text-gray-500 mt-0.5">All data stored in <code class="bg-gray-100 px-1 py-0.5 rounded text-xs">browser.storage.local</code> — never synced to any cloud</p>
+              </div>
+            </li>
+            <li class="flex items-start gap-3">
+              <div class="w-6 h-6 rounded-full bg-brand flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              </div>
+              <div>
+                <strong class="text-gray-900">No backend</strong>
+                <p class="text-sm text-gray-500 mt-0.5">Zero servers, zero databases. The only network requests go to <code class="bg-gray-100 px-1 py-0.5 rounded text-xs">localhost</code> (Ollama)</p>
+              </div>
+            </li>
+            <li class="flex items-start gap-3">
+              <div class="w-6 h-6 rounded-full bg-brand flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              </div>
+              <div>
+                <strong class="text-gray-900">Local AI with Ollama</strong>
+                <p class="text-sm text-gray-500 mt-0.5">Cover letters generated on your machine — your resume never touches OpenAI, Anthropic, or any external model</p>
+              </div>
+            </li>
+            <li class="flex items-start gap-3">
+              <div class="w-6 h-6 rounded-full bg-brand flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              </div>
+              <div>
+                <strong class="text-gray-900">Open source & auditable</strong>
+                <p class="text-sm text-gray-500 mt-0.5">Every line of code is public. Don't trust us — verify it yourself</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="bg-navy rounded-2xl p-8 text-white">
+          <div class="w-14 h-14 bg-white/10 rounded-xl flex items-center justify-center mb-6">
+            <svg class="w-7 h-7 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          </div>
+          <h3 class="text-2xl font-bold mb-2">Zero Data Collection</h3>
+          <p class="text-gray-400 text-sm mb-6">We built it this way on purpose. The job market is stressful enough — you shouldn't have to worry about who has your resume.</p>
+          <ul class="space-y-3 text-sm text-gray-300">
+            <li class="flex items-center gap-2"><span class="text-brand">✓</span> No account creation</li>
+            <li class="flex items-center gap-2"><span class="text-brand">✓</span> No email collection</li>
+            <li class="flex items-center gap-2"><span class="text-brand">✓</span> No analytics or tracking</li>
+            <li class="flex items-center gap-2"><span class="text-brand">✓</span> No cookies or fingerprinting</li>
+            <li class="flex items-center gap-2"><span class="text-brand">✓</span> No data sold to third parties</li>
+          </ul>
+          <p class="mt-6 text-brand font-semibold text-sm">Because we can't access what we never collect.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======== OPEN SOURCE ======== -->
+  <section id="open-source" class="py-24 bg-white">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <span class="inline-flex items-center gap-2 bg-gray-100 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
+          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          Open Source
+        </span>
+        <h2 class="text-4xl font-extrabold text-gray-900 mb-4">Built in the Open</h2>
+        <p class="text-lg text-gray-500 max-w-2xl mx-auto">
+          Offlyn Apply is MIT-licensed and fully open source. Read the code, fork it, contribute to it, or build on top of it.
+        </p>
+      </div>
+
+      <!-- License + GitHub row -->
+      <div class="grid md:grid-cols-3 gap-6 mb-12">
+        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100 flex flex-col items-start">
+          <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+          </div>
+          <h3 class="font-bold text-gray-900 mb-2">MIT License</h3>
+          <p class="text-sm text-gray-500 mb-4 flex-1">Free to use, modify, and distribute. Build on it for personal or commercial use with no restrictions.</p>
+          <a href="https://github.com/joelnishanth/offlyn-apply/blob/main/LICENSE" target="_blank" rel="noopener"
+             class="text-sm font-semibold text-blue-600 hover:underline flex items-center gap-1">
+            View LICENSE
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </a>
+        </div>
+
+        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100 flex flex-col items-start">
+          <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </div>
+          <h3 class="font-bold text-gray-900 mb-2">Contributing</h3>
+          <p class="text-sm text-gray-500 mb-4 flex-1">Bug fixes, new ATS integrations, better form detection — all contributions welcome. Read the guide to get started.</p>
+          <a href="https://github.com/joelnishanth/offlyn-apply/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener"
+             class="text-sm font-semibold text-green-600 hover:underline flex items-center gap-1">
+            CONTRIBUTING.md
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </a>
+        </div>
+
+        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100 flex flex-col items-start">
+          <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mb-4">
+            <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+          </div>
+          <h3 class="font-bold text-gray-900 mb-2">Community Standards</h3>
+          <p class="text-sm text-gray-500 mb-4 flex-1">A welcoming, inclusive community with a Code of Conduct enforced by the maintainers.</p>
+          <a href="https://github.com/joelnishanth/offlyn-apply/blob/main/CODE_OF_CONDUCT.md" target="_blank" rel="noopener"
+             class="text-sm font-semibold text-orange-600 hover:underline flex items-center gap-1">
+            CODE_OF_CONDUCT.md
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </a>
+        </div>
+      </div>
+
+      <!-- Security + Report bug row -->
+      <div class="grid md:grid-cols-2 gap-6 mb-12">
+        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100 flex items-start gap-5">
+          <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          </div>
+          <div>
+            <h3 class="font-bold text-gray-900 mb-1">Security Policy</h3>
+            <p class="text-sm text-gray-500 mb-3">Found a vulnerability? Please don't open a public issue. Follow the responsible disclosure process.</p>
+            <a href="https://github.com/joelnishanth/offlyn-apply/blob/main/SECURITY.md" target="_blank" rel="noopener"
+               class="text-sm font-semibold text-red-600 hover:underline flex items-center gap-1">
+              SECURITY.md
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            </a>
+          </div>
+        </div>
+
+        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100 flex items-start gap-5">
+          <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
+          </div>
+          <div>
+            <h3 class="font-bold text-gray-900 mb-1">Report a Bug or Request a Feature</h3>
+            <p class="text-sm text-gray-500 mb-3">Use GitHub Issues with the structured templates — bug reports and feature requests welcome.</p>
+            <a href="https://github.com/joelnishanth/offlyn-apply/issues/new/choose" target="_blank" rel="noopener"
+               class="text-sm font-semibold text-purple-600 hover:underline flex items-center gap-1">
+              Open an Issue
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tech stack badges -->
+      <div class="bg-[#f7f8fa] rounded-2xl p-8 border border-gray-100 text-center">
+        <p class="text-sm font-semibold text-gray-600 mb-5 uppercase tracking-widest">Built with</p>
+        <div class="flex flex-wrap justify-center gap-3">
+          <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">TypeScript</span>
+          <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">WebExtension API</span>
+          <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">Ollama</span>
+          <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">esbuild</span>
+          <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">Vitest</span>
+          <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">Vercel AI SDK</span>
+          <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">Firefox 109+</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======== CTA ======== -->
+  <section class="py-24 bg-gradient-to-br from-brand-dark to-green-700 text-white">
+    <div class="max-w-4xl mx-auto px-6 text-center">
+      <div class="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-8">
+        <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      </div>
+      <h2 class="text-4xl font-extrabold mb-5">Ready to Supercharge Your Job Search?</h2>
+      <p class="text-xl text-green-100 mb-10 max-w-xl mx-auto">
+        Free. Open source. Private. Install it in minutes and start applying faster today.
+      </p>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <a href="https://github.com/joelnishanth/offlyn-apply" target="_blank" rel="noopener"
+           class="inline-flex items-center justify-center gap-2 bg-white text-green-800 font-bold px-8 py-3.5 rounded-xl hover:bg-green-50 transition-colors">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          View on GitHub
+        </a>
+        <a href="https://github.com/joelnishanth/offlyn-apply/issues/new/choose" target="_blank" rel="noopener"
+           class="inline-flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 border border-white/30 text-white font-bold px-8 py-3.5 rounded-xl transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
+          Contribute
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======== FOOTER ======== -->
+  <footer class="bg-navy text-gray-400 py-14">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="grid md:grid-cols-4 gap-10 mb-10">
+        <div class="col-span-1">
+          <img src="assets/logo.png" alt="Offlyn Apply" class="h-9 mb-4 brightness-0 invert opacity-80" />
+          <p class="text-sm leading-relaxed">Privacy-first job application assistant for Firefox. Free, open source, and fully offline.</p>
+        </div>
+        <div>
+          <h4 class="text-white font-semibold mb-4 text-sm">Product</h4>
+          <ul class="space-y-2 text-sm">
+            <li><a href="#features" class="hover:text-white transition-colors">Features</a></li>
+            <li><a href="#screenshots" class="hover:text-white transition-colors">Screenshots</a></li>
+            <li><a href="#how-it-works" class="hover:text-white transition-colors">How It Works</a></li>
+            <li><a href="#privacy" class="hover:text-white transition-colors">Privacy</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="text-white font-semibold mb-4 text-sm">Open Source</h4>
+          <ul class="space-y-2 text-sm">
+            <li><a href="https://github.com/joelnishanth/offlyn-apply" target="_blank" rel="noopener" class="hover:text-white transition-colors">GitHub</a></li>
+            <li><a href="https://github.com/joelnishanth/offlyn-apply/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener" class="hover:text-white transition-colors">Contributing</a></li>
+            <li><a href="https://github.com/joelnishanth/offlyn-apply/issues" target="_blank" rel="noopener" class="hover:text-white transition-colors">Issues</a></li>
+            <li><a href="https://github.com/joelnishanth/offlyn-apply/blob/main/CHANGELOG.md" target="_blank" rel="noopener" class="hover:text-white transition-colors">Changelog</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="text-white font-semibold mb-4 text-sm">Legal & Community</h4>
+          <ul class="space-y-2 text-sm">
+            <li><a href="https://github.com/joelnishanth/offlyn-apply/blob/main/LICENSE" target="_blank" rel="noopener" class="hover:text-white transition-colors">MIT License</a></li>
+            <li><a href="https://github.com/joelnishanth/offlyn-apply/blob/main/CODE_OF_CONDUCT.md" target="_blank" rel="noopener" class="hover:text-white transition-colors">Code of Conduct</a></li>
+            <li><a href="https://github.com/joelnishanth/offlyn-apply/blob/main/SECURITY.md" target="_blank" rel="noopener" class="hover:text-white transition-colors">Security Policy</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="border-t border-white/10 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
+        <p>© 2026 <a href="https://offlyn.ai" class="text-brand hover:underline">Offlyn Apply</a>. Open source under the MIT License.</p>
+        <a href="https://github.com/joelnishanth/offlyn-apply" target="_blank" rel="noopener"
+           class="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          joelnishanth/offlyn-apply
+        </a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
