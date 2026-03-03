@@ -218,14 +218,17 @@ export async function smartMatchDropdown(
 }
 
 /**
- * Use Ollama to infer appropriate value for a field
+ * Use Ollama to infer appropriate value for a field.
+ * When `onChunk` is provided, streams tokens as they arrive and calls
+ * `onChunk(partialText)` on each token — enabling live field preview.
  */
 export async function inferFieldValue(
   fieldLabel: string,
   fieldType: string,
   fieldContext: string,
   profileData: any,
-  options?: string[]
+  options?: string[],
+  onChunk?: (partial: string) => void
 ): Promise<string | null> {
   // Detect if this is a long-form / textarea field that needs a paragraph response
   const labelLower = fieldLabel.toLowerCase();
@@ -275,21 +278,51 @@ Respond with ONLY the value, nothing else. No quotes, no explanation, no preambl
   }
 
   try {
+    const useStreaming = typeof onChunk === 'function';
+
     const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'llama3.2',
         prompt,
-        stream: false
+        stream: useStreaming
       })
     });
 
     if (!response.ok) return null;
 
-    const data = await response.json();
-    let value = data.response?.trim() || '';
-    
+    let value: string;
+
+    if (useStreaming && response.body) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = '';
+
+      while (true) {
+        const { done, value: chunk } = await reader.read();
+        if (done) break;
+
+        const text = decoder.decode(chunk, { stream: true });
+        for (const line of text.split('\n').filter(Boolean)) {
+          try {
+            const obj = JSON.parse(line);
+            if (obj.response) {
+              accumulated += obj.response;
+              // Stream the raw partial so the caller can show live progress;
+              // full cleanup happens after generation finishes.
+              onChunk!(accumulated);
+            }
+          } catch { /* partial JSON — ignore */ }
+        }
+      }
+
+      value = accumulated.trim();
+    } else {
+      const data = await response.json();
+      value = data.response?.trim() || '';
+    }
+
     if (value === 'UNKNOWN' || !value) return null;
 
     // Post-process: clean up common LLM artifacts

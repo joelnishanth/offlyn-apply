@@ -730,6 +730,25 @@ async function handleInlineTileClick(field: FieldSchema, selector: string): Prom
 
     info(`[InlineTile] Generating AI suggestion for "${field.label || field.name}"...`);
 
+    // Resolve the target element upfront so we can stream into it
+    let targetEl: HTMLInputElement | HTMLTextAreaElement | null = null;
+    if (selector.includes('::shadow::')) {
+      const [hostSel, fieldSel] = selector.split('::shadow::');
+      const host = document.querySelector(hostSel);
+      if (host?.shadowRoot) {
+        targetEl = host.shadowRoot.querySelector(fieldSel) as HTMLInputElement | HTMLTextAreaElement | null;
+      }
+    } else {
+      targetEl = document.querySelector(selector) as HTMLInputElement | HTMLTextAreaElement | null;
+    }
+
+    // onChunk: stream partial AI text directly into the field as it's generated
+    const onChunk = targetEl
+      ? (partial: string) => {
+          setNativeInputValue(targetEl!, partial);
+        }
+      : undefined;
+
     // Generate suggestion using the existing suggestion service
     const { generateFieldSuggestions } = await import('./shared/suggestion-service');
     const suggestion = await generateFieldSuggestions(
@@ -740,7 +759,8 @@ async function handleInlineTileClick(field: FieldSchema, selector: string): Prom
         jobTitle: lastJobMeta?.jobTitle,
         url: window.location.href
       },
-      true // use AI
+      true, // use AI
+      onChunk
     );
 
     if (!suggestion || suggestion.suggestions.length === 0) {
@@ -753,7 +773,7 @@ async function handleInlineTileClick(field: FieldSchema, selector: string): Prom
     const primary = suggestion.suggestions.find(s => s.isPrimary) || suggestion.suggestions[0];
     info(`[InlineTile] Applying suggestion: "${primary.value}" (source: ${primary.source}, confidence: ${primary.confidence})`);
 
-    // Fill the field — the tile will auto-hide via its visibility watcher
+    // Final fill with the cleaned/validated value (overwrites any partial stream)
     await fillFieldWithValue(selector, primary.value, field.label || field.name || 'field');
 
     // Track as filled

@@ -35,13 +35,16 @@ export interface SuggestionContext {
 }
 
 /**
- * Generate suggestions for a field
+ * Generate suggestions for a field.
+ * `onChunk` is forwarded to the Ollama call so callers can stream partial AI
+ * text into the UI while the model is still generating.
  */
 export async function generateFieldSuggestions(
   field: FieldSchema,
   profile: UserProfile,
   context: SuggestionContext,
-  useAI: boolean = true
+  useAI: boolean = true,
+  onChunk?: (partial: string) => void
 ): Promise<FieldSuggestion | null> {
   const suggestions: SuggestionOption[] = [];
   
@@ -186,7 +189,8 @@ export async function generateFieldSuggestions(
           education: profile.education.slice(0, 2),
           summary: profile.summary
         },
-        'options' in field ? (field as any).options : undefined
+        'options' in field ? (field as any).options : undefined,
+        onChunk
       );
       
       if (aiValue && !suggestions.some(s => s.value === aiValue)) {
