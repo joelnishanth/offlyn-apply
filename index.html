@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Offlyn Apply — Privacy-First Job Application Assistant</title>
-  <meta name="description" content="Firefox extension that auto-fills job applications, generates AI cover letters, and tracks your progress. 100% local. No cloud. No data collection." />
+  <meta name="description" content="Chrome and Firefox extension that auto-fills job applications, generates AI cover letters, and tracks your progress. 100% local. No cloud. No data collection." />
   <link rel="icon" href="assets/icon.png" type="image/png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -81,6 +81,9 @@
             <span class="inline-flex items-center gap-1.5 bg-orange-500/20 text-orange-300 text-xs font-semibold px-3 py-1.5 rounded-full border border-orange-500/30">
               Firefox Extension
             </span>
+            <span class="inline-flex items-center gap-1.5 bg-blue-500/20 text-blue-300 text-xs font-semibold px-3 py-1.5 rounded-full border border-blue-500/30">
+              Chrome Extension
+            </span>
           </div>
 
           <h1 class="text-5xl md:text-6xl font-extrabold leading-tight mb-6 tracking-tight">
@@ -88,19 +91,21 @@
             <span class="text-brand">10x Faster</span>
           </h1>
           <p class="text-lg text-gray-300 leading-relaxed mb-8 max-w-lg">
-            The Firefox extension that auto-fills job applications, generates AI cover letters with local Ollama, and tracks every application. All on your device — zero cloud, zero tracking.
+            The Chrome and Firefox extension that auto-fills job applications, generates AI cover letters with local Ollama, and tracks every application. All on your device — zero cloud, zero tracking.
           </p>
 
           <div class="flex flex-col sm:flex-row gap-3 mb-8">
-            <a href="https://github.com/joelnishanth/offlyn-apply" target="_blank" rel="noopener"
+            <a href="https://chromewebstore.google.com/detail/offlyn-apply/TODO_CHROME_STORE_ID" target="_blank" rel="noopener"
                class="inline-flex items-center justify-center gap-2 bg-brand hover:bg-brand-dark text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-              Get the Extension
+              <!-- Chrome logo -->
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 4a8 8 0 110 16A8 8 0 0112 4zm0 2a6 6 0 100 12A6 6 0 0012 6zm0 2a4 4 0 110 8 4 4 0 010-8z"/></svg>
+              Add to Chrome
             </a>
-            <a href="#how-it-works"
+            <a href="https://github.com/joelnishanth/offlyn-apply" target="_blank" rel="noopener"
                class="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm">
-              How It Works
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+              <!-- Firefox logo colour hint via orange text -->
+              <svg class="w-5 h-5 text-orange-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              Get for Firefox
             </a>
           </div>
 
@@ -279,7 +284,7 @@
     <div class="max-w-7xl mx-auto px-6">
       <div class="text-center mb-16">
         <h2 class="text-4xl font-extrabold text-gray-900 mb-4">See It in Action</h2>
-        <p class="text-lg text-gray-500 max-w-xl mx-auto">Real screenshots from the extension running in Firefox.</p>
+        <p class="text-lg text-gray-500 max-w-xl mx-auto">Real screenshots from the extension running in Chrome and Firefox.</p>
       </div>
 
       <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -346,7 +351,7 @@
         <div class="text-center relative">
           <div class="w-16 h-16 bg-brand text-white rounded-full flex items-center justify-center text-2xl font-extrabold mx-auto mb-5 shadow-lg shadow-brand/30">1</div>
           <h3 class="font-bold text-gray-900 mb-2">Install Extension</h3>
-          <p class="text-sm text-gray-500">Clone the repo and load the built extension into Firefox developer mode</p>
+          <p class="text-sm text-gray-500">Add from the Chrome Web Store, or load from the repo into Firefox developer mode</p>
         </div>
         <div class="text-center">
           <div class="w-16 h-16 bg-brand text-white rounded-full flex items-center justify-center text-2xl font-extrabold mx-auto mb-5 shadow-lg shadow-brand/30">2</div>
@@ -547,6 +552,8 @@
           <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">Vitest</span>
           <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">Vercel AI SDK</span>
           <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">Firefox 109+</span>
+          <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">Chrome / Chromium</span>
+          <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">Manifest V3</span>
         </div>
       </div>
     </div>
@@ -563,15 +570,15 @@
         Free. Open source. Private. Install it in minutes and start applying faster today.
       </p>
       <div class="flex flex-col sm:flex-row gap-4 justify-center">
-        <a href="https://github.com/joelnishanth/offlyn-apply" target="_blank" rel="noopener"
+        <a href="https://chromewebstore.google.com/detail/offlyn-apply/TODO_CHROME_STORE_ID" target="_blank" rel="noopener"
            class="inline-flex items-center justify-center gap-2 bg-white text-green-800 font-bold px-8 py-3.5 rounded-xl hover:bg-green-50 transition-colors">
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-          View on GitHub
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 4a8 8 0 110 16A8 8 0 0112 4zm0 2a6 6 0 100 12A6 6 0 0012 6zm0 2a4 4 0 110 8 4 4 0 010-8z"/></svg>
+          Add to Chrome
         </a>
-        <a href="https://github.com/joelnishanth/offlyn-apply/issues/new/choose" target="_blank" rel="noopener"
+        <a href="https://github.com/joelnishanth/offlyn-apply" target="_blank" rel="noopener"
            class="inline-flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 border border-white/30 text-white font-bold px-8 py-3.5 rounded-xl transition-colors">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
-          Contribute
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          Get for Firefox
         </a>
       </div>
     </div>
@@ -583,11 +590,12 @@
       <div class="grid md:grid-cols-4 gap-10 mb-10">
         <div class="col-span-1">
           <img src="assets/logo.png" alt="Offlyn Apply" class="h-9 mb-4 brightness-0 invert opacity-80" />
-          <p class="text-sm leading-relaxed">Privacy-first job application assistant for Firefox. Free, open source, and fully offline.</p>
+          <p class="text-sm leading-relaxed">Privacy-first job application assistant for Chrome and Firefox. Free, open source, and fully offline.</p>
         </div>
         <div>
           <h4 class="text-white font-semibold mb-4 text-sm">Product</h4>
           <ul class="space-y-2 text-sm">
+            <li><a href="https://chromewebstore.google.com/detail/offlyn-apply/TODO_CHROME_STORE_ID" target="_blank" rel="noopener" class="hover:text-white transition-colors">Chrome Web Store</a></li>
             <li><a href="#features" class="hover:text-white transition-colors">Features</a></li>
             <li><a href="#screenshots" class="hover:text-white transition-colors">Screenshots</a></li>
             <li><a href="#how-it-works" class="hover:text-white transition-colors">How It Works</a></li>
