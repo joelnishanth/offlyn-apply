@@ -28,22 +28,34 @@ This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.
 1. **Fork** the repo and clone your fork:
    ```bash
    git clone https://github.com/<your-username>/offlyn-apply.git
+   ```
+
+2. **Navigate to the extension you want to work on:**
+   ```bash
+   # For Chrome
+   cd offlyn-apply/apps/extension-chrome
+
+   # For Firefox
    cd offlyn-apply/apps/extension-firefox
    ```
 
-2. **Install dependencies:**
+3. **Install dependencies:**
    ```bash
    npm install
    ```
 
-3. **Install and start Ollama** (required for AI features):
+4. **Install and start Ollama** (required for AI features):
    ```bash
    ollama serve
    ollama pull llama3.2
    ```
 
-4. **Build and run in Firefox:**
+5. **Build and run:**
    ```bash
+   # Chrome — load dist/ folder via chrome://extensions (Developer mode)
+   npm run build
+
+   # Firefox — launches browser with extension loaded
    npm run run:firefox
    ```
 
@@ -54,7 +66,7 @@ This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.
 Before opening a new issue, search existing issues to avoid duplicates.
 
 When filing a bug, include:
-- Firefox version
+- Browser and version (Chrome or Firefox)
 - Ollama model being used
 - The job site/form where the issue occurs (if applicable)
 - Steps to reproduce
@@ -108,6 +120,10 @@ Open a **Feature Request** issue and describe:
 | `npm run test:watch` | Tests in watch mode |
 
 The extension is built with plain TypeScript + esbuild (no framework). Content scripts run in isolated worlds; background scripts use the WebExtension API.
+
+**Chrome:** After building, load the `dist/` folder via `chrome://extensions` with Developer mode enabled.
+
+**Firefox:** Use `npm run run:firefox` or load via `about:debugging` → "This Firefox" → "Load Temporary Add-on".
 
 ---
 

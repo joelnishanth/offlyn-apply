@@ -120,7 +120,10 @@ Or load manually: open `about:debugging` → "This Firefox" → "Load Temporary 
 ```
 offlyn-apply/
 ├── apps/
-│   └── extension-firefox/
+│   ├── extension-chrome/         # Chrome extension (Manifest V3)
+│   │   ├── src/
+│   │   └── package.json
+│   └── extension-firefox/        # Firefox extension (Manifest V3)
 │       ├── src/
 │       │   ├── background.ts     # Service worker / background script
 │       │   ├── content.ts        # Content script (injected into pages)
