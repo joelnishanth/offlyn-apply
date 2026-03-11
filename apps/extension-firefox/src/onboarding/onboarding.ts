@@ -1186,28 +1186,40 @@ async function saveFinalProfile(includeWorkAuth: boolean): Promise<void> {
       profileSaved = true;
     } catch (saveErr) {
       console.error('[Onboarding] Initial save failed:', saveErr);
-      
-      // Storage might be full/corrupted - repair it first
-      console.log('[Onboarding] Attempting storage repair before retry...');
-      const repaired = await repairStorage();
-      
-      if (repaired) {
-        try {
-          await saveUserProfile(extractedProfile);
-          profileSaved = true;
-          console.log('[Onboarding] Profile saved after storage repair');
-        } catch (retryErr) {
-          console.error('[Onboarding] Save still failing after repair:', retryErr);
-          
-          // Last resort: strip resumeText (can be very large) and try again
-          const lightProfile = { ...extractedProfile };
-          lightProfile.resumeText = ''; // Remove the heavy data
+
+      // Wait briefly and retry once — transient storage errors often resolve quickly
+      await new Promise(r => setTimeout(r, 500));
+      try {
+        await saveUserProfile(extractedProfile);
+        profileSaved = true;
+        console.log('[Onboarding] Profile saved on retry after transient error');
+      } catch (_) {
+        // Still failing — escalate to storage repair
+      }
+
+      if (!profileSaved) {
+        // Storage might be full/corrupted - repair it first
+        console.log('[Onboarding] Attempting storage repair before retry...');
+        const repaired = await repairStorage();
+
+        if (repaired) {
           try {
-            await saveUserProfile(lightProfile);
+            await saveUserProfile(extractedProfile);
             profileSaved = true;
-            console.log('[Onboarding] Profile saved (without resume text) after stripping heavy data');
-          } catch (finalErr) {
-            console.error('[Onboarding] Even light save failed:', finalErr);
+            console.log('[Onboarding] Profile saved after storage repair');
+          } catch (retryErr) {
+            console.error('[Onboarding] Save still failing after repair:', retryErr);
+
+            // Last resort: strip resumeText (can be very large) and try again
+            const lightProfile = { ...extractedProfile };
+            lightProfile.resumeText = '';
+            try {
+              await saveUserProfile(lightProfile);
+              profileSaved = true;
+              console.log('[Onboarding] Profile saved (without resume text) after stripping heavy data');
+            } catch (finalErr) {
+              console.error('[Onboarding] Even light save failed:', finalErr);
+            }
           }
         }
       }
@@ -1868,43 +1880,125 @@ async function deleteLearnedValue(_index: number): Promise<void> {
 }
 
 /**
+ * Retry a storage read up to `retries` times with a delay between attempts.
+ * Transient Firefox storage errors (disk I/O, quota checks, browser sleep)
+ * almost always resolve within a few hundred milliseconds.
+ */
+async function retryStorageRead<T>(
+  fn: () => Promise<T>,
+  retries = 3,
+  delayMs = 300,
+): Promise<T> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (i < retries - 1) {
+        console.warn(
+          `[Onboarding] Storage read failed (attempt ${i + 1}/${retries}), retrying in ${delayMs}ms...`,
+          err,
+        );
+        await new Promise(r => setTimeout(r, delayMs));
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw new Error('unreachable');
+}
+
+/**
  * Attempt to repair corrupted/full storage.
- * When ALL storage operations fail, the only fix is to clear everything.
+ * Strategy: only remove large resume-related keys that cause bloat.
+ * If a full clear is truly unavoidable, back up and restore the user's
+ * profile and dashboard metrics so they are never lost.
  * Returns true if storage is now working.
  */
 async function repairStorage(): Promise<boolean> {
   console.log('[Onboarding] Attempting storage repair...');
-  
-  // Step 1: Try removing just the resume file (most likely cause of bloat)
+
+  // Snapshot critical data before any destructive operation so we can restore it
+  let profileBackup: unknown = null;
+  const dailySummaryBackup: Record<string, unknown> = {};
+
+  try {
+    const r = await browser.storage.local.get('userProfile');
+    profileBackup = r.userProfile ?? null;
+    console.log('[Onboarding] Backed up userProfile before repair:', !!profileBackup);
+  } catch (_) {
+    console.warn('[Onboarding] Could not back up userProfile before repair (storage may already be unreadable)');
+  }
+
+  try {
+    const all = await browser.storage.local.get(null);
+    for (const key of Object.keys(all)) {
+      if (key.startsWith('dailySummary_')) {
+        dailySummaryBackup[key] = all[key];
+      }
+    }
+    console.log('[Onboarding] Backed up', Object.keys(dailySummaryBackup).length, 'dailySummary keys');
+  } catch (_) {
+    console.warn('[Onboarding] Could not back up dailySummary keys before repair');
+  }
+
+  // Step 1: Remove just the resume file (most common cause of storage bloat)
   try {
     await browser.storage.local.remove('resumeFile');
-    console.log('[Onboarding] Removed resumeFile key');
-    // Test if storage works now
     await browser.storage.local.get('userProfile');
-    console.log('[Onboarding] Storage is working after removing resumeFile');
+    console.log('[Onboarding] Storage working after removing resumeFile');
     return true;
   } catch (_) {
-    console.warn('[Onboarding] Remove resumeFile failed, trying harder...');
+    console.warn('[Onboarding] Remove resumeFile failed, trying more resume keys...');
   }
-  
-  // Step 2: Try removing multiple large keys
+
+  // Step 2: Remove all resume-related large keys (chunks, embeddings, RAG context)
   try {
-    await browser.storage.local.remove(['resumeFile', 'resumeFileMeta', 'field_corrections']);
+    const resumeKeys: string[] = [
+      'resumeFile', 'resumeFileMeta', 'field_corrections',
+      'resume_embeddings', 'resume_chunks', 'rag_context',
+    ];
+    try {
+      const all = await browser.storage.local.get(null);
+      for (const key of Object.keys(all)) {
+        if (key.startsWith('resumeChunk_')) resumeKeys.push(key);
+      }
+    } catch (_) { /* best-effort key collection */ }
+
+    await browser.storage.local.remove(resumeKeys);
     await browser.storage.local.get('userProfile');
-    console.log('[Onboarding] Storage working after removing large keys');
+    console.log('[Onboarding] Storage working after removing all resume-related keys');
     return true;
   } catch (_) {
-    console.warn('[Onboarding] Selective remove failed');
+    console.warn('[Onboarding] Selective remove failed, storage may be fundamentally broken');
   }
-  
-  // Step 3: Nuclear option - clear everything
+
+  // Step 3: Last resort full clear — but always restore profile + metrics afterward
   try {
     await browser.storage.local.clear();
-    console.log('[Onboarding] Cleared all storage');
-    // Test
+    console.log('[Onboarding] Full storage cleared');
+
+    const toRestore: Record<string, unknown> = {};
+    if (profileBackup !== null) {
+      toRestore['userProfile'] = profileBackup;
+    }
+    Object.assign(toRestore, dailySummaryBackup);
+
+    if (Object.keys(toRestore).length > 0) {
+      try {
+        await browser.storage.local.set(toRestore);
+        console.log(
+          '[Onboarding] Restored',
+          Object.keys(toRestore).length,
+          'keys (profile + dashboard metrics) after full clear',
+        );
+      } catch (restoreErr) {
+        console.error('[Onboarding] Could not restore critical data after full clear:', restoreErr);
+      }
+    }
+
     await browser.storage.local.set({ _test: 1 });
     await browser.storage.local.remove('_test');
-    console.log('[Onboarding] Storage is working after full clear');
+    console.log('[Onboarding] Storage is working after full clear + restore');
     return true;
   } catch (clearErr) {
     console.error('[Onboarding] Even clear() failed - storage may be permanently broken:', clearErr);
@@ -1963,9 +2057,9 @@ async function migrateResumeFileStorage(): Promise<void> {
       }
     }
   } catch (err) {
-    console.warn('[Onboarding] Resume file migration check failed, attempting storage repair:', err);
-    // Storage might be completely broken - try to repair it
-    await repairStorage();
+    console.warn('[Onboarding] Resume file migration check failed, skipping migration:', err);
+    // This is likely a transient read error - skip migration rather than triggering
+    // a destructive repair. The migration will be retried on the next page open.
   }
 }
 
@@ -2052,11 +2146,14 @@ async function init(): Promise<void> {
   // Check if we're editing an existing profile
   let existingProfile: UserProfile | undefined;
   try {
-    const existingProfileData = await browser.storage.local.get('userProfile');
+    // Use retries first — transient Firefox storage errors resolve within milliseconds
+    const existingProfileData = await retryStorageRead(
+      () => browser.storage.local.get('userProfile'),
+    );
     existingProfile = existingProfileData.userProfile as UserProfile | undefined;
   } catch (err) {
-    console.error('[Onboarding] Failed to load existing profile from storage:', err);
-    // Storage is broken - repair it
+    console.error('[Onboarding] Failed to load existing profile after retries:', err);
+    // Only repair storage after retries are exhausted
     const repaired = await repairStorage();
     if (repaired) {
       try {

@@ -1,6 +1,6 @@
 <div align="center">
   <img src="assets/logo.png" alt="Offlyn Apply" width="320" />
-  <h3>Privacy-first job application assistant for Firefox</h3>
+  <h3>Privacy-first job application assistant for Chrome & Firefox</h3>
   <p>Auto-fill forms · AI cover letters · Local Ollama · Zero cloud · Zero tracking</p>
 
   <p>
@@ -8,12 +8,15 @@
       <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" />
     </a>
     <img src="https://img.shields.io/badge/version-0.2.4-22c55e.svg" alt="Version 0.2.4" />
+    <img src="https://img.shields.io/badge/browser-Chrome-4285F4?logo=googlechrome&logoColor=white" alt="Chrome" />
     <img src="https://img.shields.io/badge/browser-Firefox_109%2B-FF7139?logo=firefox-browser&logoColor=white" alt="Firefox 109+" />
     <img src="https://img.shields.io/badge/AI-Ollama-black?logo=ollama&logoColor=white" alt="Ollama" />
     <img src="https://img.shields.io/badge/data_uploaded-0-22c55e.svg" alt="Zero data uploaded" />
   </p>
 
   <p>
+    <a href="https://chromewebstore.google.com/detail/offlyn-apply-job-applicat/bjllpojjllhfghiemokcoknfmhpmfbph"><strong>🌐 Get for Chrome</strong></a> ·
+    <a href="https://addons.mozilla.org/en-US/firefox/addon/offlyn-apply/"><strong>🦊 Get for Firefox</strong></a> ·
     <a href="https://joelnishanth.github.io/offlyn-apply"><strong>🌐 Website</strong></a> ·
     <a href="#getting-started"><strong>Quick Start</strong></a> ·
     <a href="CONTRIBUTING.md"><strong>Contributing</strong></a> ·
@@ -68,7 +71,7 @@ Offlyn Apply detects job application forms on sites like Workday, Greenhouse, Le
 
 ## Requirements
 
-- **Firefox** 109+
+- **Chrome** or **Firefox** 109+
 - **Node.js** 18+
 - **[Ollama](https://ollama.com)** running locally with a model pulled (e.g. `llama3.2`)
 
