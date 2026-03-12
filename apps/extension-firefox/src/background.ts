@@ -10,6 +10,7 @@ import { mastraAgent as ollama } from './shared/mastra-agent';
 import { ragParser } from './shared/rag-parser';
 import { enrichParseErrorMessage } from './shared/error-classify';
 import { graphMemory } from './shared/graph/service';
+import { getUserProfile, formatPhone, formatLocation, type UserProfile } from './shared/profile';
 
 interface ConnectionState {
   connected: boolean;
@@ -520,6 +521,17 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
       return { kind: 'GRAPH_DEBUG_RESPONSE', provenance };
     }
 
+    // ── Graph seed from profile ────────────────────────────────────────────────
+    if (message.kind === 'GRAPH_SEED_FROM_PROFILE') {
+      const profile = (message as any).profile as UserProfile;
+      if (profile) {
+        const entries = buildProfileSeedEntries(profile);
+        graphMemory.seedFromProfile(entries);
+        info(`[Graph] Profile seeded with ${entries.length} entries`);
+      }
+      return { kind: 'GRAPH_SEED_FROM_PROFILE_ACK' };
+    }
+
     return;
   } catch (err) {
     error('Error handling message:', err);
@@ -619,6 +631,80 @@ browser.menus.onClicked.addListener((menuInfo, tab) => {
   }
 });
 
+// ── Graph profile seeding ───────────────────────────────────────────────────
+
+/**
+ * Convert a UserProfile into flat seed entries for the graph.
+ * Each entry maps a canonical field name to a canonical question text and value.
+ * Question texts are chosen to match common ATS label wording so similarity
+ * lookups fire even on first-visit forms.
+ */
+function buildProfileSeedEntries(profile: UserProfile): Array<{ canonicalField: string; questionText: string; value: string }> {
+  const p = profile;
+  const phone = formatPhone(p.personal.phone);
+  const location = formatLocation(p.personal.location);
+  const fullName = [p.personal.firstName, p.personal.lastName].filter(Boolean).join(' ');
+  const currentRole = (p.professional as any)?.currentRole ?? '';
+  const yearsExp = p.professional?.yearsOfExperience != null ? String(p.professional.yearsOfExperience) : '';
+
+  const entries: Array<{ canonicalField: string; questionText: string; value: string }> = [
+    { canonicalField: 'first_name',          questionText: 'What is your first name?',                   value: p.personal.firstName ?? '' },
+    { canonicalField: 'last_name',           questionText: 'What is your last name?',                    value: p.personal.lastName ?? '' },
+    { canonicalField: 'full_name',           questionText: 'What is your full name?',                    value: fullName },
+    { canonicalField: 'email',               questionText: 'What is your email address?',                value: p.personal.email ?? '' },
+    { canonicalField: 'phone',               questionText: 'What is your phone number?',                 value: phone },
+    { canonicalField: 'location',            questionText: 'What is your current location?',             value: location },
+    { canonicalField: 'linkedin',            questionText: 'What is your LinkedIn profile URL?',         value: p.professional?.linkedin ?? '' },
+    { canonicalField: 'github',              questionText: 'What is your GitHub profile URL?',           value: p.professional?.github ?? '' },
+    { canonicalField: 'portfolio',           questionText: 'What is your portfolio or website URL?',     value: p.professional?.portfolio ?? '' },
+    { canonicalField: 'current_role',        questionText: 'What is your current job title?',            value: currentRole },
+    { canonicalField: 'years_of_experience', questionText: 'How many years of experience do you have?',  value: yearsExp },
+  ];
+
+  // Work authorization
+  if (p.workAuth) {
+    entries.push({
+      canonicalField: 'requires_sponsorship',
+      questionText: 'Do you require visa sponsorship?',
+      value: p.workAuth.requiresSponsorship ? 'Yes' : 'No',
+    });
+    entries.push({
+      canonicalField: 'legally_authorized',
+      questionText: 'Are you legally authorized to work in the United States?',
+      value: p.workAuth.legallyAuthorized ? 'Yes' : 'No',
+    });
+  }
+
+  // Most recent job title and company
+  const latestJob = p.work?.[0];
+  if (latestJob?.title) {
+    entries.push({ canonicalField: 'current_role', questionText: 'What is your most recent job title?', value: latestJob.title });
+  }
+  if (latestJob?.company) {
+    entries.push({ canonicalField: 'current_company', questionText: 'What is your current or most recent employer?', value: latestJob.company });
+  }
+
+  // Skills summary
+  if (p.skills?.length) {
+    entries.push({
+      canonicalField: 'skills',
+      questionText: 'What are your key skills?',
+      value: p.skills.join(', '),
+    });
+  }
+
+  // Professional summary
+  if (p.summary) {
+    entries.push({
+      canonicalField: 'summary',
+      questionText: 'Please provide a brief professional summary.',
+      value: p.summary,
+    });
+  }
+
+  return entries.filter(e => e.value.trim() !== '');
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────
 
 /**
@@ -629,6 +715,13 @@ async function init(): Promise<void> {
 
   // Initialize graph memory layer
   await graphMemory.initialize();
+
+  // Seed graph with existing profile (handles users who installed before this feature)
+  const existingProfile = await getUserProfile();
+  if (existingProfile) {
+    const entries = buildProfileSeedEntries(existingProfile);
+    graphMemory.seedFromProfile(entries);
+  }
 
   // Create right-click context menus
   createContextMenus();

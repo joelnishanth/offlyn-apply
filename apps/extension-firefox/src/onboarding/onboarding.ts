@@ -1253,6 +1253,13 @@ async function saveFinalProfile(includeWorkAuth: boolean): Promise<void> {
       }
     }
     
+    // Seed graph with profile values so it has data from day one
+    if (profileSaved && extractedProfile) {
+      browser.runtime.sendMessage({ kind: 'GRAPH_SEED_FROM_PROFILE', profile: extractedProfile }).catch(() => {
+        // Non-critical — graph will seed on next background startup
+      });
+    }
+
     populateReviewSummary();
     showStep('step-success');
   } catch (err) {

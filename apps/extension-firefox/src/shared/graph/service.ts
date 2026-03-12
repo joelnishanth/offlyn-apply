@@ -722,6 +722,38 @@ export class GraphMemoryService {
     return id;
   }
 
+  /**
+   * Seed the graph with known profile values for canonical fields.
+   * Called once after resume parsing so the graph has data from day one
+   * instead of needing a warm-up fill session first.
+   *
+   * Uses the canonical question text for each well-known field so the
+   * entries will be matched by field-canonical and similarity lookups.
+   */
+  seedFromProfile(profileEntries: Array<{ canonicalField: string; questionText: string; value: string }>): void {
+    if (!this.ready) return;
+
+    let seeded = 0;
+    for (const entry of profileEntries) {
+      const { canonicalField, questionText, value } = entry;
+      if (!value.trim()) continue;
+
+      const questionNode = this.upsertQuestionNode(questionText, canonicalField);
+      const answerNode = this.upsertAnswerNode(value, canonicalField, 'profile');
+      const fieldNode = this.upsertFieldNode(canonicalField);
+
+      this.createOrUpdateEdge(fieldNode.id, questionNode.id, 'MAPS_TO', 1.0);
+      this.createOrUpdateEdge(questionNode.id, answerNode.id, 'ANSWERED_BY', 1.0);
+
+      seeded++;
+    }
+
+    if (seeded > 0) {
+      console.log(`[Graph] Seeded ${seeded} profile entries into graph`);
+      this.scheduleSave();
+    }
+  }
+
   // ── Stats (for debugging/popup) ────────────────────────────────────────────
 
   getStats(): { nodeCount: number; edgeCount: number; ready: boolean } {
