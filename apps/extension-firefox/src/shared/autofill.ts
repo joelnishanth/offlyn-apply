@@ -39,6 +39,14 @@ export function generateFillMappings(schema: FieldSchema[], profile: UserProfile
       continue;
     }
 
+    // Skip intl-tel-input (ITI) country-code search widget — its id follows the
+    // pattern "iti-N__search-input" and it is an internal widget, not a real field
+    if (_fieldIdLC.startsWith('iti-') || _fieldIdLC.includes('__search')) {
+      console.log(`[Autofill] Skipping ITI phone widget field: "${fieldName}"`);
+      skippedNoMatch++;
+      continue;
+    }
+
     // PRIORITY 1: Check for learned corrections FIRST (highest priority)
     const learnedValue = rlSystem.getLearnedValue(field);
     let value: any;

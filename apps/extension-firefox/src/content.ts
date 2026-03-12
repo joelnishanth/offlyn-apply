@@ -2364,6 +2364,15 @@ async function executeFillPlan(plan: FillPlan): Promise<void> {
         console.log('[OA] Field type:', fieldType, '| Has options:', hasOptionsArray);
         console.log('[OA] Setting value:', finalValue);
         
+        // Skip the intl-tel-input country code search box — it is an internal widget
+        // element, not a real form field, and filling it corrupts the phone country code
+        const elId = element.id || '';
+        if (elId.startsWith('iti-') || elId.includes('__search') || element.closest('.iti')) {
+          console.log('[OA] Skipping ITI phone country widget:', mapping.selector);
+          result.filledSelectors.push(mapping.selector); // treat as done so it doesn't count as a failure
+          continue;
+        }
+
         // Skip fields with empty values
         if (!finalValue || String(finalValue).trim() === '') {
           console.log('[OA] Skipping field with empty value');
