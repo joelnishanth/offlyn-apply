@@ -163,6 +163,11 @@ async function init(): Promise<void> {
     window.close();
   });
 
+  document.getElementById('chat-resume-btn')?.addEventListener('click', () => {
+    browser.tabs.create({ url: browser.runtime.getURL('chat/chat.html') });
+    window.close();
+  });
+
   // ── Footer links ──
   document.getElementById('home-btn')?.addEventListener('click', () => {
     browser.tabs.create({ url: browser.runtime.getURL('home/home.html') });

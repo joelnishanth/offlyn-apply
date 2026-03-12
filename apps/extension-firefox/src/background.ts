@@ -532,6 +532,114 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
       return { kind: 'GRAPH_SEED_FROM_PROFILE_ACK' };
     }
 
+    // ── Chat with Resume: profile status check ────────────────────────────────
+    if (message.kind === 'CHAT_PROFILE_STATUS') {
+      const profile = await getUserProfile();
+      if (!profile) return { hasProfile: false };
+      const name = [profile.personal.firstName, profile.personal.lastName].filter(Boolean).join(' ');
+      return { hasProfile: true, name: name || undefined };
+    }
+
+    // ── Chat with Resume: answer a question ───────────────────────────────────
+    if (message.kind === 'CHAT_QUERY') {
+      const question = (message as any).question as string;
+      if (!question?.trim()) return { answer: 'Please ask a question.', source: 'error' };
+
+      const profile = await getUserProfile();
+      if (!profile) {
+        return {
+          answer: "You haven't uploaded a resume yet. Head to the onboarding page to get started.",
+          source: 'error',
+        };
+      }
+
+      // Build a plain-text profile context for the LLM
+      const phone = formatPhone(profile.personal.phone);
+      const location = formatLocation(profile.personal.location);
+      const workHistory = (profile.work ?? [])
+        .map(w => `  - ${w.title} at ${w.company} (${w.startDate} – ${w.current ? 'Present' : w.endDate})`)
+        .join('\n');
+      const education = (profile.education ?? [])
+        .map(e => `  - ${e.degree} in ${e.field} from ${e.school} (${e.graduationYear})`)
+        .join('\n');
+      const skills = (profile.skills ?? []).join(', ');
+      const workAuthLines = profile.workAuth
+        ? [
+            `Requires sponsorship: ${profile.workAuth.requiresSponsorship ? 'Yes' : 'No'}`,
+            `Legally authorized in US: ${profile.workAuth.legallyAuthorized ? 'Yes' : 'No'}`,
+            profile.workAuth.visaType ? `Visa type: ${profile.workAuth.visaType}` : '',
+          ].filter(Boolean).join('\n  ')
+        : 'Not provided';
+
+      const profileContext = `
+Name: ${profile.personal.firstName} ${profile.personal.lastName}
+Email: ${profile.personal.email}
+Phone: ${phone}
+Location: ${location}
+LinkedIn: ${profile.professional?.linkedin ?? 'Not provided'}
+GitHub: ${profile.professional?.github ?? 'Not provided'}
+Portfolio: ${profile.professional?.portfolio ?? 'Not provided'}
+Years of experience: ${profile.professional?.yearsOfExperience ?? 'Not specified'}
+Skills: ${skills || 'Not provided'}
+Summary: ${profile.summary ?? 'Not provided'}
+
+Work history:
+${workHistory || '  None provided'}
+
+Education:
+${education || '  None provided'}
+
+Work authorization:
+  ${workAuthLines}
+`.trim();
+
+      const systemPrompt = `You are a helpful assistant that answers questions about a job applicant's resume and background.
+Answer based ONLY on the profile data provided below. Be concise and direct.
+If the answer is not in the profile, say so honestly rather than guessing.
+
+PROFILE DATA:
+${profileContext}`;
+
+      try {
+        const answer = await ollama.chat([
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: question },
+        ], { temperature: 0.1, timeout: 30000 });
+
+        return { answer: answer.trim(), source: 'llm' };
+      } catch (chatErr) {
+        warn('Chat LLM error:', chatErr);
+        // Fallback: try to answer from profile directly for simple field questions
+        const lq = question.toLowerCase();
+        const simpleAnswers: Array<[string[], string]> = [
+          [['email'], profile.personal.email],
+          [['phone'], phone],
+          [['location', 'city', 'where'], location],
+          [['linkedin'], profile.professional?.linkedin ?? 'Not provided'],
+          [['github'], profile.professional?.github ?? 'Not provided'],
+          [['portfolio', 'website'], profile.professional?.portfolio ?? 'Not provided'],
+          [['first name'], profile.personal.firstName],
+          [['last name'], profile.personal.lastName],
+          [['name'], `${profile.personal.firstName} ${profile.personal.lastName}`],
+          [['skills'], skills || 'Not provided'],
+          [['years', 'experience'], String(profile.professional?.yearsOfExperience ?? 'Not specified')],
+          [['sponsor', 'visa'], profile.workAuth ? (profile.workAuth.requiresSponsorship ? 'Yes' : 'No') : 'Not specified'],
+          [['authorized', 'legal'], profile.workAuth ? (profile.workAuth.legallyAuthorized ? 'Yes' : 'No') : 'Not specified'],
+        ];
+
+        for (const [keywords, value] of simpleAnswers) {
+          if (keywords.some(k => lq.includes(k)) && value) {
+            return { answer: value, source: 'profile' };
+          }
+        }
+
+        return {
+          answer: 'Ollama is not available right now. Please make sure it is running and try again.',
+          source: 'error',
+        };
+      }
+    }
+
     return;
   } catch (err) {
     error('Error handling message:', err);

@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat with your Resume — Offlyn Apply</title>
+  <script src="../shared/theme-init.js"></script>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #f8fafc;
+      --surface: #fff;
+      --border: #e2e8f0;
+      --text: #1a1a1a;
+      --text-muted: #64748b;
+      --text-faint: #94a3b8;
+      --accent: #1e293b;
+      --accent-hover: #334155;
+      --green: #16a34a;
+      --green-hover: #15803d;
+      --user-bubble: #1e293b;
+      --ai-bubble: #fff;
+      --ai-bubble-border: #e2e8f0;
+      --chip-bg: #f1f5f9;
+      --chip-border: #e2e8f0;
+      --chip-hover: #e2e8f0;
+      --chip-text: #334155;
+      --input-bg: #fff;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,.08);
+      --shadow-md: 0 4px 16px rgba(0,0,0,.10);
+    }
+
+    html.dark {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --border: #334155;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-faint: #475569;
+      --accent: #e2e8f0;
+      --accent-hover: #f1f5f9;
+      --user-bubble: #334155;
+      --ai-bubble: #1e293b;
+      --ai-bubble-border: #334155;
+      --chip-bg: #1e293b;
+      --chip-border: #334155;
+      --chip-hover: #263448;
+      --chip-text: #cbd5e1;
+      --input-bg: #1e293b;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    /* ── Layout ───────────────────────────────────────────────── */
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      max-width: 720px;
+      margin: 0 auto;
+      background: var(--surface);
+      box-shadow: 0 0 0 1px var(--border);
+    }
+
+    /* ── Header ───────────────────────────────────────────────── */
+    .header {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 20px;
+      background: linear-gradient(90deg, #1e293b 0%, #334155 100%);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .header-back {
+      background: rgba(255,255,255,.1);
+      border: none;
+      border-radius: 8px;
+      width: 32px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      color: rgba(255,255,255,.8);
+      transition: background .15s, color .15s;
+    }
+    .header-back:hover { background: rgba(255,255,255,.2); color: #fff; }
+    .header-icon {
+      width: 34px; height: 34px;
+      background: rgba(255,255,255,.12);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .header-text { flex: 1; }
+    .header-title {
+      font-size: 15px; font-weight: 700; color: #fff; line-height: 1.2;
+    }
+    .header-sub {
+      font-size: 11px; color: rgba(255,255,255,.55); margin-top: 1px;
+    }
+    .header-badge {
+      font-size: 11px; font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 20px;
+      background: rgba(22,163,74,.25);
+      color: #4ade80;
+      border: 1px solid rgba(74,222,128,.2);
+    }
+    .header-badge.loading {
+      background: rgba(245,158,11,.15);
+      color: #fbbf24;
+      border-color: rgba(251,191,36,.2);
+    }
+
+    /* ── Messages area ─────────────────────────────────────────── */
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      scroll-behavior: smooth;
+    }
+    .messages::-webkit-scrollbar { width: 5px; }
+    .messages::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Empty / welcome state ──────────────────────────────────── */
+    .welcome {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      padding: 40px 24px;
+      text-align: center;
+      gap: 12px;
+      color: var(--text-muted);
+    }
+    .welcome-icon {
+      width: 56px; height: 56px;
+      background: var(--chip-bg);
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px;
+      margin-bottom: 4px;
+    }
+    .welcome h2 { font-size: 18px; font-weight: 700; color: var(--text); }
+    .welcome p { font-size: 13px; line-height: 1.6; max-width: 360px; }
+
+    /* ── Sample questions ──────────────────────────────────────── */
+    .chips-section {
+      flex-shrink: 0;
+      padding: 0 20px 16px;
+    }
+    .chips-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text-faint);
+      margin-bottom: 10px;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+    .chip {
+      padding: 6px 12px;
+      background: var(--chip-bg);
+      border: 1px solid var(--chip-border);
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--chip-text);
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .chip:hover {
+      background: var(--chip-hover);
+      border-color: #94a3b8;
+      color: var(--text);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-sm);
+    }
+    .chip:active { transform: translateY(0); }
+
+    /* ── Message bubbles ──────────────────────────────────────── */
+    .message {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      animation: fadeIn .2s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    .message.user { flex-direction: row-reverse; }
+
+    .avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+    }
+    .avatar-user {
+      background: #1e293b;
+      color: #fff;
+    }
+    html.dark .avatar-user { background: #334155; }
+    .avatar-ai {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+    }
+
+    .bubble {
+      max-width: 80%;
+      padding: 10px 14px;
+      border-radius: 14px;
+      line-height: 1.55;
+      font-size: 13.5px;
+    }
+    .bubble-user {
+      background: var(--user-bubble);
+      color: #fff;
+      border-radius: 14px 14px 4px 14px;
+    }
+    .bubble-ai {
+      background: var(--ai-bubble);
+      color: var(--text);
+      border: 1px solid var(--ai-bubble-border);
+      border-radius: 14px 14px 14px 4px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* ── Thinking indicator ──────────────────────────────────── */
+    .thinking {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      padding: 12px 14px;
+    }
+    .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--text-faint);
+      animation: bounce 1.2s ease-in-out infinite;
+    }
+    .dot:nth-child(2) { animation-delay: .15s; }
+    .dot:nth-child(3) { animation-delay: .3s; }
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-5px); }
+    }
+
+    /* Source badge on AI replies */
+    .source-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 6px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 600;
+      background: #f0fdf4;
+      color: #15803d;
+      border: 1px solid #bbf7d0;
+    }
+    html.dark .source-badge {
+      background: rgba(22,163,74,.1);
+      color: #4ade80;
+      border-color: rgba(74,222,128,.2);
+    }
+    .source-badge.graph {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border-color: #bfdbfe;
+    }
+    html.dark .source-badge.graph {
+      background: rgba(59,130,246,.1);
+      color: #60a5fa;
+      border-color: rgba(96,165,250,.2);
+    }
+    .source-badge.llm {
+      background: #faf5ff;
+      color: #7c3aed;
+      border-color: #ddd6fe;
+    }
+    html.dark .source-badge.llm {
+      background: rgba(124,58,237,.1);
+      color: #a78bfa;
+      border-color: rgba(167,139,250,.2);
+    }
+
+    /* ── Input area ───────────────────────────────────────────── */
+    .input-area {
+      flex-shrink: 0;
+      padding: 12px 20px 18px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+    }
+    .input-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+    .input-box {
+      flex: 1;
+      background: var(--input-bg);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 13.5px;
+      font-family: inherit;
+      color: var(--text);
+      resize: none;
+      outline: none;
+      line-height: 1.5;
+      min-height: 44px;
+      max-height: 120px;
+      transition: border-color .15s;
+    }
+    .input-box:focus { border-color: #94a3b8; }
+    .input-box::placeholder { color: var(--text-faint); }
+    .send-btn {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      border: none;
+      background: #1e293b;
+      color: #fff;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: background .15s, transform .1s, opacity .15s;
+    }
+    .send-btn:hover { background: #334155; transform: scale(1.05); }
+    .send-btn:active { transform: scale(.97); }
+    .send-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    .input-hint {
+      font-size: 11px;
+      color: var(--text-faint);
+      margin-top: 6px;
+      text-align: center;
+    }
+
+    /* ── No-profile warning ───────────────────────────────────── */
+    .no-profile-banner {
+      margin: 16px 20px 0;
+      padding: 10px 14px;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: 10px;
+      font-size: 12px;
+      color: #92400e;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    html.dark .no-profile-banner {
+      background: rgba(249,115,22,.08);
+      border-color: rgba(249,115,22,.25);
+      color: #fb923c;
+    }
+
+    /* ── Scrolled-away chips toggle ───────────────────────────── */
+    .show-chips-btn {
+      position: fixed;
+      bottom: 80px; right: 24px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      box-shadow: var(--shadow-md);
+      display: none;
+      transition: all .15s;
+    }
+    .show-chips-btn:hover { color: var(--text); border-color: #94a3b8; }
+  </style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <button class="header-back" id="back-btn" title="Back to popup">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="header-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    </div>
+    <div class="header-text">
+      <div class="header-title">Chat with your Resume</div>
+      <div class="header-sub">Ask anything about your background</div>
+    </div>
+    <div class="header-badge" id="profile-badge">Loading…</div>
+  </div>
+
+  <!-- No profile warning (hidden by default) -->
+  <div class="no-profile-banner" id="no-profile-banner" style="display:none;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    No resume found. <a href="../onboarding/onboarding.html" style="color:inherit;font-weight:700;">Upload your resume</a> to get started.
+  </div>
+
+  <!-- Messages -->
+  <div class="messages" id="messages">
+    <div class="welcome" id="welcome">
+      <div class="welcome-icon">💬</div>
+      <h2>Ask about your resume</h2>
+      <p>Your profile data and learned answers are used to respond. Click a question below or type your own.</p>
+    </div>
+  </div>
+
+  <!-- Sample question chips -->
+  <div class="chips-section" id="chips-section">
+    <div class="chips-label">Try asking</div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <!-- Input area -->
+  <div class="input-area">
+    <div class="input-row">
+      <textarea
+        class="input-box"
+        id="chat-input"
+        placeholder="Ask anything about your resume…"
+        rows="1"
+        aria-label="Chat input"
+      ></textarea>
+      <button class="send-btn" id="send-btn" disabled aria-label="Send">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+    <div class="input-hint">All data stays local — powered by your profile &amp; Ollama</div>
+  </div>
+
+</div>
+
+<script src="chat.js"></script>
+<script src="../shared/dark-mode.js"></script>
+</body>
+</html>
