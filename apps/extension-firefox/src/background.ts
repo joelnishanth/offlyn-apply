@@ -8,9 +8,13 @@ import { log, info, warn, error } from './shared/log';
 import { sendDailySummary } from './shared/whatsapp';
 import { mastraAgent as ollama } from './shared/mastra-agent';
 import { ragParser } from './shared/rag-parser';
+import { ParseValidator } from './shared/parse-validator';
 import { enrichParseErrorMessage } from './shared/error-classify';
 import { graphMemory } from './shared/graph/service';
 import { getUserProfile, formatPhone, formatLocation, type UserProfile } from './shared/profile';
+import { fieldClassifier, isTypeCompatible } from './shared/field-classifier';
+import { normalizeValue } from './shared/value-normalizer';
+import { isGenericJobEntry, isDuplicateSubmit, GENERIC_JOB_TITLES, GENERIC_COMPANY_NAMES } from './shared/job-dedup';
 
 interface ConnectionState {
   connected: boolean;
@@ -26,64 +30,7 @@ const connectionState: ConnectionState = {
 
 const tabJobInfo: Map<number, TabJobInfo> = new Map();
 
-/**
- * Generic/garbage job titles that appear on job board listing pages
- * rather than on actual ATS application forms.
- * Used to filter out false-positive SUBMIT_ATTEMPT captures.
- */
-const GENERIC_JOB_TITLES = new Set([
-  'apply for this job',
-  'apply now',
-  'apply to this job',
-  'apply to this position',
-  'submit application',
-  'submit your application',
-  'job application',
-  'application form',
-  'apply',
-  'apply here',
-  'apply today',
-  'apply online',
-  'apply for this position',
-  'apply for this role',
-  'apply for job',
-  'quick apply',
-]);
-
-const GENERIC_COMPANY_NAMES = new Set([
-  'job-boards',
-  'job boards',
-  'jobs',
-  'careers',
-  'jobboard',
-  'job board',
-  'career',
-  'hiring',
-  'recruiter',
-  'recruitment',
-  'talent',
-  'hr',
-  'human resources',
-  'greenhouse',  // ATS provider names, not actual companies
-  'lever',
-  'workday',
-  'ashby',
-  'bamboohr',
-  'icims',
-  'smartrecruiters',
-  'taleo',
-  'boards',
-]);
-
-/**
- * Returns true if the job title or company name looks like a generic
- * listing-page artifact rather than a real application entry.
- */
-function isGenericJobEntry(jobTitle: string, company: string): boolean {
-  const titleNorm = jobTitle.trim().toLowerCase();
-  const companyNorm = company.trim().toLowerCase();
-  return GENERIC_JOB_TITLES.has(titleNorm) || GENERIC_COMPANY_NAMES.has(companyNorm);
-}
+// isGenericJobEntry and isDuplicateSubmit are imported from ./shared/job-dedup
 
 /**
  * Check Ollama connection status
@@ -132,7 +79,55 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
     if (typeof message !== 'object' || message === null || !('kind' in message)) {
       return;
     }
-    
+
+    // ── Native Messaging — Ollama Setup Helper ───────────────────────────────
+    // Must live inside the async listener; a separate synchronous listener is
+    // never reached because Firefox (like Chrome MV3) treats Promise<undefined>
+    // returned by an async listener as the final response, closing the channel.
+    const NATIVE_HOST_ID = 'ai.offlyn.helper';
+
+    if ((message as any).kind === 'CHECK_NATIVE_HELPER') {
+      return new Promise((resolve) => {
+        try {
+          const port = browser.runtime.connectNative(NATIVE_HOST_ID);
+          port.postMessage({ cmd: 'ping' });
+          port.onMessage.addListener((res: any) => {
+            resolve({ installed: true, version: res.version ?? '?' });
+            port.disconnect();
+          });
+          port.onDisconnect.addListener(() => {
+            resolve({ installed: false, error: (browser.runtime.lastError as any)?.message });
+          });
+        } catch {
+          resolve({ installed: false });
+        }
+      });
+    }
+
+    if ((message as any).kind === 'RUN_OLLAMA_SETUP') {
+      return new Promise((resolve) => {
+        let port: browser.runtime.Port;
+        try {
+          port = browser.runtime.connectNative(NATIVE_HOST_ID);
+        } catch (err) {
+          resolve({ ok: false, error: String(err) });
+          return;
+        }
+        port.postMessage({ cmd: 'run_setup' });
+        resolve({ ok: true });
+        port.onMessage.addListener((nativeMsg: any) => {
+          browser.runtime.sendMessage({ kind: 'SETUP_PROGRESS', ...nativeMsg }).catch(() => {});
+          if (nativeMsg.type === 'done') {
+            port.disconnect();
+          }
+        });
+        port.onDisconnect.addListener(() => {
+          const errMsg = (browser.runtime.lastError as any)?.message ?? 'Host disconnected';
+          browser.runtime.sendMessage({ kind: 'SETUP_PROGRESS', type: 'done', ok: false, error: errMsg }).catch(() => {});
+        });
+      });
+    }
+
     // Handle PARSE_RESUME from onboarding page
     if (message.kind === 'PARSE_RESUME') {
       info('Received PARSE_RESUME request from onboarding');
@@ -166,31 +161,43 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
       };
       
       try {
-        // Check if user wants RAG parsing (default: true for better accuracy)
-        const useRAG = (message as any).useRAG !== false; // Default to RAG
-        
-        let profile: any;
-        
-        if (useRAG) {
-          info('Using RAG-based parsing for higher accuracy...');
-          
-          // Parse with RAG
-          profile = await ragParser.parseResume(resumeText, (stage, percent, detail) => {
-            info(`RAG parsing: ${stage} (${percent}%)`);
+        info('Running dual-parse: RAG + legacy in parallel for best field coverage...');
+        broadcastProgress('Starting dual-pass analysis...', 62);
+
+        // Run both parsers concurrently — each contributes its strengths
+        const [ragResult, legacyResult] = await Promise.allSettled([
+          ragParser.parseResume(resumeText, (stage, percent, detail) => {
+            info(`RAG: ${stage} (${percent}%)`);
             broadcastProgress(stage, percent, detail);
-          });
-          
-          info('Successfully parsed profile with RAG');
+          }),
+          ollama.parseResume(resumeText, (stage, percent) => {
+            info(`Legacy: ${stage} (${percent}%)`);
+          }),
+        ]);
+
+        const ragProfile   = ragResult.status    === 'fulfilled' ? ragResult.value    : null;
+        const legacyProfile = legacyResult.status === 'fulfilled' ? legacyResult.value : null;
+
+        if (ragResult.status    === 'rejected') warn('RAG parser failed:', ragResult.reason);
+        if (legacyResult.status === 'rejected') warn('Legacy parser failed:', legacyResult.reason);
+
+        if (!ragProfile && !legacyProfile) {
+          throw new Error('Both parsers failed — no profile could be extracted');
+        }
+
+        let profile: any;
+
+        if (ragProfile && legacyProfile) {
+          // Both succeeded — use ParseValidator to pick best value per field
+          const validator = new ParseValidator();
+          const comparison = validator.merge(ragProfile, legacyProfile);
+          profile = comparison.merged;
+          info(`Merged profiles — RAG wins: ${comparison.differences.filter(d => d.recommended === 'rag').length} fields, Legacy wins: ${comparison.differences.filter(d => d.recommended === 'legacy').length} fields`);
+          broadcastProgress('Merging results...', 98);
         } else {
-          info('Using legacy chunking parser...');
-          
-          // Fallback to legacy parser
-          profile = await ollama.parseResume(resumeText, (stage, percent) => {
-            info(`Parsing progress: ${stage} (${percent}%)`);
-            broadcastProgress(stage, percent);
-          });
-          
-          info('Successfully parsed profile with chunking');
+          // Only one succeeded — use it directly
+          profile = ragProfile ?? legacyProfile;
+          info('Single parser result used:', ragProfile ? 'RAG' : 'legacy');
         }
         
         return {
@@ -200,24 +207,6 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
         };
       } catch (err) {
         error('Failed to parse resume:', err);
-        
-        // If RAG fails, try fallback to legacy parser
-        if ((message as any).useRAG !== false) {
-          warn('RAG parsing failed, trying legacy parser...');
-          try {
-            const profile = await ollama.parseResume(resumeText, (stage, percent) => {
-              info(`Fallback parsing: ${stage} (${percent}%)`);
-            });
-            
-            return {
-              kind: 'RESUME_PARSED',
-              requestId,
-              profile,
-            };
-          } catch (fallbackErr) {
-            error('Fallback parsing also failed:', fallbackErr);
-          }
-        }
         
         const messageText = enrichParseErrorMessage(
           err instanceof Error ? err.message : 'Failed to parse resume',
@@ -354,6 +343,10 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
         // rather than the actual ATS application form
         if (isGenericJobEntry(jobTitle, company)) {
           console.warn('[Background] Skipping generic/invalid entry:', jobTitle, 'at', company);
+        } else if (isDuplicateSubmit(company, jobTitle)) {
+          // Suppress the second SUBMIT_ATTEMPT that fires when the ATS iframe
+          // navigates to its /confirmation URL (the real one already saved above).
+          console.warn('[Background] Duplicate SUBMIT_ATTEMPT suppressed within dedup window:', jobTitle, 'at', company);
         } else {
           const app: JobApplication = {
             jobTitle,
@@ -478,31 +471,62 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
     // ── Graph: look up best answer for a field (called from content script) ──────
     if (message.kind === 'GRAPH_GET_BEST_ANSWER') {
       const msg = message as any;
+      const questionText: string = msg.questionText ?? '';
+      const inputType:    string = msg.inputType    ?? 'text';
+      const fieldName:    string = msg.fieldName    ?? '';
+
+      // Stage 1: classify the field — determines if we should autofill at all
+      const classification = await fieldClassifier.classify(questionText, inputType, fieldName);
+
+      if (!classification.shouldAutofill) {
+        // Junk or unclassifiable field — abstain silently
+        return { value: null, confidence: 0, source: null, selectionReason: null, abstained: true, reason: classification.reason };
+      }
+
+      // Stage 2: graph lookup with canonicalField + promptType for type-compatibility gating
+      const canonicalField = classification.canonicalField ?? msg.canonicalField;
       const result = await graphMemory.getBestAnswerForField({
-        questionText: msg.questionText ?? '',
-        canonicalField: msg.canonicalField,
-        platform: msg.platform,
-        company: msg.company,
-        jobTitle: msg.jobTitle,
-        url: msg.url,
+        questionText,
+        canonicalField,
+        platform:  msg.platform,
+        company:   msg.company,
+        jobTitle:  msg.jobTitle,
+        url:       msg.url,
+        promptType: classification.promptType,
       });
+
+      // Stage 3: normalize the value before returning
+      if (result.value) {
+        result.value = normalizeValue(result.value, classification.promptType);
+      }
+
       return result;
     }
 
     // ── Graph: record a successfully used answer ──────────────────────────────
     if (message.kind === 'GRAPH_RECORD_ANSWER') {
       const msg = message as any;
+      const questionText: string = msg.questionText ?? '';
+      const inputType:    string = msg.inputType    ?? 'text';
+      const fieldName:    string = msg.fieldName    ?? '';
+
+      // Only persist if classification allows it
+      const classification = await fieldClassifier.classify(questionText, inputType, fieldName);
+      if (!classification.shouldPersist) return;
+
       graphMemory.recordAnswer(
-        msg.questionText ?? '',
+        questionText,
         msg.value ?? '',
         msg.source ?? 'profile',
-        msg.canonicalField ?? undefined,
+        classification.canonicalField ?? msg.canonicalField ?? undefined,
         {
-          company: msg.context?.company,
+          company:  msg.context?.company,
           jobTitle: msg.context?.jobTitle,
-          url: msg.context?.url,
+          url:      msg.context?.url,
           platform: msg.context?.platform,
-        }
+        },
+        // Mark as internal if field was unclassified (shouldPersist=true but no canonicalField)
+        !classification.canonicalField
       );
       return;
     }
@@ -1053,6 +1077,7 @@ function buildProfileSeedEntries(profile: UserProfile): Array<{ canonicalField: 
   return entries.filter(e => e.value.trim() !== '');
 }
 
+
 // ── Init ───────────────────────────────────────────────────────────────────
 
 /**
@@ -1069,6 +1094,7 @@ async function init(): Promise<void> {
   if (existingProfile) {
     const entries = buildProfileSeedEntries(existingProfile);
     graphMemory.seedFromProfile(entries);
+    await graphMemory.flushSave();
   }
 
   // Create right-click context menus

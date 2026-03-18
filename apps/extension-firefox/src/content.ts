@@ -2,8 +2,8 @@
  * Content script for detecting job application pages and filling forms
  */
 
-import type { ApplyEvent, FillPlan, FillResult, JobMeta, FieldSchema } from './shared/types';
-import { extractJobMetadata, extractFormSchema, isJobApplicationPage, isJobConfirmationPage } from './shared/dom';
+import type { ApplyEvent, FillPlan, FillResult, JobMeta, FieldSchema, PageClassification } from './shared/types';
+import { extractJobMetadata, extractFormSchema, isJobConfirmationPage, classifyPage, isTrustedATSIframe } from './shared/dom';
 import { log, info, warn, error } from './shared/log';
 import { hideFieldSummary, ensureFieldSummaryExpanded } from './ui/field-summary';
 import { showCompatibilityWidget, updateCompatibilityFields, removeCompatibilityWidget } from './ui/compatibility-widget';
@@ -54,7 +54,8 @@ import {
   showFieldLabel,
   clearAllHighlights
 } from './ui/field-highlighter';
-import { showNotification, showSuccess, showError, showWarning, showInfo } from './ui/notification';
+import { showNotification, showSuccess, showError, showWarning, showInfo, showWorkdayBetaBanner } from './ui/notification';
+import { showAutofillNotification, hideAutofillNotification, showShoppingHelperNotification } from './ui/autofill-notification';
 import { showTrackingBadge, hideTrackingBadge } from './ui/tracking-badge';
 import {
   showInlineSuggestionTiles,
@@ -79,6 +80,9 @@ let lastSchema: string | null = null;
 let resumeFilesUploaded: Set<string> = new Set(); // Track which file inputs we've already filled
 let filledSelectors: Set<string> = new Set(); // Track which fields have been filled
 let userEditedFields: Set<string> = new Set(); // Track which fields user has manually edited
+
+/** Latest page classification result — used to gate fill/learn behaviour */
+let pageClassification: PageClassification | null = null;
 
 /** Tracks the last right-clicked editable field for the debug panel. */
 let lastRightClickedField: { selector: string; label: string; value: string } | null = null;
@@ -218,15 +222,31 @@ function detectPage(): void {
     // Record the application immediately without requiring form fields.
     if (isJobConfirmationPage()) {
       console.log('[OA] ✓ Confirmation/thank-you page detected — recording submission');
-      const jobMeta = extractJobMetadata();
 
-      // Avoid double-recording if we already fired for this exact URL
+      // Avoid double-recording if we already fired for this exact URL.
+      // This also guards against the form-submit handler having already recorded
+      // the same (company + title) pair milliseconds earlier.
       const confirmationKey = `offlyn_confirmed_${window.location.href}`;
       if (sessionStorage.getItem(confirmationKey)) {
         console.log('[OA] Confirmation already recorded this session, skipping');
         return;
       }
       sessionStorage.setItem(confirmationKey, '1');
+
+      // Prefer the job metadata stored during the fill phase (same iframe session)
+      // so we get the real job title instead of "Confirmation" from the thank-you heading.
+      let jobMeta = extractJobMetadata();
+      try {
+        const stored = sessionStorage.getItem('offlyn_last_job_meta');
+        if (stored) {
+          const parsed = JSON.parse(stored) as typeof jobMeta;
+          // Use stored values only when they are more informative than what we just scraped
+          if (parsed.jobTitle && parsed.jobTitle !== jobMeta.jobTitle) {
+            console.log('[OA] Using stored job title from fill phase:', parsed.jobTitle);
+            jobMeta = { ...jobMeta, ...parsed };
+          }
+        }
+      } catch (_) { /* ignore JSON parse errors */ }
 
       showTrackingBadge(jobMeta.jobTitle, jobMeta.company);
 
@@ -241,17 +261,69 @@ function detectPage(): void {
       return;
     }
 
-    const isJobPage = isJobApplicationPage();
-    console.log('[OA] isJobApplicationPage():', isJobPage);
-    
-    if (!isJobPage) {
-      console.warn('[OA] Page does not appear to be a job application page');
+    const classification = classifyPage();
+    pageClassification = classification;
+    console.log('[OA] Page state:', classification.state, '|', classification.detectionReason);
+
+    if (classification.state === 'NOT_JOB_PAGE') {
+      console.warn('[OA] Not a job page — skipping');
       return;
     }
-    
+
+    if (classification.state === 'FORM_HELPER_PAGE') {
+      console.log('[OA] Shopping checkout page — showing helper notification, filling name/address only (credit cards excluded)');
+      showShoppingHelperNotification();
+      // Credit card fields are excluded via JUNK_CC_LABEL_RE in field-classifier.ts
+      // Fall through to normal autofill flow but skip tracking badge and graph learning
+    }
+
+    if (classification.state === 'JOB_POSTING_PAGE') {
+      // Job detail / listing page — the application form hasn't opened yet.
+      // Show a passive badge but do NOT scan, fill, or learn.
+      console.log('[OA] Job posting page detected — waiting for application form to open');
+      const jobMeta = extractJobMetadata();
+      showTrackingBadge(jobMeta.jobTitle, jobMeta.company);
+      return;
+    }
+
+    // ── JOB_APPLICATION_PAGE ──────────────────────────────────────────────────
     console.log('[OA] ✓ Detected as job application page!');
-    
+
+    // Workday beta warning — shown once per session at the bottom of the screen
+    if (isWorkdayPage()) {
+      showWorkdayBetaBanner(browser.runtime.getURL('icons/monogram-nosquare.png'));
+    }
+
     const jobMeta = extractJobMetadata();
+
+    // If a trusted ATS iframe is handling the form, skip parent-page field scan.
+    // The iframe's own content script will report its fields via OFFLYN_IFRAME_FIELDS.
+    if (classification.parentFillSuppressed) {
+      console.log('[OA] Trusted ATS iframe detected — suppressing parent-page field scan');
+      showTrackingBadge(jobMeta.jobTitle, jobMeta.company);
+
+      // Show the widget with 0 fields for now; it will be updated when the iframe reports back
+      if (IS_TOP_FRAME) {
+        void (async () => {
+          try {
+            const profileForCompat = await getUserProfile();
+            if (profileForCompat) {
+              showCompatibilityWidget(
+                profileForCompat,
+                jobMeta.jobTitle || '',
+                jobMeta.company || '',
+                document.body.innerText || '',
+                [], // fields will arrive via OFFLYN_IFRAME_FIELDS
+                browser.runtime.getURL('icons/monogram-nosquare.png'),
+                browser.runtime.getURL('icons/primary-logo.png')
+              );
+            }
+          } catch (_) { /* non-critical */ }
+        })();
+      }
+      return;
+    }
+
     const forms = Array.from(document.querySelectorAll('form'));
     
     // Extract schema from all forms
@@ -325,9 +397,25 @@ function detectPage(): void {
       lastJobMeta = jobMeta;
       lastSchema = schemaHash;
 
+      // Persist job metadata to sessionStorage so the /confirmation page (which
+      // loads as a fresh script context in the same iframe) can retrieve the real
+      // job title instead of scraping "Confirmation" from the thank-you heading.
+      try {
+        sessionStorage.setItem('offlyn_last_job_meta', JSON.stringify(jobMeta));
+      } catch (_) { /* storage unavailable — ignore */ }
+
       // Show subtle tracking badge so user knows this application will be recorded
-      showTrackingBadge(jobMeta.jobTitle, jobMeta.company);
-      
+      // (suppressed on shopping/checkout pages — shopping notification already shown)
+      if (classification.state !== 'FORM_HELPER_PAGE') {
+        showTrackingBadge(jobMeta.jobTitle, jobMeta.company);
+      }
+
+      // Show the "Autofill Ready" pulsing notification when fields are detected
+      // (suppressed on FORM_HELPER_PAGE — shopping notification already shown)
+      if (uniqueFields.length > 0 && classification.state !== 'FORM_HELPER_PAGE') {
+        showAutofillNotification(uniqueFields.length);
+      }
+
       // Store detected fields globally
       allDetectedFields = uniqueFields;
       
@@ -1127,17 +1215,21 @@ window.addEventListener('offlyn-manual-autofill', async () => {
     warn('[Autofill] No detected fields in this frame. Refresh the scan first.');
   }
 
-  // Top frame: always broadcast to child iframes so embedded forms (e.g. Greenhouse
-  // embedded inside an employer's careers page) are filled alongside the parent.
+  // Top frame: forward autofill trigger only to trusted ATS iframes (Greenhouse, Lever,
+  // Workday, etc.). Explicitly skip chat widgets, ShareThis, about:blank, analytics
+  // embeds, and any iframe whose origin does not match a known ATS platform.
   if (IS_TOP_FRAME) {
     const iframes = Array.from(document.querySelectorAll('iframe'));
     for (const iframe of iframes) {
+      if (!isTrustedATSIframe(iframe.src)) {
+        info(`[Autofill] Skipping non-ATS iframe: ${iframe.src || 'about:blank'}`);
+        continue;
+      }
       try {
         iframe.contentWindow?.postMessage({ type: 'OFFLYN_TRIGGER_AUTOFILL' }, '*');
-        info(`[Autofill] Forwarded autofill trigger to iframe: ${iframe.src}`);
+        info(`[Autofill] Forwarded autofill trigger to trusted ATS iframe: ${iframe.src}`);
       } catch (_) {
-        // Cross-origin iframe — content script in that frame handles its own autofill
-        // when triggered via browser.runtime.sendMessage from the extension popup.
+        // Cross-origin — content script in that frame handles its own autofill
       }
     }
   }
@@ -1294,9 +1386,11 @@ function handleSubmitAttempt(e: Event, resolvedTarget?: HTMLElement): void {
     // Use the pre-resolved button element when available (avoids missing clicks
     // on icon/span children of buttons). Fall back to e.target for submit events.
     const target = resolvedTarget ?? (e.target as HTMLElement);
-    const text = target.textContent || target.getAttribute('value') || '';
-    const applyPattern = /apply|submit|next|continue/i;
-    
+    const text = (target.textContent || target.getAttribute('value') || '').trim();
+    // Only match final-submit button labels. "Next" / "Continue" are
+    // navigation buttons in multi-step forms and must NOT trigger tracking.
+    const applyPattern = /apply|submit|finish|complete\s+(application|form)/i;
+
     if (!applyPattern.test(text)) {
       return;
     }
@@ -1399,6 +1493,12 @@ async function learnFromCurrentFormValues(
     for (const field of fields) {
       // Skip file inputs, hidden fields, and disabled fields
       if (field.type === 'file' || field.disabled) continue;
+
+      // Never learn from untrusted fields (cookie banners, chat widgets, marketing embeds)
+      if (field.learnEligible === false || field.trustTier === 3) {
+        info(`[RL] Skipping learning for untrusted field "${field.label}" (tier=${field.trustTier}, reason=${field.exclusionReason ?? 'none'})`);
+        continue;
+      }
 
       const currentValue = fieldValues.get(field.selector);
       if (!currentValue) continue; // blank field — skip
@@ -3031,10 +3131,12 @@ async function executeFillPlan(plan: FillPlan): Promise<void> {
   // Show completion message
   info(`✅ Autofill complete! Filled ${result.filledCount} fields, ${result.failedSelectors.length} failed.`);
 
-  // Teach the graph — record every successfully filled answer into background's graphMemory
+  // Teach the graph — record every successfully filled answer into background's graphMemory.
+  // Skip untrusted fields (Tier 3: cookie banners, chat widgets, marketing embeds).
   for (const [selector, { field, value }] of autoFilledValues) {
     const fieldLabel = field.label ?? field.name ?? '';
     if (!fieldLabel || !value || typeof value === 'boolean') continue;
+    if (field.learnEligible === false || field.trustTier === 3) continue;
     browser.runtime.sendMessage({
       kind: 'GRAPH_RECORD_ANSWER',
       questionText: fieldLabel,

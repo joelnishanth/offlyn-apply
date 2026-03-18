@@ -1,4 +1,5 @@
 (async function () {
+  const api = typeof browser !== 'undefined' ? browser : chrome;
   const OLLAMA_URL = 'http://localhost:11434/api/tags';
 
   // Build an array of dailySummary_YYYY-MM-DD keys for the past N days.
@@ -15,16 +16,18 @@
   }
 
   function openPage(path) {
-    browser.tabs.create({ url: browser.runtime.getURL(path) });
+    api.tabs.create({ url: api.runtime.getURL(path) });
   }
 
   // --- Navigation ---
   document.getElementById('navDashboard').addEventListener('click', () => openPage('dashboard/dashboard.html'));
   document.getElementById('navProfile').addEventListener('click', () => openPage('onboarding/onboarding.html'));
   document.getElementById('navLearned').addEventListener('click', async () => {
-    await browser.storage.local.set({ showLearnedValues: true });
+    await api.storage.local.set({ showLearnedValues: true });
     openPage('onboarding/onboarding.html');
   });
+  document.getElementById('navDataExplorer').addEventListener('click', () => openPage('data/data.html'));
+  document.getElementById('navDataExplorerSide').addEventListener('click', () => openPage('data/data.html'));
   document.getElementById('navSettings').addEventListener('click', () => openPage('settings/settings.html'));
   document.getElementById('navHelp').addEventListener('click', () => openPage('help/help.html'));
   document.getElementById('navPrivacy').addEventListener('click', () => openPage('privacy/privacy.html'));
@@ -38,7 +41,7 @@
   // --- Quick actions ---
   document.getElementById('actionExport').addEventListener('click', async () => {
     try {
-      const data = await browser.storage.local.get('userProfile');
+      const data = await api.storage.local.get('userProfile');
       if (!data.userProfile) {
         alert('No profile to export. Set up your profile first.');
         return;
@@ -60,7 +63,7 @@
     try {
       // Build keys for past 365 days using dailySummary_ prefix
       const keysToRemove = buildDailySummaryKeys(365);
-      await browser.storage.local.remove(keysToRemove);
+      await api.storage.local.remove(keysToRemove);
       document.getElementById('statTotal').textContent = '0';
       document.getElementById('statInterviewing').textContent = '0';
       document.getElementById('statThisWeek').textContent = '0';
@@ -75,7 +78,7 @@
   // --- Load stats ---
   try {
     const keys = buildDailySummaryKeys(365);
-    const all = await browser.storage.local.get(keys);
+    const all = await api.storage.local.get(keys);
     let total = 0;
     let interviewing = 0;
     let thisWeek = 0;
@@ -107,7 +110,7 @@
 
   // --- Profile completion ---
   try {
-    const data = await browser.storage.local.get('userProfile');
+    const data = await api.storage.local.get('userProfile');
     const profile = data.userProfile;
 
     if (profile) {

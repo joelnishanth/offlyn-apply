@@ -67,6 +67,19 @@ export class ParseValidator {
   }
 
   /**
+   * Merge two already-parsed profiles without calling the parsers again.
+   * Used when the caller runs both parsers externally (e.g. in parallel).
+   */
+  merge(ragResult: any, legacyResult: any): ParseComparison {
+    const differences = this.compareResults(ragResult, legacyResult);
+    const merged = this.mergeResults(ragResult, legacyResult, differences);
+    const confidence = this.calculateConfidence(differences);
+
+    console.log(`[Validator] Merged — ${differences.length} differences, confidence: ${(confidence * 100).toFixed(1)}%`);
+    return { ragResult, legacyResult, merged, differences, confidence };
+  }
+
+  /**
    * Compare two parse results
    */
   private compareResults(rag: any, legacy: any): ParseDifference[] {
@@ -202,20 +215,33 @@ export class ParseValidator {
   }
 
   /**
-   * Recommend better work experience
+   * Recommend better work experience.
+   *
+   * Quality signal priority:
+   *  1. More entries with a valid startDate (dated entries are real jobs;
+   *     undated entries are phantom sub-responsibilities from LLM hallucination)
+   *  2. Higher total description length among the dated entries (more detail)
+   *  3. Prefer RAG as tiebreaker (semantic retrieval is more precise)
+   *
+   * Intentionally does NOT prefer the side with a higher raw entry count,
+   * because a result with 17 entries (12 phantom) is strictly worse than
+   * one with 5 well-dated entries.
    */
   private recommendWorkExperience(ragWork: any[], legacyWork: any[]): 'rag' | 'legacy' | 'manual' {
-    // Count total description length (more detail = better)
-    const ragDetailLength = ragWork.reduce((sum, job) => sum + (job.description?.length || 0), 0);
-    const legacyDetailLength = legacyWork.reduce((sum, job) => sum + (job.description?.length || 0), 0);
+    const hasDates = (jobs: any[]) => jobs.filter(j => j.startDate && String(j.startDate).trim());
 
-    // Prefer the one with more detailed descriptions
-    if (ragDetailLength > legacyDetailLength * 1.2) return 'rag';
-    if (legacyDetailLength > ragDetailLength * 1.2) return 'legacy';
+    const ragDated   = hasDates(ragWork);
+    const legacyDated = hasDates(legacyWork);
 
-    // If similar, prefer the one with more entries (might have caught more jobs)
-    if (ragWork.length > legacyWork.length) return 'rag';
-    if (legacyWork.length > ragWork.length) return 'legacy';
+    if (ragDated.length !== legacyDated.length) {
+      return ragDated.length > legacyDated.length ? 'rag' : 'legacy';
+    }
+
+    const ragDetail    = ragDated.reduce((s, j) => s + (j.description?.length || 0), 0);
+    const legacyDetail = legacyDated.reduce((s, j) => s + (j.description?.length || 0), 0);
+
+    if (ragDetail > legacyDetail * 1.2) return 'rag';
+    if (legacyDetail > ragDetail * 1.2) return 'legacy';
 
     return 'rag';
   }
@@ -392,7 +418,17 @@ export class ParseValidator {
     if (!profile.education || profile.education.length === 0) warnings.push('No education found');
     if (!profile.skills || profile.skills.length === 0) warnings.push('No skills found');
 
-    // Check for incomplete work entries
+    // Check for name quality
+    const lastName = profile.personal?.lastName || '';
+    if (lastName.includes(' ') && !profile.personal?.middleName) {
+      warnings.push(`lastName "${lastName}" appears to contain a middle name — check firstName/middleName/lastName split`);
+    }
+
+    // Check for incomplete or phantom work entries
+    const phantomJobs = (profile.work || []).filter((j: any) => !j.startDate || !String(j.startDate).trim());
+    if (phantomJobs.length > 0) {
+      warnings.push(`${phantomJobs.length} work entries have no startDate and will be treated as phantom entries`);
+    }
     for (const job of (profile.work || [])) {
       if (!job.company) warnings.push('Some work entries missing company name');
       if (!job.description || job.description.length < 20) {

@@ -98,6 +98,50 @@ async function init(): Promise<void> {
     } catch (err) { error('Clear apps failed:', err); }
   });
 
+  // --- Danger Zone: Clear All Data ---
+  const confirmPanel = document.getElementById('danger-confirm-panel');
+
+  document.getElementById('btn-open-clear-all')?.addEventListener('click', () => {
+    confirmPanel?.classList.add('open');
+    confirmPanel?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+
+  document.getElementById('btn-cancel-clear')?.addEventListener('click', () => {
+    confirmPanel?.classList.remove('open');
+  });
+
+  document.getElementById('btn-download-data')?.addEventListener('click', async () => {
+    try {
+      const allData = await browser.storage.local.get(null);
+      const json = JSON.stringify(allData, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const date = new Date().toISOString().slice(0, 10);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `offlyn-data-${date}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) { error('Data download failed:', err); }
+  });
+
+  document.getElementById('btn-nuke-all')?.addEventListener('click', async () => {
+    const nukeBtn = document.getElementById('btn-nuke-all') as HTMLButtonElement;
+    if (nukeBtn) {
+      nukeBtn.textContent = 'Deleting...';
+      nukeBtn.disabled = true;
+    }
+    try {
+      await browser.storage.local.clear();
+      window.location.reload();
+    } catch (err) {
+      error('Nuclear clear failed:', err);
+      if (nukeBtn) { nukeBtn.textContent = 'Delete Everything'; nukeBtn.disabled = false; }
+    }
+  });
+
   // --- Storage usage ---
   try {
     const allData = await browser.storage.local.get(null);

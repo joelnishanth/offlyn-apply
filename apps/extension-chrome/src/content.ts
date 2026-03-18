@@ -3,8 +3,8 @@
  */
 
 import browser from './shared/browser-compat';
-import type { ApplyEvent, FillPlan, FillResult, JobMeta, FieldSchema } from './shared/types';
-import { extractJobMetadata, extractFormSchema, isJobApplicationPage, isJobConfirmationPage } from './shared/dom';
+import type { ApplyEvent, FillPlan, FillResult, JobMeta, FieldSchema, PageClassification } from './shared/types';
+import { extractJobMetadata, extractFormSchema, isJobConfirmationPage, classifyPage, isTrustedATSIframe } from './shared/dom';
 import { log, info, warn, error } from './shared/log';
 import { hideFieldSummary, ensureFieldSummaryExpanded } from './ui/field-summary';
 import { showCompatibilityWidget, updateCompatibilityFields, removeCompatibilityWidget } from './ui/compatibility-widget';
@@ -55,7 +55,8 @@ import {
   showFieldLabel,
   clearAllHighlights
 } from './ui/field-highlighter';
-import { showNotification, showSuccess, showError, showWarning, showInfo } from './ui/notification';
+import { showNotification, showSuccess, showError, showWarning, showInfo, showWorkdayBetaBanner } from './ui/notification';
+import { showAutofillNotification, hideAutofillNotification, showShoppingHelperNotification } from './ui/autofill-notification';
 import { showTrackingBadge, hideTrackingBadge } from './ui/tracking-badge';
 import {
   showInlineSuggestionTiles,
@@ -69,6 +70,9 @@ import {
   setReactCheckboxValue
 } from './shared/react-input';
 import { isWorkdayPage, detectWorkdayStep, runWorkdaySpecialHandlers } from './shared/workday-handler';
+import { applyGraphEnhancement } from './shared/autofill';
+import { detectFieldType } from './shared/context-aware-storage';
+import { showFillDebugPanel } from './ui/fill-debug-panel';
 
 const IS_TOP_FRAME = window.self === window.top;
 
@@ -77,6 +81,63 @@ let lastSchema: string | null = null;
 let resumeFilesUploaded: Set<string> = new Set(); // Track which file inputs we've already filled
 let filledSelectors: Set<string> = new Set(); // Track which fields have been filled
 let userEditedFields: Set<string> = new Set(); // Track which fields user has manually edited
+
+/** Latest page classification result — used to gate fill/learn behaviour */
+let pageClassification: PageClassification | null = null;
+
+/** Tracks the last right-clicked editable field for the debug panel. */
+let lastRightClickedField: { selector: string; label: string; value: string } | null = null;
+
+// Capture the field under the cursor when the context menu opens
+document.addEventListener('contextmenu', (e) => {
+  const el = e.target as HTMLElement;
+  if (
+    el.tagName === 'INPUT' ||
+    el.tagName === 'TEXTAREA' ||
+    (el as HTMLElement).isContentEditable
+  ) {
+    const input = el as HTMLInputElement;
+    const selector = input.id
+      ? `#${CSS.escape(input.id)}`
+      : input.name
+        ? `[name="${CSS.escape(input.name)}"]`
+        : el.tagName.toLowerCase();
+
+    // Try to find a richer label from already-detected field schema
+    const matchedSchema = allDetectedFields.find(f => f.selector === selector);
+
+    // Walk the DOM for an associated <label> element
+    const domLabel = (() => {
+      const id = input.id;
+      if (id) {
+        const labelEl = document.querySelector(`label[for="${CSS.escape(id)}"]`);
+        if (labelEl) return (labelEl.textContent ?? '').trim();
+      }
+      const closest = el.closest('.form-group, .field-wrapper, [class*="field"], [class*="form"], [class*="input"]');
+      if (closest) {
+        const lbl = closest.querySelector('label');
+        if (lbl) return (lbl.textContent ?? '').trim();
+      }
+      return '';
+    })();
+
+    const label =
+      matchedSchema?.label ||
+      (el.closest('[data-label]') as HTMLElement | null)?.dataset.label ||
+      input.getAttribute('aria-label') ||
+      domLabel ||
+      input.placeholder ||
+      input.name ||
+      input.id ||
+      '';
+
+    lastRightClickedField = {
+      selector,
+      label,
+      value: input.value ?? (el as HTMLElement).textContent ?? '',
+    };
+  }
+}, true);
 let allDetectedFields: ReturnType<typeof extractFormSchema> = []; // Store all detected fields
 let autofillInProgress = false; // Flag to prevent overwriting during autofill
 let autoFilledValues: Map<string, { field: FieldSchema; value: string | boolean }> = new Map(); // Track what we auto-filled
@@ -162,15 +223,31 @@ function detectPage(): void {
     // Record the application immediately without requiring form fields.
     if (isJobConfirmationPage()) {
       console.log('[OA] ✓ Confirmation/thank-you page detected — recording submission');
-      const jobMeta = extractJobMetadata();
 
-      // Avoid double-recording if we already fired for this exact URL
+      // Avoid double-recording if we already fired for this exact URL.
+      // This also guards against the form-submit handler having already recorded
+      // the same (company + title) pair milliseconds earlier.
       const confirmationKey = `offlyn_confirmed_${window.location.href}`;
       if (sessionStorage.getItem(confirmationKey)) {
         console.log('[OA] Confirmation already recorded this session, skipping');
         return;
       }
       sessionStorage.setItem(confirmationKey, '1');
+
+      // Prefer the job metadata stored during the fill phase (same iframe session)
+      // so we get the real job title instead of "Confirmation" from the thank-you heading.
+      let jobMeta = extractJobMetadata();
+      try {
+        const stored = sessionStorage.getItem('offlyn_last_job_meta');
+        if (stored) {
+          const parsed = JSON.parse(stored) as typeof jobMeta;
+          // Use stored values only when they are more informative than what we just scraped
+          if (parsed.jobTitle && parsed.jobTitle !== jobMeta.jobTitle) {
+            console.log('[OA] Using stored job title from fill phase:', parsed.jobTitle);
+            jobMeta = { ...jobMeta, ...parsed };
+          }
+        }
+      } catch (_) { /* ignore JSON parse errors */ }
 
       showTrackingBadge(jobMeta.jobTitle, jobMeta.company);
 
@@ -185,17 +262,70 @@ function detectPage(): void {
       return;
     }
 
-    const isJobPage = isJobApplicationPage();
-    console.log('[OA] isJobApplicationPage():', isJobPage);
-    
-    if (!isJobPage) {
-      console.log('[OA] Page does not appear to be a job application page');
+    const classification = classifyPage();
+    pageClassification = classification;
+    console.log('[OA] Page state:', classification.state, '|', classification.detectionReason);
+
+    if (classification.state === 'NOT_JOB_PAGE') {
+      console.warn('[OA] Not a job page — skipping');
       return;
     }
-    
+
+    if (classification.state === 'FORM_HELPER_PAGE') {
+      console.log('[OA] Shopping checkout page — showing helper notification, filling name/address only (credit cards excluded)');
+      showShoppingHelperNotification();
+      // Credit card fields are excluded via JUNK_CC_LABEL_RE in field-classifier.ts
+      // Fall through to normal autofill flow but skip tracking badge and graph learning
+      // (handled below via classification.state check at badge/notification sites)
+    }
+
+    if (classification.state === 'JOB_POSTING_PAGE') {
+      // Job detail / listing page — the application form hasn't opened yet.
+      // Show a passive badge but do NOT scan, fill, or learn.
+      console.log('[OA] Job posting page detected — waiting for application form to open');
+      const jobMeta = extractJobMetadata();
+      showTrackingBadge(jobMeta.jobTitle, jobMeta.company);
+      return;
+    }
+
+    // ── JOB_APPLICATION_PAGE ──────────────────────────────────────────────────
     console.log('[OA] ✓ Detected as job application page!');
-    
+
+    // Workday beta warning — shown once per session at the bottom of the screen
+    if (isWorkdayPage()) {
+      showWorkdayBetaBanner(browser.runtime.getURL('icons/monogram-nosquare.png'));
+    }
+
     const jobMeta = extractJobMetadata();
+
+    // If a trusted ATS iframe is handling the form, skip parent-page field scan.
+    // The iframe's own content script will report its fields via OFFLYN_IFRAME_FIELDS.
+    if (classification.parentFillSuppressed) {
+      console.log('[OA] Trusted ATS iframe detected — suppressing parent-page field scan');
+      showTrackingBadge(jobMeta.jobTitle, jobMeta.company);
+
+      // Show the widget with 0 fields for now; it will be updated when the iframe reports back
+      if (IS_TOP_FRAME) {
+        void (async () => {
+          try {
+            const profileForCompat = await getUserProfile();
+            if (profileForCompat) {
+              showCompatibilityWidget(
+                profileForCompat,
+                jobMeta.jobTitle || '',
+                jobMeta.company || '',
+                document.body.innerText || '',
+                [], // fields will arrive via OFFLYN_IFRAME_FIELDS
+                browser.runtime.getURL('icons/monogram-nosquare.png'),
+                browser.runtime.getURL('icons/primary-logo.png')
+              );
+            }
+          } catch (_) { /* non-critical */ }
+        })();
+      }
+      return;
+    }
+
     const forms = Array.from(document.querySelectorAll('form'));
     
     // Extract schema from all forms
@@ -269,8 +399,24 @@ function detectPage(): void {
       lastJobMeta = jobMeta;
       lastSchema = schemaHash;
 
+      // Persist job metadata to sessionStorage so the /confirmation page (which
+      // loads as a fresh script context in the same iframe) can retrieve the real
+      // job title instead of scraping "Confirmation" from the thank-you heading.
+      try {
+        sessionStorage.setItem('offlyn_last_job_meta', JSON.stringify(jobMeta));
+      } catch (_) { /* storage unavailable — ignore */ }
+
       // Show subtle tracking badge so user knows this application will be recorded
-      showTrackingBadge(jobMeta.jobTitle, jobMeta.company);
+      // (suppressed on shopping/checkout pages — shopping notification already shown)
+      if (classification.state !== 'FORM_HELPER_PAGE') {
+        showTrackingBadge(jobMeta.jobTitle, jobMeta.company);
+      }
+
+      // Show the "Autofill Ready" pulsing notification when fields are detected
+      // (suppressed on FORM_HELPER_PAGE — shopping notification already shown)
+      if (uniqueFields.length > 0 && classification.state !== 'FORM_HELPER_PAGE') {
+        showAutofillNotification(uniqueFields.length);
+      }
       
       // Store detected fields globally
       allDetectedFields = uniqueFields;
@@ -348,7 +494,20 @@ async function tryAutoFill(schema: ReturnType<typeof extractFormSchema>): Promis
       warn('Failed to migrate profile to contextual storage:', err);
     }
     
-    const mappings = generateFillMappings(schema, profile);
+    let mappings = generateFillMappings(schema, profile);
+
+    // Enhance with graph memory — fills any fields not matched by profile/RL
+    try {
+      mappings = await applyGraphEnhancement(schema, mappings, {
+        platform: lastJobMeta?.atsHint ?? undefined,
+        company: lastJobMeta?.company ?? undefined,
+        jobTitle: lastJobMeta?.jobTitle ?? undefined,
+        url: window.location.href,
+      });
+    } catch (err) {
+      warn('[Graph] Enhancement failed, continuing with profile mappings:', err);
+    }
+
     if (mappings.length === 0) {
       info('ℹ️ No fields matched profile data.');
       showNotification('No matches found', 'No fields could be auto-filled from your profile.', 'info');
@@ -1058,17 +1217,21 @@ window.addEventListener('offlyn-manual-autofill', async () => {
     warn('[Autofill] No detected fields in this frame. Refresh the scan first.');
   }
 
-  // Top frame: always broadcast to child iframes so embedded forms (e.g. Greenhouse
-  // embedded inside an employer's careers page) are filled alongside the parent.
+  // Top frame: forward autofill trigger only to trusted ATS iframes (Greenhouse, Lever,
+  // Workday, etc.). Explicitly skip chat widgets, ShareThis, about:blank, analytics
+  // embeds, and any iframe whose origin does not match a known ATS platform.
   if (IS_TOP_FRAME) {
     const iframes = Array.from(document.querySelectorAll('iframe'));
     for (const iframe of iframes) {
+      if (!isTrustedATSIframe(iframe.src)) {
+        info(`[Autofill] Skipping non-ATS iframe: ${iframe.src || 'about:blank'}`);
+        continue;
+      }
       try {
         iframe.contentWindow?.postMessage({ type: 'OFFLYN_TRIGGER_AUTOFILL' }, '*');
-        info(`[Autofill] Forwarded autofill trigger to iframe: ${iframe.src}`);
+        info(`[Autofill] Forwarded autofill trigger to trusted ATS iframe: ${iframe.src}`);
       } catch (_) {
-        // Cross-origin iframe — content script in that frame handles its own autofill
-        // when triggered via browser.runtime.sendMessage from the extension popup.
+        // Cross-origin — content script in that frame handles its own autofill
       }
     }
   }
@@ -1225,9 +1388,11 @@ function handleSubmitAttempt(e: Event, resolvedTarget?: HTMLElement): void {
     // Use the pre-resolved button element when available (avoids missing clicks
     // on icon/span children of buttons). Fall back to e.target for submit events.
     const target = resolvedTarget ?? (e.target as HTMLElement);
-    const text = target.textContent || target.getAttribute('value') || '';
-    const applyPattern = /apply|submit|next|continue/i;
-    
+    const text = (target.textContent || target.getAttribute('value') || '').trim();
+    // Only match final-submit button labels. "Next" / "Continue" are
+    // navigation buttons in multi-step forms and must NOT trigger tracking.
+    const applyPattern = /apply|submit|finish|complete\s+(application|form)/i;
+
     if (!applyPattern.test(text)) {
       return;
     }
@@ -1331,6 +1496,12 @@ async function learnFromCurrentFormValues(
       // Skip file inputs, hidden fields, and disabled fields
       if (field.type === 'file' || field.disabled) continue;
 
+      // Never learn from untrusted fields (cookie banners, chat widgets, marketing embeds)
+      if (field.learnEligible === false || field.trustTier === 3) {
+        info(`[RL] Skipping learning for untrusted field "${field.label}" (tier=${field.trustTier}, reason=${field.exclusionReason ?? 'none'})`);
+        continue;
+      }
+
       const currentValue = fieldValues.get(field.selector);
       if (!currentValue) continue; // blank field — skip
 
@@ -1343,6 +1514,20 @@ async function learnFromCurrentFormValues(
           info(`[RL] Correction at submit — "${field.label}": "${autoStr}" → "${currentValue}"`);
           await rlSystem.recordCorrection(field, autoStr, currentValue, jobCtx);
           corrections++;
+          // Send graph correction to background (background owns graphMemory)
+          browser.runtime.sendMessage({
+            kind: 'GRAPH_RECORD_CORRECTION',
+            questionText: field.label ?? '',
+            canonicalField: detectFieldType(field.label ?? '', field.type ?? '', field.name ?? '') || undefined,
+            originalValue: autoStr,
+            correctedValue: currentValue,
+            context: {
+              company: lastJobMeta?.company ?? undefined,
+              jobTitle: lastJobMeta?.jobTitle ?? undefined,
+              url: window.location.href,
+              platform: lastJobMeta?.atsHint ?? undefined,
+            },
+          }).catch(() => {});
         } else {
           // User kept the autofilled value → success (positive signal)
           await rlSystem.recordSuccess(field, currentValue, jobCtx);
@@ -2281,6 +2466,15 @@ async function executeFillPlan(plan: FillPlan): Promise<void> {
         console.log('[OA] Field type:', fieldType, '| Has options:', hasOptionsArray);
         console.log('[OA] Setting value:', finalValue);
         
+        // Skip the intl-tel-input country code search box — it is an internal widget
+        // element, not a real form field, and filling it corrupts the phone country code
+        const elId = element.id || '';
+        if (elId.startsWith('iti-') || elId.includes('__search') || element.closest('.iti')) {
+          console.log('[OA] Skipping ITI phone country widget:', mapping.selector);
+          result.filledSelectors.push(mapping.selector); // treat as done so it doesn't count as a failure
+          continue;
+        }
+
         // Skip fields with empty values
         if (!finalValue || String(finalValue).trim() === '') {
           console.log('[OA] Skipping field with empty value');
@@ -2938,6 +3132,27 @@ async function executeFillPlan(plan: FillPlan): Promise<void> {
   
   // Show completion message
   info(`✅ Autofill complete! Filled ${result.filledCount} fields, ${result.failedSelectors.length} failed.`);
+
+  // Teach the graph — record every successfully filled answer into background's graphMemory.
+  // Skip untrusted fields (Tier 3: cookie banners, chat widgets, marketing embeds).
+  for (const [selector, { field, value }] of autoFilledValues) {
+    const fieldLabel = field.label ?? field.name ?? '';
+    if (!fieldLabel || !value || typeof value === 'boolean') continue;
+    if (field.learnEligible === false || field.trustTier === 3) continue;
+    browser.runtime.sendMessage({
+      kind: 'GRAPH_RECORD_ANSWER',
+      questionText: fieldLabel,
+      value: String(value),
+      source: 'profile',
+      canonicalField: detectFieldType(fieldLabel, field.type ?? '', field.name ?? '') || 'unknown',
+      context: {
+        company: lastJobMeta?.company ?? undefined,
+        jobTitle: lastJobMeta?.jobTitle ?? undefined,
+        url: window.location.href,
+        platform: lastJobMeta?.atsHint ?? undefined,
+      },
+    }).catch(() => {});
+  }
   
   // Show progress completion
   const allSuccess = result.failedSelectors.length === 0 && result.filledCount > 0;
@@ -3524,6 +3739,108 @@ browser.runtime.onMessage.addListener((message: unknown) => {
         const action = (message as any).action as string;
         handleTextTransform(action);
         return Promise.resolve();
+      }
+
+      // Handle "Why was this filled?" debug panel trigger
+      if ((message as any).kind === 'GRAPH_DEBUG_FIELD') {
+        return (async () => {
+          if (!lastRightClickedField) return;
+          try {
+            const response = await browser.runtime.sendMessage({
+              kind: 'GRAPH_DEBUG_REQUEST',
+              label: lastRightClickedField.label,
+              currentValue: lastRightClickedField.value,
+            });
+            const provenance = (response as any)?.provenance ?? null;
+            const el = document.querySelector(lastRightClickedField.selector) as HTMLElement | null;
+            showFillDebugPanel(el ?? document.body, lastRightClickedField.label, provenance);
+          } catch (err) {
+            warn('[Graph] Debug panel error:', err);
+          }
+        })();
+      }
+
+      // Handle "Smart Fill this field" — generates an appropriately-sized answer via LLM
+      if ((message as any).kind === 'SMART_FILL_FIELD') {
+        return (async () => {
+          if (!lastRightClickedField) {
+            showWarning('Smart Fill', 'Could not identify the field. Try right-clicking directly on the input.');
+            return;
+          }
+
+          const { selector, label, value: currentValue } = lastRightClickedField;
+
+          // Find matching schema for richer field info (type, options)
+          const schema = allDetectedFields.find(f => f.selector === selector);
+          const fieldType = schema?.type ?? 'text';
+          const options: string[] = (schema as any)?.options ?? [];
+
+          // Find the DOM element
+          const el = document.querySelector(selector) as HTMLInputElement | HTMLTextAreaElement | null;
+          if (!el) {
+            showWarning('Smart Fill', 'Field not found. The page may have changed.');
+            return;
+          }
+
+          // Loading state — purple ring to distinguish from profile autofill
+          const originalBoxShadow = el.style.boxShadow;
+          el.style.transition = 'box-shadow 0.2s ease';
+          el.style.boxShadow = '0 0 0 3px rgba(124, 58, 237, 0.35)';
+          el.setAttribute('data-offlyn-loading', 'true');
+
+          showInfo('Smart Fill', `Generating answer for "${label || 'this field'}"…`);
+
+          try {
+            const response = await browser.runtime.sendMessage({
+              kind: 'SMART_FILL_QUERY',
+              label,
+              fieldType,
+              options,
+              currentValue,
+            }) as { value?: string; responseType?: string; error?: string } | undefined;
+
+            if (!response || response.error) {
+              showError('Smart Fill Failed', response?.error ?? 'No response from background.');
+              return;
+            }
+
+            const { value: answer, responseType } = response;
+            if (!answer?.trim()) {
+              showWarning('Smart Fill', 'The AI returned an empty answer. Try rephrasing the field label.');
+              return;
+            }
+
+            // Fill the field using the existing smart fill infrastructure
+            autofillInProgress = true;
+            const success = await smartFillField(el, answer, selector);
+            autofillInProgress = false;
+
+            if (success) {
+              const typeLabel =
+                responseType === 'yesno'  ? 'Yes/No answer' :
+                responseType === 'long'   ? 'detailed response' :
+                responseType === 'medium' ? 'short response' : 'value';
+              showSuccess('Smart Fill', `Filled with ${typeLabel}. Right-click → "Professional Fix" to refine.`);
+              // Teach the graph about this answer
+              browser.runtime.sendMessage({
+                kind: 'GRAPH_RECORD_ANSWER',
+                questionText: label,
+                value: answer,
+                source: 'llm',
+                canonicalField: null,
+              }).catch(() => {});
+            } else {
+              showWarning('Smart Fill', 'Could not fill the field — the page may be using a custom input widget.');
+            }
+          } catch (err) {
+            warn('[SmartFill] Error:', err);
+            showError('Smart Fill Error', 'An error occurred. Make sure Ollama is running.');
+          } finally {
+            autofillInProgress = false;
+            el.style.boxShadow = originalBoxShadow;
+            el.removeAttribute('data-offlyn-loading');
+          }
+        })();
       }
     }
   } catch (err) {

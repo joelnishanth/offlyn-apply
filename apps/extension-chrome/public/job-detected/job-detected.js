@@ -1,11 +1,12 @@
 (function () {
+  var api = typeof browser !== 'undefined' ? browser : chrome;
   var params = new URLSearchParams(window.location.search);
   var tabId = parseInt(params.get('tabId') || '', 10);
   if (!tabId) {
     document.getElementById('job-title').textContent = 'No job info';
     return;
   }
-  browser.runtime.sendMessage({ kind: 'GET_JOB_FOR_TAB', tabId: tabId }, function (response) {
+  api.runtime.sendMessage({ kind: 'GET_JOB_FOR_TAB', tabId: tabId }, function (response) {
     var lastJob = response && response.lastJob;
     if (lastJob) {
       document.getElementById('job-title').textContent = lastJob.title || 'Job application';
@@ -16,15 +17,15 @@
     }
   });
   document.getElementById('btn-focus').addEventListener('click', function () {
-    browser.tabs.get(tabId).then(function (tab) {
-      browser.tabs.update(tabId, { active: true });
-      browser.windows.update(tab.windowId, { focused: true });
+    api.tabs.get(tabId).then(function (tab) {
+      api.tabs.update(tabId, { active: true });
+      api.windows.update(tab.windowId, { focused: true });
       window.close();
     }).catch(function () {});
   });
   document.getElementById('link-onboarding').addEventListener('click', function (e) {
     e.preventDefault();
-    browser.tabs.create({ url: browser.runtime.getURL('onboarding/onboarding.html') });
+    api.tabs.create({ url: api.runtime.getURL('onboarding/onboarding.html') });
     window.close();
   });
 })();

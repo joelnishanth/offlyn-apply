@@ -47,6 +47,12 @@ const buildOptions = {
   },
 };
 
+// Options for JSX entry points (Data Explorer React app)
+const jsxBuildOptions = {
+  ...buildOptions,
+  jsx: 'automatic',
+};
+
 const pathMap = {
   'src/background.ts': 'dist/background.js',
   'src/content.ts': 'dist/content.js',
@@ -54,20 +60,26 @@ const pathMap = {
   'src/onboarding/onboarding.ts': 'dist/onboarding/onboarding.js',
   'src/dashboard/dashboard.ts': 'dist/dashboard/dashboard.js',
   'src/settings/settings.ts': 'dist/settings/settings.js',
+  'src/chat/chat.ts': 'dist/chat/chat.js',
+};
+
+// Entry points that require JSX (React) compilation
+const jsxPathMap = {
+  'src/data/data.tsx': 'dist/data/data.js',
 };
 
 async function build() {
   try {
     copyPublicFiles();
-    
+
     for (const [entry, outfile] of Object.entries(pathMap)) {
-      await esbuild.build({
-        ...buildOptions,
-        entryPoints: [entry],
-        outfile,
-      });
+      await esbuild.build({ ...buildOptions, entryPoints: [entry], outfile });
     }
-    
+
+    for (const [entry, outfile] of Object.entries(jsxPathMap)) {
+      await esbuild.build({ ...jsxBuildOptions, entryPoints: [entry], outfile });
+    }
+
     console.log('Chrome extension build complete!');
   } catch (error) {
     console.error('Build failed:', error);
@@ -78,21 +90,21 @@ async function build() {
 if (watch) {
   async function watchBuild() {
     copyPublicFiles();
-    
+
     const contexts = [];
     for (const [entry, outfile] of Object.entries(pathMap)) {
-      const ctx = await esbuild.context({
-        ...buildOptions,
-        entryPoints: [entry],
-        outfile,
-      });
+      const ctx = await esbuild.context({ ...buildOptions, entryPoints: [entry], outfile });
       contexts.push(ctx);
     }
-    
+    for (const [entry, outfile] of Object.entries(jsxPathMap)) {
+      const ctx = await esbuild.context({ ...jsxBuildOptions, entryPoints: [entry], outfile });
+      contexts.push(ctx);
+    }
+
     await Promise.all(contexts.map(ctx => ctx.watch()));
     console.log('Watching Chrome extension for changes...');
   }
-  
+
   watchBuild().catch(err => {
     console.error('Watch setup failed:', err);
     process.exit(1);

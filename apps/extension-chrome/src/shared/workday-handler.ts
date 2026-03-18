@@ -299,22 +299,39 @@ async function saveInlineForm(container: Element | null): Promise<boolean> {
  * "Add" button until we find a heading that matches the pattern.
  */
 async function clickAddInSection(sectionHeadingPattern: RegExp): Promise<boolean> {
-  const allAddBtns = Array.from(document.querySelectorAll('button')).filter(
-    b => /^add$/i.test(b.textContent?.trim() ?? '')
-  );
+  // Broader selector: exact "Add" text, aria-label containing "Add", or data-automation-id containing "add"
+  const allAddBtns = Array.from(document.querySelectorAll(
+    'button, [role="button"]'
+  )).filter(b => {
+    const text = b.textContent?.trim() ?? '';
+    const aria = b.getAttribute('aria-label') ?? '';
+    const autoId = b.getAttribute('data-automation-id') ?? '';
+    return /^add$/i.test(text) ||
+           /\badd\b/i.test(aria) ||
+           /\badd\b/i.test(autoId);
+  }) as HTMLElement[];
 
   for (const btn of allAddBtns) {
-    // Walk up to find the nearest heading
+    // Walk up to find the nearest heading or section label
     let el: Element | null = btn.parentElement;
     let depth = 0;
-    while (el && el !== document.body && depth < 12) {
-      const headings = el.querySelectorAll('h2, h3, h4, [class*="title"], [data-automation-id*="title"]');
+    while (el && el !== document.body && depth < 15) {
+      const headings = el.querySelectorAll(
+        'h2, h3, h4, [class*="title"], [data-automation-id*="title"], [data-automation-id*="heading"], legend'
+      );
       for (const h of headings) {
         if (sectionHeadingPattern.test(h.textContent?.trim() ?? '')) {
-          (btn as HTMLElement).click();
+          btn.click();
           await sleep(900);
           return true;
         }
+      }
+      // Also check the element's own text if it's a section wrapper
+      if (sectionHeadingPattern.test(el.textContent?.trim() ?? '') &&
+          el.querySelectorAll('button').length <= 5) {
+        btn.click();
+        await sleep(900);
+        return true;
       }
       el = el.parentElement;
       depth++;
@@ -568,8 +585,8 @@ async function fillOpenWorkExperienceForm(
   const scope = container as ParentNode;
 
   console.log('[Workday] Filling open Work Experience form');
-  await fillFieldByLabel(scope, /job title|position|title/i, entry.title);
-  await fillFieldByLabel(scope, /company|employer|organization/i, entry.company);
+  if (entry.title?.trim()) await fillFieldByLabel(scope, /job title|position|title/i, entry.title);
+  if (entry.company?.trim()) await fillFieldByLabel(scope, /company|employer|organization/i, entry.company);
   // Location intentionally left blank — profile city may differ from job location
 
   const start = parseMonthYear(entry.startDate);
@@ -597,6 +614,79 @@ async function fillOpenWorkExperienceForm(
   return true;
 }
 
+// ── Autocomplete-aware field fill (for Field of Study, etc.) ─────────────────
+
+/**
+ * Fill a Workday autocomplete/typeahead field. Tries exact match first,
+ * then tokenized partial match, then falls back to selecting the first option
+ * whose text contains any token from the target value.
+ */
+async function fillFieldByAutocompleteLabel(
+  container: ParentNode,
+  labelPattern: RegExp,
+  value: string
+): Promise<boolean> {
+  if (!value?.trim()) return false;
+
+  // Find the form field wrapper
+  const formFields = Array.from(container.querySelectorAll('[data-automation-id="formField"]')) as Element[];
+  for (const ff of formFields) {
+    const labelEl = ff.querySelector('[data-automation-id="label"]');
+    if (!labelEl) continue;
+    if (!labelPattern.test(labelEl.textContent?.trim() ?? '')) continue;
+
+    // It may be a combobox
+    const combo = ff.querySelector('[role="combobox"]') as HTMLElement | null;
+    const textInput = (combo ? ff.querySelector('input') : ff.querySelector('input:not([type="hidden"])')) as HTMLInputElement | null;
+    if (!textInput) continue;
+
+    // Type the value to trigger suggestions
+    textInput.focus();
+    setReactInputValue(textInput, value);
+    await sleep(500);
+
+    const options = Array.from(document.querySelectorAll('[role="option"]')) as HTMLElement[];
+    if (options.length === 0) {
+      // No suggestions — try a shorter token
+      const token = value.split(/\s+/)[0];
+      setReactInputValue(textInput, token);
+      await sleep(500);
+    }
+
+    const freshOptions = Array.from(document.querySelectorAll('[role="option"]')) as HTMLElement[];
+    if (freshOptions.length > 0) {
+      const valueLower = value.toLowerCase();
+      const tokens = valueLower.split(/\s+/).filter(t => t.length > 2);
+
+      // Try exact/contains match first
+      let best = freshOptions.find(o => o.textContent?.trim().toLowerCase().includes(valueLower));
+      // Fallback: any token match
+      if (!best) {
+        best = freshOptions.find(o => {
+          const oText = o.textContent?.trim().toLowerCase() ?? '';
+          return tokens.some(t => oText.includes(t));
+        });
+      }
+      // Last resort: first option
+      if (!best) best = freshOptions[0];
+
+      if (best) {
+        best.click();
+        await sleep(300);
+        console.log(`[Workday] Autocomplete filled "${labelEl.textContent?.trim()}" with option: ${best.textContent?.trim()}`);
+        return true;
+      }
+    }
+
+    // No options — fill directly and hope the field accepts freeform input
+    await fillInput(textInput, value);
+    return true;
+  }
+
+  // Fallback to standard label fill
+  return fillFieldByLabel(container, labelPattern, value);
+}
+
 // ── Education inline form fill ────────────────────────────────────────────────
 
 async function fillOpenEducationForm(
@@ -610,9 +700,9 @@ async function fillOpenEducationForm(
   const scope = container as ParentNode;
 
   console.log('[Workday] Filling open Education form');
-  await fillFieldByLabel(scope, /school|university|college|institution/i, entry.school);
-  await fillFieldByLabel(scope, /degree|qualification/i, entry.degree);
-  await fillFieldByLabel(scope, /field of study|major|discipline/i, entry.field);
+  if (entry.school?.trim()) await fillFieldByLabel(scope, /school|university|college|institution/i, entry.school);
+  if (entry.degree?.trim()) await fillFieldByLabel(scope, /degree|qualification/i, entry.degree);
+  if (entry.field?.trim()) await fillFieldByAutocompleteLabel(scope, /field of study|major|discipline/i, entry.field);
 
   if (entry.graduationYear) {
     // Workday may show graduation as a single year field or a date widget

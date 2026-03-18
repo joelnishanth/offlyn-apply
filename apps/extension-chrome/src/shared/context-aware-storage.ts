@@ -268,77 +268,17 @@ export async function rateVariation(
 }
 
 /**
- * Detect field type from label/context
+ * Detect the canonical field type for a form field label.
+ * Delegates to the FieldClassifier deterministic rule table (~50 patterns).
+ * Returns 'unknown' for unrecognised fields.
+ *
+ * @param label     Visible label text of the field
+ * @param context   HTML input type attribute (used for junk detection)
+ * @param fieldType HTML name/id attribute
  */
 export function detectFieldType(label: string, context: string, fieldType: string): string {
-  const labelLower = label.toLowerCase();
-  const contextLower = context.toLowerCase();
-  
-  // Cover letter
-  if (labelLower.includes('cover letter') || labelLower.includes('coverletter')) {
-    return 'cover_letter';
-  }
-  
-  // Why this company - check for specific company names too
-  if (labelLower.includes('why') && 
-      (labelLower.includes('company') || 
-       labelLower.includes('us') || 
-       labelLower.includes('work at') ||
-       labelLower.includes('discord') ||
-       labelLower.includes('google') ||
-       labelLower.includes('amazon') ||
-       labelLower.includes('meta') ||
-       labelLower.includes('microsoft'))) {
-    return 'why_company';
-  }
-  
-  // Why this role
-  if (labelLower.includes('why') && (labelLower.includes('role') || labelLower.includes('position') || labelLower.includes('job'))) {
-    return 'why_role';
-  }
-  
-  // Interested in position
-  if ((labelLower.includes('interest') || labelLower.includes('motivated')) && 
-      (labelLower.includes('position') || labelLower.includes('role') || labelLower.includes('job'))) {
-    return 'why_role';
-  }
-  
-  // Availability
-  if (labelLower.includes('availability') || labelLower.includes('start date') || labelLower.includes('when can you start')) {
-    return 'availability';
-  }
-  
-  // Salary expectations
-  if (labelLower.includes('salary') || labelLower.includes('compensation') || labelLower.includes('expected pay')) {
-    return 'salary_expectations';
-  }
-  
-  // Additional info
-  if (labelLower.includes('additional') && (labelLower.includes('info') || labelLower.includes('comments'))) {
-    return 'additional_info';
-  }
-  
-  // Strengths
-  if (labelLower.includes('strength') || labelLower.includes('what makes you')) {
-    return 'strengths';
-  }
-  
-  // Weaknesses
-  if (labelLower.includes('weakness') || labelLower.includes('area') && labelLower.includes('improve')) {
-    return 'weaknesses';
-  }
-  
-  // Career goals
-  if (labelLower.includes('career') && (labelLower.includes('goal') || labelLower.includes('aspiration'))) {
-    return 'career_goals';
-  }
-  
-  // References
-  if (labelLower.includes('reference') || labelLower.includes('referral')) {
-    return 'references';
-  }
-  
-  return 'unknown';
+  const { classifyFieldSync } = require('./field-classifier') as typeof import('./field-classifier');
+  return classifyFieldSync(label, context, fieldType);
 }
 
 /**

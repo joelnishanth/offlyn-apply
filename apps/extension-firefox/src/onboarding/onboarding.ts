@@ -21,7 +21,7 @@ let isConnected = false;
 /**
  * Show a specific step
  */
-const STEP_ORDER = ['step-upload', 'step-ollama', 'step-review', 'step-links', 'step-selfid', 'step-workauth', 'step-coverletter', 'step-success'];
+const STEP_ORDER = ['step-ollama', 'step-upload', 'step-review', 'step-links', 'step-selfid', 'step-workauth', 'step-coverletter', 'step-success'];
 
 function showStep(stepId: string): void {
   document.querySelectorAll('.step').forEach(step => {
@@ -432,13 +432,149 @@ async function checkOllamaConnection(): Promise<void> {
   } else {
     console.warn('[Ollama Setup] Connection failed:', result.error);
     showOllamaUIState('not-installed');
+    checkNativeHelper().then(installed => updateHelperSubstate(installed));
   }
 }
 
+// ── Native Messaging helpers ──────────────────────────────────────────────
+
+const HELPER_INSTALL_BASE =
+  'https://raw.githubusercontent.com/joelnishanth/offlyn-apply/main/scripts/native-host';
+
+function detectOS(): 'mac' | 'windows' | 'linux' {
+  const ua = navigator.userAgent.toLowerCase();
+  if (ua.includes('win')) return 'windows';
+  if (ua.includes('mac')) return 'mac';
+  return 'linux';
+}
+
+function getHelperInstallCommand(): string {
+  const os = detectOS();
+  if (os === 'windows') {
+    return `irm ${HELPER_INSTALL_BASE}/install-win.bat -OutFile $env:TEMP\\offlyn-install.bat; & $env:TEMP\\offlyn-install.bat`;
+  }
+  return `curl -fsSL ${HELPER_INSTALL_BASE}/install-mac-linux.sh | bash`;
+}
+
+function getHelperTerminalHint(): string {
+  const os = detectOS();
+  if (os === 'windows') return 'Open PowerShell (Start → search "PowerShell") → paste → Enter';
+  if (os === 'mac') return 'Open Terminal (Cmd+Space → type "Terminal" → Enter) → paste → Enter';
+  return 'Open a terminal → paste → Enter';
+}
+
+async function checkNativeHelper(): Promise<boolean> {
+  try {
+    const res = await browser.runtime.sendMessage({ kind: 'CHECK_NATIVE_HELPER' });
+    return (res as any)?.installed === true;
+  } catch {
+    return false;
+  }
+}
+
+function stripAnsi(text: string): string {
+  return text.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '').replace(/\[K/g, '').trim();
+}
+
+function appendToLog(logEl: HTMLElement, rawText: string, isError = false): void {
+  const text = stripAnsi(rawText);
+  if (!text) return;
+  const line = document.createElement('div');
+  line.textContent = text;
+  if (isError) line.style.color = '#f87171';
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function runSetupViaHelper(logElId: string, onDone: (ok: boolean) => void): void {
+  const logEl = document.getElementById(logElId);
+  if (logEl) logEl.style.display = 'block';
+
+  const progressHandler = (msg: any) => {
+    if (typeof msg !== 'object' || msg === null || msg.kind !== 'SETUP_PROGRESS') return;
+    if (msg.type === 'progress' && logEl) {
+      appendToLog(logEl, msg.line as string);
+    }
+    if (msg.type === 'done') {
+      browser.runtime.onMessage.removeListener(progressHandler);
+      onDone(!!(msg as any).ok);
+    }
+  };
+
+  browser.runtime.onMessage.addListener(progressHandler);
+  browser.runtime.sendMessage({ kind: 'RUN_OLLAMA_SETUP' }).catch((err: unknown) => {
+    browser.runtime.onMessage.removeListener(progressHandler);
+    if (logEl) appendToLog(logEl, `Error: ${String(err)}`, true);
+    onDone(false);
+  });
+}
+
+function updateHelperSubstate(helperInstalled: boolean): void {
+  const notInstalled = document.getElementById('helperNotInstalled');
+  const installed = document.getElementById('helperInstalled');
+  if (notInstalled) notInstalled.style.display = helperInstalled ? 'none' : '';
+  if (installed) installed.style.display = helperInstalled ? '' : 'none';
+}
+
 function setupOllamaStepListeners(): void {
-  // Back button
+  // Populate OS-specific helper install command
+  const cmdEl = document.getElementById('helperInstallCmd');
+  const hintEl = document.getElementById('helperTerminalHint');
+  if (cmdEl) cmdEl.textContent = getHelperInstallCommand();
+  if (hintEl) hintEl.textContent = getHelperTerminalHint();
+
+  // Copy helper install command
+  document.getElementById('copyHelperCmd')?.addEventListener('click', () => {
+    const cmd = getHelperInstallCommand();
+    navigator.clipboard.writeText(cmd).then(() => {
+      const btn = document.getElementById('copyHelperCmd');
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+      }
+    }).catch(() => {});
+  });
+
+  // "Helper Installed — Check Again" button
+  document.getElementById('checkHelperBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('checkHelperBtn') as HTMLButtonElement | null;
+    if (btn) { btn.disabled = true; btn.textContent = 'Checking...'; }
+    const installed = await checkNativeHelper();
+    if (btn) { btn.disabled = false; btn.textContent = 'Helper Installed — Check Again'; }
+    updateHelperSubstate(installed);
+  });
+
+  // "Set Up AI" button
+  document.getElementById('runSetupBtn')?.addEventListener('click', () => {
+    const btn = document.getElementById('runSetupBtn') as HTMLButtonElement | null;
+    if (btn) { btn.disabled = true; btn.textContent = 'Setting up...'; }
+
+    runSetupViaHelper('setupProgressLog', (ok) => {
+      if (btn) { btn.disabled = false; btn.textContent = 'Set Up AI'; }
+      if (ok) {
+        checkOllamaConnection();
+      } else {
+        const logEl = document.getElementById('setupProgressLog');
+        if (logEl) appendToLog(logEl, '✗ Setup failed — see log above', true);
+      }
+    });
+  });
+
+  // "Fix CORS Automatically" button
+  document.getElementById('runCorsFixBtn')?.addEventListener('click', () => {
+    const btn = document.getElementById('runCorsFixBtn') as HTMLButtonElement | null;
+    if (btn) { btn.disabled = true; btn.textContent = 'Fixing...'; }
+
+    runSetupViaHelper('corsFixProgressLog', (ok) => {
+      if (btn) { btn.disabled = false; btn.textContent = 'Fix CORS Automatically'; }
+      if (ok) checkOllamaConnection();
+    });
+  });
+
+  // Back button — AI Setup is now Step 1, nothing to go back to
   document.getElementById('backFromOllamaBtn')?.addEventListener('click', () => {
-    showStep('step-upload');
+    // Step 1 has no previous step; do nothing
   });
 
   // Continue with AI Features
@@ -454,8 +590,7 @@ function setupOllamaStepListeners(): void {
     config.embeddingModel = embModel;
     config.lastChecked = Date.now();
     await saveOllamaConfig(config);
-    console.log('[Ollama Setup] AI features enabled, config saved');
-    showStep('step-review');
+    showStep('step-upload');
   });
 
   // Skip AI Features
@@ -463,13 +598,12 @@ function setupOllamaStepListeners(): void {
     const config = await getOllamaConfig();
     config.enabled = false;
     await saveOllamaConfig(config);
-    console.log('[Ollama Setup] AI features skipped');
-    showStep('step-review');
+    showStep('step-upload');
   };
 
   document.getElementById('skipOllamaBtn')?.addEventListener('click', doSkip);
 
-  // Retry button (not-installed state)
+  // Retry / Test Connection button
   document.getElementById('retryOllamaBtn')?.addEventListener('click', () => {
     checkOllamaConnection();
   });
@@ -536,7 +670,7 @@ function setupOllamaStepListeners(): void {
           const orig = btn.textContent;
           btn.textContent = 'Copied!';
           setTimeout(() => { btn.textContent = orig; }, 1500);
-        }).catch(() => { /* ignore clipboard errors */ });
+        }).catch(() => {});
       }
     });
   });
@@ -2223,7 +2357,8 @@ async function init(): Promise<void> {
         startFreshBtn.onclick = () => {
           if (confirm('This will discard your current profile and start from scratch. Continue?')) {
             extractedProfile = null;
-            showStep('step-upload');
+            showStep('step-ollama');
+            checkOllamaConnection();
             
             // Reset title
             const titleEl = document.querySelector('h1');
@@ -2247,7 +2382,13 @@ async function init(): Promise<void> {
 
   // Setup Ollama step event listeners
   setupOllamaStepListeners();
-  
+
+  // For fresh users (no existing profile), AI Setup is now Step 1 — check Ollama right away
+  if (!existingProfile) {
+    showStep('step-ollama');
+    checkOllamaConnection();
+  }
+
   const uploadArea = document.getElementById('uploadArea');
   const fileInput = document.getElementById('fileInput') as HTMLInputElement;
   const parseBtn = document.getElementById('parseBtn') as HTMLButtonElement;
@@ -2291,13 +2432,12 @@ async function init(): Promise<void> {
     });
   }
   
-  // Skip upload button - go directly to Ollama step then manual entry
+  // Skip upload button - go directly to personal info
   if (skipUploadBtn) {
     skipUploadBtn.addEventListener('click', () => {
       extractedProfile = createEmptyProfile();
       renderProfilePreview(extractedProfile);
-      showStep('step-ollama');
-      checkOllamaConnection();
+      showStep('step-review');
     });
   }
   
@@ -2337,11 +2477,10 @@ async function init(): Promise<void> {
         appendFeedLine('Profile parsed successfully!', 'done-line');
         await new Promise(resolve => setTimeout(resolve, 800));
         
-        // Show Ollama setup step (which then leads to review)
+        // Resume parsed — go directly to personal info
         hideProgress();
         renderProfilePreview(profile);
-        showStep('step-ollama');
-        checkOllamaConnection();
+        showStep('step-review');
       } catch (err) {
         stopProgressListener();
         hideProgress();
@@ -2564,8 +2703,9 @@ init().catch(err => {
       });
     }
   } else {
-    // Show the upload step as fallback
-    showStep('step-upload');
-    showStatus('error', `Failed to initialize: ${message}. You can still upload a new resume.`);
+    // Show the AI setup step as fallback
+    showStep('step-ollama');
+    checkOllamaConnection();
+    showStatus('error', `Failed to initialize: ${message}. You can still set up AI.`);
   }
 });

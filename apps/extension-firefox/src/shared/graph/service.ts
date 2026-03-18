@@ -28,6 +28,7 @@ import {
   SIMILARITY_THRESHOLD,
   SIMILARITY_WITH_USAGE_MIN_CONFIDENCE,
 } from './constants';
+import { isTypeCompatible } from '../field-classifier';
 import { deindexEdge, deindexNode, buildIndexes, indexEdge, indexNode } from './indexes';
 import {
   applicationNodeId,
@@ -129,6 +130,14 @@ export class GraphMemoryService {
     }, SAVE_DEBOUNCE_MS);
   }
 
+  async flushSave(): Promise<void> {
+    if (this.saveTimer !== null) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+    }
+    await saveGraphState(this.nodes, this.edges);
+  }
+
   private scheduleEmbeddingCacheSave(): void {
     if (this.embeddingCacheSaveTimer !== null) clearTimeout(this.embeddingCacheSaveTimer);
     this.embeddingCacheSaveTimer = setTimeout(() => {
@@ -169,6 +178,13 @@ export class GraphMemoryService {
     if (!best) return { value: null, confidence: 0, source: null, selectionReason: null };
 
     const payload = asAnswer(best.node);
+
+    // Type-compatibility gate — prevent "No" filling a date field, etc.
+    if (input.promptType && !isTypeCompatible(payload.value, input.promptType as any)) {
+      console.log(`[Graph] Type-incompatible answer rejected — value="${payload.value}" promptType="${input.promptType}"`);
+      return { value: null, confidence: 0, source: null, selectionReason: null };
+    }
+
     return {
       value: payload.value,
       confidence: best.confidence,
@@ -277,6 +293,12 @@ export class GraphMemoryService {
     // Reinforce the SIMILAR_TO relationship (both directions)
     const incomingNormalized = normalizeQuestion(questionText);
     const incomingId = questionNodeId(incomingNormalized);
+
+    // Similarity-path nodes are internal (debug) artifacts — not shown in user-facing graph
+    const incomingNode = this.nodes.get(incomingId);
+    if (incomingNode && !incomingNode.internal) {
+      incomingNode.internal = true;
+    }
     this.reinforceSimilarity(incomingId, bestQuestion.id, bestScore);
 
     // Cache the incoming question's embedding
@@ -485,13 +507,20 @@ export class GraphMemoryService {
     value: string,
     source: AnswerSource,
     canonicalField: string | undefined,
-    context?: GraphJobContext
+    context?: GraphJobContext,
+    internal?: boolean
   ): void {
     if (!this.ready) return;
 
     const field = canonicalField && canonicalField !== 'unknown' ? canonicalField : undefined;
     const questionNode = this.upsertQuestionNode(questionText, field);
     const answerNode = this.upsertAnswerNode(value, field ?? '', source);
+
+    // Mark as internal (debug) if requested — e.g. answers for unknown/junk fields
+    if (internal) {
+      questionNode.internal = true;
+      answerNode.internal = true;
+    }
 
     // Connect question to answer
     this.createOrUpdateEdge(questionNode.id, answerNode.id, 'ANSWERED_BY', 1.0);

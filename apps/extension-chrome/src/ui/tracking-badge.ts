@@ -92,10 +92,10 @@ export function hideTrackingBadge(): void {
 // ─── Internals ────────────────────────────────────────────────────────────────
 
 function buildLabel(jobTitle: string | null, company: string | null): string {
-  if (jobTitle && company) return `Tracking · ${truncate(jobTitle, 30)} @ ${truncate(company, 22)}`;
-  if (jobTitle) return `Tracking · ${truncate(jobTitle, 40)}`;
-  if (company) return `Tracking · ${truncate(company, 40)}`;
-  return 'Tracking this application';
+  if (jobTitle && company) return `Offlyn · ${truncate(jobTitle, 30)} @ ${truncate(company, 22)}`;
+  if (jobTitle) return `Offlyn · ${truncate(jobTitle, 40)}`;
+  if (company) return `Offlyn · ${truncate(company, 40)}`;
+  return 'Offlyn · Application page detected';
 }
 
 function truncate(text: string, max: number): string {

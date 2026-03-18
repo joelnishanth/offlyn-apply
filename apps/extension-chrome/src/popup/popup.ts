@@ -112,6 +112,16 @@ async function dispatchCustomEventOnActiveTab(eventName: string): Promise<void> 
 
 // ── Init ────────────────────────────────────────────────────────────────────
 
+function setActionButtonsDisabled(disabled: boolean): void {
+  const autofillBtn = document.getElementById('manual-autofill-btn') as HTMLButtonElement | null;
+  const coverBtn = document.getElementById('cover-letter-btn') as HTMLButtonElement | null;
+  [autofillBtn, coverBtn].forEach(btn => {
+    if (!btn) return;
+    btn.disabled = disabled;
+    btn.classList.toggle('btn-no-profile', disabled);
+  });
+}
+
 async function checkProfileStatus(): Promise<void> {
   try {
     const profile = await getUserProfile();
@@ -126,6 +136,7 @@ async function checkProfileStatus(): Promise<void> {
         browser.tabs.create({ url: browser.runtime.getURL('onboarding/onboarding.html') });
         window.close();
       });
+      setActionButtonsDisabled(true);
       return;
     }
 
@@ -143,8 +154,10 @@ async function checkProfileStatus(): Promise<void> {
         browser.tabs.create({ url: browser.runtime.getURL('onboarding/onboarding.html') });
         window.close();
       });
+      setActionButtonsDisabled(false);
     } else {
       warningEl.style.display = 'none';
+      setActionButtonsDisabled(false);
     }
   } catch (err) {
     error('Failed to check profile status:', err);
@@ -167,6 +180,18 @@ async function init(): Promise<void> {
   // ── View Dashboard ──
   document.getElementById('view-dashboard-btn')?.addEventListener('click', () => {
     browser.tabs.create({ url: browser.runtime.getURL('dashboard/dashboard.html') });
+    window.close();
+  });
+
+  // ── Chat with Resume ──
+  document.getElementById('chat-resume-btn')?.addEventListener('click', () => {
+    browser.tabs.create({ url: browser.runtime.getURL('chat/chat.html') });
+    window.close();
+  });
+
+  // ── Data Explorer ──
+  document.getElementById('data-explorer-btn')?.addEventListener('click', () => {
+    browser.tabs.create({ url: browser.runtime.getURL('data/data.html') });
     window.close();
   });
 

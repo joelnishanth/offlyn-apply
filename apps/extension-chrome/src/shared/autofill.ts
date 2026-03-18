@@ -2,12 +2,15 @@
  * Auto-fill form fields using user profile
  */
 
+import browser from './browser-compat';
 import type { FieldSchema, FillMapping } from './types';
 import type { UserProfile } from './profile';
 import { isPhoneDetails, isLocationDetails } from './profile';
 import { getCountryCode, getPhoneNumber, parsePhoneNumber } from './phone-parser';
 import { validateFieldData } from './field-data-validator';
 import { rlSystem } from './learning-rl';
+import { detectFieldType } from './context-aware-storage';
+import type { GetBestAnswerResult } from './graph/types';
 
 /**
  * Generate fill mappings from profile and form schema
@@ -27,12 +30,26 @@ export function generateFillMappings(schema: FieldSchema[], profile: UserProfile
     const fieldName = field.label || field.name || field.id || field.selector;
     console.log(`[Autofill] ─ Field: "${fieldName}" | type: ${field.type || 'text'}`);
 
+    // Skip untrusted fields (Tier 3: cookie banners, chat widgets, marketing embeds)
+    if (field.fillEligible === false || field.trustTier === 3) {
+      console.log(`[Autofill] Skipping untrusted field (tier=${field.trustTier}): "${fieldName}" — ${field.exclusionReason ?? ''}`);
+      continue;
+    }
+
     // Skip reCAPTCHA fields — never autofill these
     const _fieldNameLC = (field.name || '').toLowerCase();
     const _fieldIdLC = (field.id || '').toLowerCase();
     if (_fieldNameLC.includes('recaptcha') || _fieldIdLC.includes('recaptcha') ||
         (field.label || '').toLowerCase().includes('recaptcha')) {
       console.log(`[Autofill] Skipping reCAPTCHA field: "${fieldName}"`);
+      skippedNoMatch++;
+      continue;
+    }
+
+    // Skip intl-tel-input (ITI) country-code search widget — its id follows the
+    // pattern "iti-N__search-input" and it is an internal widget, not a real field
+    if (_fieldIdLC.startsWith('iti-') || _fieldIdLC.includes('__search')) {
+      console.log(`[Autofill] Skipping ITI phone widget field: "${fieldName}"`);
       skippedNoMatch++;
       continue;
     }
@@ -169,14 +186,150 @@ export function generateFillMappings(schema: FieldSchema[], profile: UserProfile
 }
 
 /**
+ * Enhance fill mappings with graph memory lookups.
+ *
+ * Routes all graph calls through message passing to the background script's
+ * single initialized GraphMemoryService instance. The content script must
+ * never call graphMemory directly — it has its own empty, uninitialized copy.
+ *
+ * Runs AFTER generateFillMappings() and fills any fields left unmapped.
+ * Returns an augmented copy of the mappings array — does not mutate the input.
+ */
+export async function applyGraphEnhancement(
+  schema: FieldSchema[],
+  existingMappings: FillMapping[],
+  context?: { platform?: string; company?: string; jobTitle?: string; url?: string }
+): Promise<FillMapping[]> {
+  // Use chrome.runtime directly in Chrome builds to avoid polyfill ReferenceError in content scripts
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rt: typeof browser = (typeof (globalThis as any).chrome !== 'undefined' ? (globalThis as any).chrome : browser);
+  const filledSelectors = new Set(existingMappings.map(m => m.selector));
+  const enhanced = [...existingMappings];
+  const unfilledCount = schema.filter(f => !filledSelectors.has(f.selector)).length;
+  console.log(`[Autofill/Graph] Running — ${filledSelectors.size} already filled, checking ${unfilledCount} unfilled fields`);
+
+  // Labels that are generic UI placeholders — never meaningful to look up in the graph
+  const PLACEHOLDER_LABELS = /^(select\.{0,3}|search|attach|upload|choose\.{0,3}|file|browse|open|add|upload file|attach file)$/i;
+
+  // Field types that cannot be programmatically filled (security restriction) or have no text to match
+  const UNFILLABLE_TYPES = new Set(['file', 'image', 'submit', 'button', 'reset', 'hidden']);
+
+  // Question patterns that need human judgment / contextual answers — graph "No" from a
+  // previous sponsorship question must not bleed into timeline or address fields
+  const CONTEXTUAL_QUESTION_PATTERNS = [
+    /earliest.*start/i,
+    /when.*start/i,
+    /start.*date/i,
+    /available.*start/i,
+    /\baddress\b/i,
+    /\bstreet\b/i,
+    /city.*state/i,
+    /salary.*expect/i,
+    /desired.*salary/i,
+    /\bsalary\b/i,
+    /\bcompensation\b/i,
+    /cover letter/i,
+  ];
+
+  for (const field of schema) {
+    const fieldLabel = field.label ?? field.name ?? field.id ?? '';
+    const fieldType = field.type ?? '';
+
+    // Skip file inputs and other non-textual inputs — they can never be graph-filled
+    if (UNFILLABLE_TYPES.has(fieldType)) continue;
+
+    // Skip generic placeholder labels — these are dropdown/UI chrome, not real questions
+    if (!fieldLabel || PLACEHOLDER_LABELS.test(fieldLabel.trim())) continue;
+
+    // Skip fields where the label is shorter than 3 chars (likely a widget artifact)
+    if (fieldLabel.trim().length < 3) continue;
+
+    if (filledSelectors.has(field.selector)) {
+      // Already filled by profile/RL — record provenance in background for debug panel
+      const existingMapping = existingMappings.find(m => m.selector === field.selector);
+      if (existingMapping && fieldLabel) {
+        rt.runtime.sendMessage({
+          kind: 'GRAPH_RECORD_PROVENANCE',
+          label: fieldLabel,
+          record: {
+            value: String(existingMapping.value),
+            source: 'profile',
+            confidence: 1.0,
+            resolvedAt: Date.now(),
+          },
+        }).catch(() => {});
+      }
+      continue;
+    }
+
+    // Skip contextual questions that need specific answers — graph similarity can produce
+    // false positives here (e.g. matching a "No" sponsorship answer to a timeline question)
+    if (CONTEXTUAL_QUESTION_PATTERNS.some(re => re.test(fieldLabel))) continue;
+
+    // Field is unfilled — ask background to classify, gate, and look it up in the graph.
+    // Pass inputType and fieldName so the background can run the full two-stage classifier.
+    let result: GetBestAnswerResult & { abstained?: boolean; reason?: string } = {
+      value: null, confidence: 0, source: null, selectionReason: null,
+    };
+
+    try {
+      result = await rt.runtime.sendMessage({
+        kind: 'GRAPH_GET_BEST_ANSWER',
+        questionText: fieldLabel,
+        inputType:    field.type   ?? 'text',
+        fieldName:    field.name   ?? field.id ?? '',
+        // canonicalField omitted — background classifier resolves it
+        platform: context?.platform,
+        company:  context?.company,
+        jobTitle: context?.jobTitle,
+        url:      context?.url,
+      }) as typeof result;
+    } catch {
+      // Background not ready — skip silently
+    }
+
+    // Abstained fields (junk/unclassifiable) are never filled or recorded
+    if (result?.abstained) continue;
+
+    if (result?.value && result.confidence >= 0.6) {
+      enhanced.push({ selector: field.selector, value: result.value });
+      console.log(
+        `[Autofill/Graph] Filled "${fieldLabel}" via ${result.source} (confidence: ${result.confidence.toFixed(2)})`
+      );
+    }
+
+    // Record provenance in background so debug panel can show it
+    if (fieldLabel) {
+      rt.runtime.sendMessage({
+        kind: 'GRAPH_RECORD_PROVENANCE',
+        label: fieldLabel,
+        record: {
+          value:             result?.value ?? '',
+          source:            result?.selectionReason ?? null,
+          confidence:        result?.confidence ?? 0,
+          matchedQuestionId: result?.questionNodeId,
+          answerNodeId:      result?.answerNodeId,
+          resolvedAt:        Date.now(),
+        },
+      }).catch(() => {});
+    }
+  }
+
+  return enhanced;
+}
+
+/**
  * Generate role-aware "Why" answer
  * Formula: 1 sentence mission + 1 sentence role-fit + 1 sentence impact
  */
 function generateWhyAnswer(field: FieldSchema, profile: UserProfile): string | null {
   const label = (field.label || '').toLowerCase();
   
-  // Extract company name if possible
-  const companyMatch = field.label?.match(/why.*?(?:work at|join|interested in)\s+([A-Z][a-zA-Z]+)/i);
+  // Extract company name from label — handles "Why Anthropic?", "Why work at Stripe?",
+  // "Why are you interested in joining Google?", "Why do you want to work here at Meta?"
+  const companyMatch = field.label?.match(
+    /why\s+(?:work\s+at|join|do\s+you\s+want\s+to\s+(?:work\s+at|join)|are\s+you\s+interested\s+in\s+(?:joining)?)?\s*([A-Z][a-zA-Z0-9.]+)/i
+  );
   const companyName = companyMatch ? companyMatch[1] : 'this company';
   
   // Infer role focus from profile (engineering, product, design, etc.)
@@ -215,15 +368,32 @@ function generateWhyAnswer(field: FieldSchema, profile: UserProfile): string | n
     impactArea = 'user engagement and product quality';
   }
   
-  // Company-specific customizations
-  let missionSentence = `I'm excited about ${companyName}'s mission to build spaces where people can connect and collaborate.`;
-  
-  if (companyName.toLowerCase() === 'discord') {
-    missionSentence = "I'm excited about Discord's mission to create spaces where everyone can find belonging and build communities.";
-  }
-  
+  // Company-specific mission sentences — add entries here for companies you apply to often
+  const companyMissions: Record<string, string> = {
+    anthropic:  "I'm drawn to Anthropic's mission of responsible AI development for the long-term benefit of humanity — building AI systems that are safe, interpretable, and aligned with human values.",
+    openai:     "I'm excited about OpenAI's mission to ensure that artificial general intelligence benefits all of humanity.",
+    google:     "I'm excited about Google's mission to organize the world's information and make it universally accessible and useful.",
+    meta:       "I'm excited about Meta's mission to connect people and build the social infrastructure for a more connected world.",
+    apple:      "I'm excited about Apple's commitment to building products that enrich people's lives through the intersection of technology and the liberal arts.",
+    microsoft:  "I'm excited about Microsoft's mission to empower every person and every organization on the planet to achieve more.",
+    amazon:     "I'm excited about Amazon's relentless focus on customer obsession and its mission to be Earth's most customer-centric company.",
+    stripe:     "I'm excited about Stripe's mission to increase the GDP of the internet by making it easier for businesses of all sizes to accept payments.",
+    airbnb:     "I'm excited about Airbnb's mission to create a world where anyone can belong anywhere.",
+    discord:    "I'm excited about Discord's mission to create spaces where everyone can find belonging and build communities.",
+    netflix:    "I'm excited about Netflix's commitment to entertaining the world and delivering the best streaming experience to its members.",
+    spotify:    "I'm excited about Spotify's mission to unlock the potential of human creativity by giving a million creative artists the opportunity to live off their art.",
+    github:     "I'm excited about GitHub's mission to accelerate human progress by making software development more collaborative and accessible.",
+    figma:      "I'm excited about Figma's mission to make design accessible to everyone and transform how products are built through collaborative tools.",
+    notion:     "I'm excited about Notion's vision to build an all-in-one workspace that gives teams the tools they need to work better together.",
+    linear:     "I'm excited about Linear's commitment to building the future of software development tooling — fast, opinionated tools that help teams ship great products.",
+  };
+
+  const companyKey = companyName.toLowerCase();
+  const missionSentence = companyMissions[companyKey]
+    ?? `I'm excited about ${companyName}'s work and the opportunity to contribute to its mission.`;
+
   // Build the 3-sentence answer
-  const answer = `${missionSentence} My experience in ${roleFocus} aligns well with the challenges of serving hundreds of millions of users. I'm eager to contribute to ${impactArea} and help shape how people connect online.`;
+  const answer = `${missionSentence} My experience in ${roleFocus} aligns well with the technical challenges at ${companyName}. I'm eager to contribute to ${impactArea} and help the team deliver at scale.`;
   
   console.log(`[Autofill] Generated why answer for ${companyName} (${profile.professional.currentRole || 'role'})`);
   return answer;
@@ -1330,14 +1500,35 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
     return value;
   }
   
+  // Transgender identity question (e.g. Netflix "Are you a person of transgender experience?")
+  if (matchesAny([label, name, id], ['transgender', 'trans experience', 'trans identity'])) {
+    const trans = (profile.selfId?.transgender || 'Decline to self-identify').toLowerCase();
+    if (trans === 'yes' || trans === 'true') {
+      return 'Yes';
+    } else if (trans === 'no' || trans === 'false') {
+      return 'No';
+    }
+    return 'Prefer not to disclose';
+  }
+
   // ==========================================================================
   // END SELF-ID FIELDS
   // ==========================================================================
-  
+
   // ==========================================================================
   // YES/NO POLICY QUESTIONS (PRIORITY: Before location/contact)
   // ==========================================================================
-  
+
+  // Netflix / company-specific: prior employment or contractor questions
+  if (/worked.*before|contractor.*currently|currently.*contractor|previously.*employed|prior.*employment|employed.*before|former.*employ/i.test(label)) {
+    console.log('[Autofill] 🏢 Prior employment/contractor question — defaulting to No');
+    return 'No';
+  }
+  if (/worked for.*or.*subsidiaries|subsidiaries.*in the past|currently working.*as a contractor/i.test(label)) {
+    console.log('[Autofill] 🏢 Company-specific prior employment question — defaulting to No');
+    return 'No';
+  }
+
   // Relocation / Willing to relocate questions
   // CRITICAL: Check this BEFORE location fields to avoid misclassification
   if (matchesAny([label, name, id], ['relocate', 'relocation', 'willing to move', 'open to relocation'])) {
@@ -1734,7 +1925,26 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
   // Years of experience — only for short fields explicitly asking for a number
   if (matchesAny([label, name, id], ['experience', 'years', 'yoe'])) {
     const labelLower = (label || '').toLowerCase();
-    
+    const idLowerFull = (field.id || '').toLowerCase();
+    const nameLowerFull = (field.name || '').toLowerCase();
+
+    // EXCLUDE Workday date sub-fields whose id/name contains dateSectionMonth or dateSectionYear
+    // These are part of date pickers, not years-of-experience fields
+    if (idLowerFull.includes('datesectionmonth') || nameLowerFull.includes('datesectionmonth') ||
+        idLowerFull.includes('datesectionyear') || nameLowerFull.includes('datesectionyear')) {
+      return null;
+    }
+
+    // EXCLUDE Workday job title, company, and other non-year fields that have "workExperience" in their id
+    if ((idLowerFull.includes('jobtitle') || nameLowerFull.includes('jobtitle') ||
+         idLowerFull.includes('company') || nameLowerFull.includes('company') ||
+         idLowerFull.includes('school') || nameLowerFull.includes('school') ||
+         idLowerFull.includes('university') || nameLowerFull.includes('university') ||
+         idLowerFull.includes('degree') || nameLowerFull.includes('degree') ||
+         idLowerFull.includes('fieldofstudy') || nameLowerFull.includes('fieldofstudy'))) {
+      return null;
+    }
+
     // EXCLUDE self-ID questions
     if (labelLower.includes('transgender') || 
         labelLower.includes('veteran') ||

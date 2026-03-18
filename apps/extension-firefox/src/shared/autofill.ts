@@ -29,6 +29,12 @@ export function generateFillMappings(schema: FieldSchema[], profile: UserProfile
     const fieldName = field.label || field.name || field.id || field.selector;
     console.log(`[Autofill] ─ Field: "${fieldName}" | type: ${field.type || 'text'}`);
 
+    // Skip untrusted fields (Tier 3: cookie banners, chat widgets, marketing embeds)
+    if (field.fillEligible === false || field.trustTier === 3) {
+      console.log(`[Autofill] Skipping untrusted field (tier=${field.trustTier}): "${fieldName}" — ${field.exclusionReason ?? ''}`);
+      continue;
+    }
+
     // Skip reCAPTCHA fields — never autofill these
     const _fieldNameLC = (field.name || '').toLowerCase();
     const _fieldIdLC = (field.id || '').toLowerCase();
@@ -256,10 +262,9 @@ export async function applyGraphEnhancement(
     // false positives here (e.g. matching a "No" sponsorship answer to a timeline question)
     if (CONTEXTUAL_QUESTION_PATTERNS.some(re => re.test(fieldLabel))) continue;
 
-    // Field is unfilled — ask background to look it up in the graph
-    const canonicalField = detectFieldType(fieldLabel, field.type ?? '', field.name ?? '') || undefined;
-
-    let result: GetBestAnswerResult = {
+    // Field is unfilled — ask background to classify, gate, and look it up in the graph.
+    // Pass inputType and fieldName so the background can run the full two-stage classifier.
+    let result: GetBestAnswerResult & { abstained?: boolean; reason?: string } = {
       value: null, confidence: 0, source: null, selectionReason: null,
     };
 
@@ -267,15 +272,20 @@ export async function applyGraphEnhancement(
       result = await browser.runtime.sendMessage({
         kind: 'GRAPH_GET_BEST_ANSWER',
         questionText: fieldLabel,
-        canonicalField,
+        inputType:    field.type   ?? 'text',
+        fieldName:    field.name   ?? field.id ?? '',
+        // canonicalField omitted — background classifier resolves it
         platform: context?.platform,
-        company: context?.company,
+        company:  context?.company,
         jobTitle: context?.jobTitle,
-        url: context?.url,
-      }) as GetBestAnswerResult;
+        url:      context?.url,
+      }) as typeof result;
     } catch {
       // Background not ready — skip silently
     }
+
+    // Abstained fields (junk/unclassifiable) are never filled or recorded
+    if (result?.abstained) continue;
 
     if (result?.value && result.confidence >= 0.6) {
       enhanced.push({ selector: field.selector, value: result.value });
@@ -290,12 +300,12 @@ export async function applyGraphEnhancement(
         kind: 'GRAPH_RECORD_PROVENANCE',
         label: fieldLabel,
         record: {
-          value: result?.value ?? '',
-          source: result?.selectionReason ?? null,
-          confidence: result?.confidence ?? 0,
+          value:             result?.value ?? '',
+          source:            result?.selectionReason ?? null,
+          confidence:        result?.confidence ?? 0,
           matchedQuestionId: result?.questionNodeId,
-          answerNodeId: result?.answerNodeId,
-          resolvedAt: Date.now(),
+          answerNodeId:      result?.answerNodeId,
+          resolvedAt:        Date.now(),
         },
       }).catch(() => {});
     }
@@ -1486,14 +1496,35 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
     return value;
   }
   
+  // Transgender identity question (e.g. Netflix "Are you a person of transgender experience?")
+  if (matchesAny([label, name, id], ['transgender', 'trans experience', 'trans identity'])) {
+    const trans = (profile.selfId?.transgender || 'Decline to self-identify').toLowerCase();
+    if (trans === 'yes' || trans === 'true') {
+      return 'Yes';
+    } else if (trans === 'no' || trans === 'false') {
+      return 'No';
+    }
+    return 'Prefer not to disclose';
+  }
+
   // ==========================================================================
   // END SELF-ID FIELDS
   // ==========================================================================
-  
+
   // ==========================================================================
   // YES/NO POLICY QUESTIONS (PRIORITY: Before location/contact)
   // ==========================================================================
-  
+
+  // Netflix / company-specific: prior employment or contractor questions
+  if (/worked.*before|contractor.*currently|currently.*contractor|previously.*employed|prior.*employment|employed.*before|former.*employ/i.test(label)) {
+    console.log('[Autofill] 🏢 Prior employment/contractor question — defaulting to No');
+    return 'No';
+  }
+  if (/worked for.*or.*subsidiaries|subsidiaries.*in the past|currently working.*as a contractor/i.test(label)) {
+    console.log('[Autofill] 🏢 Company-specific prior employment question — defaulting to No');
+    return 'No';
+  }
+
   // Relocation / Willing to relocate questions
   // CRITICAL: Check this BEFORE location fields to avoid misclassification
   if (matchesAny([label, name, id], ['relocate', 'relocation', 'willing to move', 'open to relocation'])) {
@@ -1890,7 +1921,25 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
   // Years of experience — only for short fields explicitly asking for a number
   if (matchesAny([label, name, id], ['experience', 'years', 'yoe'])) {
     const labelLower = (label || '').toLowerCase();
-    
+    const idLowerFull = (field.id || '').toLowerCase();
+    const nameLowerFull = (field.name || '').toLowerCase();
+
+    // EXCLUDE Workday date sub-fields whose id/name contains dateSectionMonth or dateSectionYear
+    if (idLowerFull.includes('datesectionmonth') || nameLowerFull.includes('datesectionmonth') ||
+        idLowerFull.includes('datesectionyear') || nameLowerFull.includes('datesectionyear')) {
+      return null;
+    }
+
+    // EXCLUDE Workday job title, company, school, and other non-year fields
+    if ((idLowerFull.includes('jobtitle') || nameLowerFull.includes('jobtitle') ||
+         idLowerFull.includes('company') || nameLowerFull.includes('company') ||
+         idLowerFull.includes('school') || nameLowerFull.includes('school') ||
+         idLowerFull.includes('university') || nameLowerFull.includes('university') ||
+         idLowerFull.includes('degree') || nameLowerFull.includes('degree') ||
+         idLowerFull.includes('fieldofstudy') || nameLowerFull.includes('fieldofstudy'))) {
+      return null;
+    }
+
     // EXCLUDE self-ID questions
     if (labelLower.includes('transgender') || 
         labelLower.includes('veteran') ||

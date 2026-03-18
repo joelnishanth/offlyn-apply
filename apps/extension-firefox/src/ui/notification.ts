@@ -198,3 +198,106 @@ export function showWarning(title: string, message: string, duration?: number): 
 export function showInfo(title: string, message: string, duration?: number): void {
   showNotification(title, message, 'info', duration);
 }
+
+/**
+ * Show a sticky bottom-center beta warning banner for Workday pages.
+ * Only shows once per browser session (keyed by sessionStorage).
+ * @param logoUrl - URL to the Offlyn monogram icon (pass via browser.runtime.getURL)
+ */
+export function showWorkdayBetaBanner(logoUrl?: string): void {
+  if (document.getElementById('offlyn-workday-beta-banner')) return;
+
+  ensureStyles();
+  ensureBetaBannerStyles();
+
+  const logoHtml = logoUrl
+    ? `<img src="${logoUrl}" width="22" height="22" alt="Offlyn" style="border-radius:50%;flex-shrink:0;display:block;" />`
+    : `<svg width="22" height="22" viewBox="0 0 22 22" fill="none" style="flex-shrink:0;"><circle cx="11" cy="11" r="11" fill="#1e293b"/><text x="11" y="15.5" text-anchor="middle" font-size="11" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" fill="#fff">O</text></svg>`;
+
+  const banner = document.createElement('div');
+  banner.id = 'offlyn-workday-beta-banner';
+  setHTML(banner, `
+    <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+      ${logoHtml}
+      <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:12px;font-weight:700;color:#1e293b;letter-spacing:0.3px;line-height:1;">offlyn</span>
+          <span style="font-size:10px;font-weight:600;color:#fff;background:#f59e0b;border-radius:4px;padding:1px 5px;line-height:1.4;letter-spacing:0.4px;">BETA</span>
+          <span style="font-size:11px;color:#64748b;font-weight:400;">· Workday</span>
+        </div>
+        <div style="font-size:12px;color:#475569;line-height:1.4;">
+          Autofill on Workday is in early access — some fields may not fill correctly.
+        </div>
+      </div>
+    </div>
+    <button id="offlyn-workday-beta-dismiss"
+      style="background:none;border:none;cursor:pointer;color:#94a3b8;padding:2px;margin-left:10px;flex-shrink:0;line-height:1;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:background 0.15s,color 0.15s;"
+      title="Dismiss"
+      aria-label="Dismiss Workday beta notice"
+    >
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="2" y1="2" x2="10" y2="10"/><line x1="10" y1="2" x2="2" y2="10"/></svg>
+    </button>
+  `);
+
+  document.body.appendChild(banner);
+
+  const dismiss = document.getElementById('offlyn-workday-beta-dismiss');
+  if (dismiss) {
+    dismiss.addEventListener('mouseover', () => {
+      (dismiss as HTMLElement).style.background = '#f1f5f9';
+      (dismiss as HTMLElement).style.color = '#334155';
+    });
+    dismiss.addEventListener('mouseout', () => {
+      (dismiss as HTMLElement).style.background = 'none';
+      (dismiss as HTMLElement).style.color = '#94a3b8';
+    });
+    dismiss.addEventListener('click', () => {
+      banner.style.animation = 'offlyn-beta-banner-out 0.2s ease forwards';
+      setTimeout(() => banner.remove(), 220);
+    });
+  }
+}
+
+function ensureBetaBannerStyles(): void {
+  if (document.getElementById('offlyn-beta-banner-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'offlyn-beta-banner-styles';
+  style.textContent = `
+    #offlyn-workday-beta-banner {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2147483646;
+      display: flex;
+      align-items: center;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid #1e293b;
+      border-radius: 10px;
+      padding: 10px 14px 10px 12px;
+      max-width: 480px;
+      width: max-content;
+      box-shadow: 0 4px 20px rgba(30,41,59,0.12), 0 1px 4px rgba(30,41,59,0.07);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      pointer-events: auto;
+      animation:
+        offlyn-beta-banner-in 0.3s cubic-bezier(0.16,1,0.3,1) forwards,
+        offlyn-beta-banner-pulse 1.8s ease-out 0.4s 3;
+    }
+    @keyframes offlyn-beta-banner-in {
+      from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+    @keyframes offlyn-beta-banner-pulse {
+      0%   { box-shadow: 0 4px 20px rgba(30,41,59,0.12), 0 0 0 0   rgba(30,41,59,0.35); }
+      60%  { box-shadow: 0 4px 20px rgba(30,41,59,0.12), 0 0 0 10px rgba(30,41,59,0); }
+      100% { box-shadow: 0 4px 20px rgba(30,41,59,0.12), 0 0 0 0   rgba(30,41,59,0); }
+    }
+    @keyframes offlyn-beta-banner-out {
+      from { opacity: 1; transform: translateX(-50%) translateY(0); }
+      to   { opacity: 0; transform: translateX(-50%) translateY(12px); }
+    }
+  `;
+  document.head.appendChild(style);
+}

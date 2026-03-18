@@ -174,6 +174,124 @@
       background: #fef2f2;
       border-color: #dc2626;
     }
+
+    /* ── Manage Your Data ── */
+    .danger-zone {
+      border: 1.5px solid #fca5a5;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .danger-zone-header {
+      background: #fef2f2;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .danger-zone-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #dc2626;
+    }
+    .danger-zone-desc {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-top: 2px;
+    }
+    .btn-danger-zone {
+      padding: 9px 16px;
+      background: #fff;
+      border: 1.5px solid #fca5a5;
+      border-radius: 8px;
+      color: #dc2626;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      font-family: inherit;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .btn-danger-zone:hover {
+      background: #fef2f2;
+      border-color: #dc2626;
+    }
+    .danger-confirm-panel {
+      display: none;
+      padding: 16px 18px;
+      border-top: 1px solid #fecaca;
+      background: #fff;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .danger-confirm-panel.open { display: flex; }
+    .danger-warning-text {
+      font-size: 13px;
+      color: #374151;
+      line-height: 1.6;
+    }
+    .danger-warning-text strong { color: #dc2626; }
+    .danger-warning-list {
+      font-size: 12px;
+      color: #6b7280;
+      line-height: 1.8;
+      padding-left: 18px;
+      margin: 0;
+    }
+    .danger-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .btn-download-data {
+      flex: 1;
+      min-width: 140px;
+      padding: 10px 14px;
+      background: #f0f9ff;
+      border: 1.5px solid #7dd3fc;
+      border-radius: 8px;
+      color: #0369a1;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      font-family: inherit;
+      text-align: center;
+    }
+    .btn-download-data:hover {
+      background: #e0f2fe;
+      border-color: #0369a1;
+    }
+    .btn-nuke {
+      flex: 1;
+      min-width: 140px;
+      padding: 10px 14px;
+      background: #dc2626;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .15s;
+      font-family: inherit;
+      text-align: center;
+    }
+    .btn-nuke:hover { background: #b91c1c; }
+    .btn-cancel-nuke {
+      padding: 10px 14px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      color: #6b7280;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .15s;
+      font-family: inherit;
+    }
+    .btn-cancel-nuke:hover { background: #f9fafb; color: #374151; }
     .action-feedback {
       display: inline-block;
       margin-left: 10px;
@@ -415,6 +533,43 @@
       </div>
     </div>
 
+    <!-- Manage Your Data -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Manage Your Data</div>
+        <div class="section-desc">Control what Offlyn stores on this device</div>
+      </div>
+      <div class="danger-zone">
+        <div class="danger-zone-header">
+          <div>
+            <div class="danger-zone-title">Clear All My Data</div>
+            <div class="danger-zone-desc">Permanently deletes your profile, learned values, and all history</div>
+          </div>
+          <button class="btn-danger-zone" id="btn-open-clear-all">Clear All Data</button>
+        </div>
+        <div class="danger-confirm-panel" id="danger-confirm-panel">
+          <p class="danger-warning-text">
+            <strong>This will permanently delete everything Offlyn Apply has stored on this device:</strong>
+          </p>
+          <ul class="danger-warning-list">
+            <li>Your profile (name, contact info, work history, resume)</li>
+            <li>All learned autofill values and patterns</li>
+            <li>Graph memory (Q&amp;A history, answer confidence)</li>
+            <li>All tracked job applications</li>
+            <li>Contextual answers and AI embeddings</li>
+          </ul>
+          <p class="danger-warning-text" style="margin-top:4px;">
+            We strongly recommend downloading a backup first. This <strong>cannot be undone</strong>.
+          </p>
+          <div class="danger-actions">
+            <button class="btn-download-data" id="btn-download-data">⬇ Download My Data First</button>
+            <button class="btn-nuke" id="btn-nuke-all">Delete Everything</button>
+            <button class="btn-cancel-nuke" id="btn-cancel-clear">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- About -->
     <div class="section">
       <div class="section-header">
@@ -425,7 +580,7 @@
           <div class="setting-label">Version</div>
           <div class="setting-hint">Offlyn Apply - Job Application Assistant</div>
         </div>
-        <span style="font-size: 13px; color: #64748b;" id="version-text">0.1.0</span>
+        <span style="font-size: 13px; color: #64748b;" id="version-text" data-version>0.3.0</span>
       </div>
     </div>
 
@@ -436,11 +591,12 @@
         <a class="footer-link" href="../privacy/privacy.html" target="_blank">Privacy Policy</a>
         <a class="footer-link" href="../dashboard/dashboard.html" target="_blank">Dashboard</a>
       </div>
-      <div class="version" id="footer-version">v0.1.0</div>
+      <div class="version" id="footer-version" data-version-v>v0.3.0</div>
     </div>
 
   </div>
 
   <script src="settings.js"></script>
+  <script src="../shared/version-init.js"></script>
 </body>
 </html>

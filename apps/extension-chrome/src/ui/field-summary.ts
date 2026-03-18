@@ -2,6 +2,17 @@
  * Autofill Action Popup — floating panel that appears when a job application
  * page is detected. Shows fully for 3 seconds, then auto-minimizes into a
  * small branded cube. Click the cube to re-expand.
+ *
+ * Three panel states:
+ *   expanded    — full panel (default)
+ *   minimized   — 48×48 cube (auto after 3 s, or via minimize button)
+ *   edge-folded — 88×88 semi-circle tab protruding from any viewport edge
+ *                 (triggered automatically when dragged within 80px of an edge)
+ *
+ * Dragging: header drags the expanded panel; cube drags the minimized panel.
+ * Pointer capture is set on the handle element so events are guaranteed even
+ * when the pointer leaves the element or a host-page SPA calls stopPropagation.
+ * Grid snapping (20px) is applied on drop. Dragging near any edge auto-folds.
  */
 
 import browser from '../shared/browser-compat';
@@ -10,10 +21,20 @@ import { setHTML } from '../shared/html';
 
 let summaryPanel: HTMLElement | null = null;
 let panelFields: FieldSchema[] = [];
-let isMinimized = false;
+
+type PanelState = 'expanded' | 'minimized' | 'edge-folded';
+type FoldSide   = 'left' | 'right' | 'top' | 'bottom';
+
+let panelState: PanelState = 'expanded';
+
 let autoMinTimer: ReturnType<typeof setTimeout> | null = null;
 let mouseInsidePanel = false;
-let dragOffset = { x: 0, y: 0 }; // persists across minimize/expand
+
+// Drag state — panel always uses direct left/top pixel positioning once dragged
+let panelLeft = 0;
+let panelTop  = 0;
+let anchoredLeft = false;
+let foldedSide: FoldSide | null = null;
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -22,17 +43,14 @@ export function showFieldSummary(fields: FieldSchema[], jobTitle?: string, compa
 
   if (summaryPanel && summaryPanel.parentElement) {
     updatePanelContent(summaryPanel, fields, jobTitle, company);
-    // Reset auto-minimize timer on updates
     scheduleAutoMinimize();
     return;
   }
 
-  // Remove orphaned panels
   document.getElementById('offlyn-field-summary')?.remove();
 
   addStyles();
 
-  // Build expanded panel
   summaryPanel = document.createElement('div');
   summaryPanel.id = 'offlyn-field-summary';
   setHTML(summaryPanel, buildPanelHTML(fields, jobTitle, company));
@@ -42,9 +60,12 @@ export function showFieldSummary(fields: FieldSchema[], jobTitle?: string, compa
   attachListeners(summaryPanel);
   makeDraggable(summaryPanel);
 
-  isMinimized = false;
+  panelState = 'expanded';
+  anchoredLeft = false;
+  foldedSide = null;
+  panelLeft = 0;
+  panelTop  = 0;
 
-  // Auto-minimize after 3 seconds
   scheduleAutoMinimize();
 }
 
@@ -52,7 +73,7 @@ export function hideFieldSummary(): void {
   clearAutoMinTimer();
   mouseInsidePanel = false;
   if (summaryPanel) { summaryPanel.remove(); summaryPanel = null; }
-  isMinimized = false;
+  panelState = 'expanded';
 }
 
 export function toggleFieldSummary(fields: FieldSchema[], jobTitle?: string, company?: string): void {
@@ -60,15 +81,13 @@ export function toggleFieldSummary(fields: FieldSchema[], jobTitle?: string, com
   else showFieldSummary(fields, jobTitle, company);
 }
 
-// ── Minimize / Expand ──────────────────────────────────────────────────────
+// ── State transitions ──────────────────────────────────────────────────────
 
 function scheduleAutoMinimize(): void {
   clearAutoMinTimer();
-  // Don't even start the timer if the mouse is already inside the panel
   if (mouseInsidePanel) return;
   autoMinTimer = setTimeout(() => {
-    // Double-check: don't minimize if mouse moved in while timer was running
-    if (summaryPanel && !isMinimized && !mouseInsidePanel) minimizePanel();
+    if (summaryPanel && panelState === 'expanded' && !mouseInsidePanel) minimizePanel();
   }, 3000);
 }
 
@@ -77,42 +96,113 @@ function clearAutoMinTimer(): void {
 }
 
 function minimizePanel(): void {
-  if (!summaryPanel || isMinimized) return;
-  isMinimized = true;
+  if (!summaryPanel || panelState !== 'expanded') return;
+  panelState = 'minimized';
+  summaryPanel.className = 'ofl-minimized';
 
-  summaryPanel.classList.add('ofl-minimized');
-
-  // Hide inner content, show cube logo
   const body = summaryPanel.querySelector('.ofl-body') as HTMLElement;
   const footer = summaryPanel.querySelector('.ofl-footer') as HTMLElement;
   const header = summaryPanel.querySelector('.ofl-header') as HTMLElement;
   const cube = summaryPanel.querySelector('.ofl-cube') as HTMLElement;
+  const edgeTab = summaryPanel.querySelector('.ofl-edge-tab') as HTMLElement;
 
   if (body) body.style.display = 'none';
   if (footer) footer.style.display = 'none';
   if (header) header.style.display = 'none';
   if (cube) cube.style.display = 'flex';
+  if (edgeTab) edgeTab.style.display = 'none';
 }
 
 function expandPanel(autoMin = true): void {
-  if (!summaryPanel || !isMinimized) return;
-  isMinimized = false;
+  if (!summaryPanel || panelState === 'expanded') return;
+  panelState = 'expanded';
+  summaryPanel.className = '';
+  summaryPanel.style.width  = '';
+  summaryPanel.style.height = '';
 
-  summaryPanel.classList.remove('ofl-minimized');
+  const body    = summaryPanel.querySelector('.ofl-body')     as HTMLElement;
+  const footer  = summaryPanel.querySelector('.ofl-footer')   as HTMLElement;
+  const header  = summaryPanel.querySelector('.ofl-header')   as HTMLElement;
+  const cube    = summaryPanel.querySelector('.ofl-cube')     as HTMLElement;
+  const edgeTab = summaryPanel.querySelector('.ofl-edge-tab') as HTMLElement;
 
-  const body = summaryPanel.querySelector('.ofl-body') as HTMLElement;
-  const footer = summaryPanel.querySelector('.ofl-footer') as HTMLElement;
-  const header = summaryPanel.querySelector('.ofl-header') as HTMLElement;
-  const cube = summaryPanel.querySelector('.ofl-cube') as HTMLElement;
+  if (body)    body.style.display    = '';
+  if (footer)  footer.style.display  = '';
+  if (header)  header.style.display  = '';
+  if (cube)    cube.style.display    = 'none';
+  if (edgeTab) edgeTab.style.display = 'none';
 
-  if (body) body.style.display = '';
-  if (footer) footer.style.display = '';
-  if (header) header.style.display = '';
-  if (cube) cube.style.display = 'none';
+  // Restore position: snap to a grid-aligned point near whichever edge we folded from
+  if (foldedSide !== null) {
+    const panelW = summaryPanel.offsetWidth  || 280;
+    const panelH = summaryPanel.offsetHeight || 200;
+    switch (foldedSide) {
+      case 'right':  panelLeft = snapToGrid(window.innerWidth  - panelW - 20); break;
+      case 'left':   panelLeft = snapToGrid(20);                                break;
+      case 'top':    panelTop  = snapToGrid(20);                                break;
+      case 'bottom': panelTop  = snapToGrid(window.innerHeight - panelH - 20); break;
+    }
+    panelLeft = Math.max(0, Math.min(panelLeft, window.innerWidth  - panelW));
+    panelTop  = Math.max(0, Math.min(panelTop,  window.innerHeight - panelH));
+    applyPos(summaryPanel, panelLeft, panelTop);
+    anchoredLeft = true;
+  } else if (anchoredLeft) {
+    applyPos(summaryPanel, panelLeft, panelTop);
+  }
+  foldedSide = null;
 
-  if (autoMin) {
-    // Auto-minimize again after 5 seconds when re-expanded by user click
-    scheduleAutoMinimize();
+  if (autoMin) scheduleAutoMinimize();
+}
+
+// Semi-circle handle dimensions: 88×88, half protrudes from edge (44px visible)
+const FOLD_SIZE = 88;
+const FOLD_HALF = 44;
+
+function foldToEdge(side: FoldSide): void {
+  if (!summaryPanel) return;
+  clearAutoMinTimer();
+  panelState = 'edge-folded';
+  foldedSide = side;
+  summaryPanel.className = `ofl-edge-folded ofl-edge-${side}`;
+
+  const body    = summaryPanel.querySelector('.ofl-body')     as HTMLElement;
+  const footer  = summaryPanel.querySelector('.ofl-footer')   as HTMLElement;
+  const header  = summaryPanel.querySelector('.ofl-header')   as HTMLElement;
+  const cube    = summaryPanel.querySelector('.ofl-cube')     as HTMLElement;
+  const edgeTab = summaryPanel.querySelector('.ofl-edge-tab') as HTMLElement;
+
+  if (body)    body.style.display    = 'none';
+  if (footer)  footer.style.display  = 'none';
+  if (header)  header.style.display  = 'none';
+  if (cube)    cube.style.display    = 'none';
+  if (edgeTab) edgeTab.style.display = 'flex';
+
+  summaryPanel.style.width     = `${FOLD_SIZE}px`;
+  summaryPanel.style.height    = `${FOLD_SIZE}px`;
+  summaryPanel.style.transform = '';
+  summaryPanel.style.bottom    = '';
+
+  switch (side) {
+    case 'right':
+      summaryPanel.style.left  = `${window.innerWidth - FOLD_HALF}px`;
+      summaryPanel.style.top   = `${snapToGrid(Math.max(0, Math.min(panelTop,  window.innerHeight - FOLD_SIZE)))}px`;
+      summaryPanel.style.right = '';
+      break;
+    case 'left':
+      summaryPanel.style.left  = `${-FOLD_HALF}px`;
+      summaryPanel.style.top   = `${snapToGrid(Math.max(0, Math.min(panelTop,  window.innerHeight - FOLD_SIZE)))}px`;
+      summaryPanel.style.right = '';
+      break;
+    case 'top':
+      summaryPanel.style.top   = `${-FOLD_HALF}px`;
+      summaryPanel.style.left  = `${snapToGrid(Math.max(0, Math.min(panelLeft, window.innerWidth  - FOLD_SIZE)))}px`;
+      summaryPanel.style.right = '';
+      break;
+    case 'bottom':
+      summaryPanel.style.top   = `${window.innerHeight - FOLD_HALF}px`;
+      summaryPanel.style.left  = `${snapToGrid(Math.max(0, Math.min(panelLeft, window.innerWidth  - FOLD_SIZE)))}px`;
+      summaryPanel.style.right = '';
+      break;
   }
 }
 
@@ -122,10 +212,9 @@ function expandPanel(autoMin = true): void {
  */
 export function ensureFieldSummaryExpanded(): void {
   clearAutoMinTimer();
-  if (summaryPanel && isMinimized) {
+  if (summaryPanel && panelState !== 'expanded') {
     expandPanel(false);
   }
-  // Even if already expanded, cancel any pending auto-minimize
   clearAutoMinTimer();
 }
 
@@ -142,8 +231,16 @@ function buildPanelHTML(fields: FieldSchema[], jobTitle?: string, company?: stri
       <img class="ofl-cube-logo" src="${cubeIconUrl}" alt="Offlyn Apply">
     </div>
 
+    <!-- Edge-docked tab (hidden initially) -->
+    <div class="ofl-edge-tab" style="display:none;" title="Click to expand Offlyn Apply">
+      <img class="ofl-edge-tab-logo" src="${cubeIconUrl}" alt="Offlyn Apply">
+    </div>
+
     <!-- Expanded view -->
     <div class="ofl-header">
+      <div class="ofl-drag-grip" title="Drag to move">
+        <span class="ofl-grip-dots">⠿</span>
+      </div>
       <div class="ofl-brand">
         <img class="ofl-logo" src="${headerIconUrl}" alt="Offlyn Apply">
         <span class="ofl-title">Offlyn Apply</span>
@@ -204,13 +301,11 @@ function buildPanelHTML(fields: FieldSchema[], jobTitle?: string, company?: stri
 // ── Listeners ──────────────────────────────────────────────────────────────
 
 function attachListeners(panel: HTMLElement): void {
-  // Close
   panel.querySelector('.ofl-close')?.addEventListener('click', (e) => {
     e.stopPropagation();
     hideFieldSummary();
   });
 
-  // Minimize button
   panel.querySelector('.ofl-minimize-btn')?.addEventListener('click', (e) => {
     e.stopPropagation();
     clearAutoMinTimer();
@@ -223,19 +318,22 @@ function attachListeners(panel: HTMLElement): void {
     expandPanel();
   });
 
-  // Auto-Fill
+  // Edge tab click → expand
+  panel.querySelector('.ofl-edge-tab')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    expandPanel();
+  });
+
   panel.querySelector('#ofl-autofill-btn')?.addEventListener('click', () => {
     setStatus('Filling...', 'info');
     window.dispatchEvent(new CustomEvent('offlyn-manual-autofill'));
   });
 
-  // Cover Letter
   panel.querySelector('#ofl-cover-letter-btn')?.addEventListener('click', () => {
     setStatus('Generating cover letter...', 'info');
     window.dispatchEvent(new CustomEvent('offlyn-generate-cover-letter'));
   });
 
-  // Refresh
   panel.querySelector('#ofl-refresh-btn')?.addEventListener('click', () => {
     const btn = panel.querySelector('#ofl-refresh-btn') as HTMLButtonElement;
     if (btn) {
@@ -246,21 +344,19 @@ function attachListeners(panel: HTMLElement): void {
     window.dispatchEvent(new CustomEvent('offlyn-refresh-scan'));
   });
 
-  // Details
   panel.querySelector('#ofl-details-btn')?.addEventListener('click', () => {
     navigator.clipboard.writeText(JSON.stringify(panelFields, null, 2))
       .then(() => setStatus('Field details copied!', 'success'))
       .catch(() => setStatus('Copy failed', 'error'));
   });
 
-  // Pause auto-minimize while user's mouse is inside the panel
   panel.addEventListener('mouseenter', () => {
     mouseInsidePanel = true;
-    if (!isMinimized) clearAutoMinTimer();
+    if (panelState === 'expanded') clearAutoMinTimer();
   });
   panel.addEventListener('mouseleave', () => {
     mouseInsidePanel = false;
-    if (!isMinimized) scheduleAutoMinimize();
+    if (panelState === 'expanded') scheduleAutoMinimize();
   });
 }
 
@@ -309,34 +405,112 @@ function updatePanelContent(panel: HTMLElement, fields: FieldSchema[], jobTitle?
 
 // ── Dragging ───────────────────────────────────────────────────────────────
 
+const DRAG_GRID = 20;      // snap grid (px)
+const EDGE_THRESHOLD = 60; // distance from edge to trigger fold (px)
+
+function snapToGrid(v: number): number {
+  return Math.round(v / DRAG_GRID) * DRAG_GRID;
+}
+
+function applyPos(panel: HTMLElement, left: number, top: number): void {
+  panel.style.left = `${left}px`;
+  panel.style.top = `${top}px`;
+  panel.style.right = '';
+  panel.style.bottom = '';
+  panel.style.transform = '';
+}
+
+function anchorToLeft(panel: HTMLElement): void {
+  if (anchoredLeft) return;
+  anchoredLeft = true;
+  const rect = panel.getBoundingClientRect();
+  panelLeft = rect.left;
+  panelTop = rect.top;
+  applyPos(panel, panelLeft, panelTop);
+}
+
 function makeDraggable(panel: HTMLElement): void {
   let isDragging = false;
-  let ix = 0, iy = 0;
+  let startPX   = 0;
+  let startPY   = 0;
+  let startLeft = 0;
+  let startTop  = 0;
 
-  const startDrag = (e: MouseEvent) => {
-    // Don't drag from buttons
-    const t = e.target as HTMLElement;
-    if (t.closest('button')) return;
+  function clamp(left: number, top: number): { left: number; top: number } {
+    const pw = panel.offsetWidth  || 280;
+    const ph = panel.offsetHeight || 200;
+    return {
+      left: Math.max(0, Math.min(left, window.innerWidth  - pw)),
+      top:  Math.max(0, Math.min(top,  window.innerHeight - ph)),
+    };
+  }
+
+  function onPointerDown(this: HTMLElement, e: PointerEvent): void {
+    if (panelState === 'edge-folded') return;
+    if ((e.target as HTMLElement).closest('button')) return;
+
+    anchorToLeft(panel);
     isDragging = true;
-    ix = e.clientX - dragOffset.x;
-    iy = e.clientY - dragOffset.y;
+    startPX   = e.clientX;
+    startPY   = e.clientY;
+    startLeft = panelLeft;
+    startTop  = panelTop;
+
+    // Capture on the specific handle element so events route here reliably
+    this.setPointerCapture(e.pointerId);
+    panel.style.cursor = 'grabbing';
     e.preventDefault();
-  };
+  }
 
-  // Header is the drag handle when expanded
-  panel.querySelector('.ofl-header')?.addEventListener('mousedown', startDrag);
-  // Cube is the drag handle when minimized
-  panel.querySelector('.ofl-cube')?.addEventListener('mousedown', startDrag);
-
-  document.addEventListener('mousemove', (e) => {
+  function onPointerMove(e: PointerEvent): void {
     if (!isDragging) return;
-    e.preventDefault();
-    dragOffset.x = e.clientX - ix;
-    dragOffset.y = e.clientY - iy;
-    if (panel) panel.style.transform = `translate(${dragOffset.x}px, ${dragOffset.y}px)`;
-  });
+    const { left, top } = clamp(
+      startLeft + (e.clientX - startPX),
+      startTop  + (e.clientY - startPY),
+    );
+    panelLeft = left;
+    panelTop  = top;
+    applyPos(panel, left, top);
+  }
 
-  document.addEventListener('mouseup', () => { isDragging = false; });
+  function onPointerUp(this: HTMLElement, e: PointerEvent): void {
+    if (!isDragging) return;
+    isDragging = false;
+    panel.style.cursor = '';
+    this.releasePointerCapture(e.pointerId);
+
+    // Snap to grid
+    const { left, top } = clamp(snapToGrid(panelLeft), snapToGrid(panelTop));
+    panelLeft = left;
+    panelTop  = top;
+
+    // Edge-fold detection (all 4 edges)
+    const pw = panel.offsetWidth  || 280;
+    const ph = panel.offsetHeight || 200;
+    const nearRight  = (window.innerWidth  - (left + pw)) < EDGE_THRESHOLD;
+    const nearLeft   = left                               < EDGE_THRESHOLD;
+    const nearTop    = top                                < EDGE_THRESHOLD;
+    const nearBottom = (window.innerHeight - (top  + ph)) < EDGE_THRESHOLD;
+
+    if      (nearRight)  foldToEdge('right');
+    else if (nearLeft)   foldToEdge('left');
+    else if (nearTop)    foldToEdge('top');
+    else if (nearBottom) foldToEdge('bottom');
+    else                 applyPos(panel, left, top);
+  }
+
+  // Attach pointer events to each drag handle so capture targets the right element
+  const handles = [
+    panel.querySelector('.ofl-header'),
+    panel.querySelector('.ofl-cube'),
+  ].filter(Boolean) as HTMLElement[];
+
+  for (const handle of handles) {
+    handle.addEventListener('pointerdown',   onPointerDown as EventListener);
+    handle.addEventListener('pointermove',   onPointerMove as EventListener);
+    handle.addEventListener('pointerup',     onPointerUp   as EventListener);
+    handle.addEventListener('pointercancel', onPointerUp   as EventListener);
+  }
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -389,14 +563,76 @@ function addStyles(): void {
     }
     #offlyn-field-summary.ofl-minimized:hover {
       box-shadow: 0 6px 24px rgba(30, 42, 58, 0.25);
-      transform: translate(var(--tx, 0), var(--ty, 0)) scale(1.08);
     }
 
-    /* ─── Cube logo (oval pill, tusk white, gloss, no border) ─── */
+    /* ─── Edge-folded state — 88×88 semi-circle tab protruding from viewport edge ─── */
+    #offlyn-field-summary.ofl-edge-folded {
+      width: 88px !important;
+      height: 88px !important;
+      cursor: pointer;
+      overflow: hidden;
+      background: #0F172A;
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    /* Right edge: left half-circle visible, right half off-screen */
+    #offlyn-field-summary.ofl-edge-right {
+      border-radius: 50% 0 0 50%;
+      box-shadow: -4px 0 20px rgba(0,0,0,.30);
+    }
+    #offlyn-field-summary.ofl-edge-right:hover {
+      transform: translateX(-6px);
+      box-shadow: -8px 0 28px rgba(39, 227, 141, 0.45);
+    }
+    /* Left edge: right half-circle visible, left half off-screen */
+    #offlyn-field-summary.ofl-edge-left {
+      border-radius: 0 50% 50% 0;
+      box-shadow: 4px 0 20px rgba(0,0,0,.30);
+    }
+    #offlyn-field-summary.ofl-edge-left:hover {
+      transform: translateX(6px);
+      box-shadow: 8px 0 28px rgba(39, 227, 141, 0.45);
+    }
+    /* Top edge: bottom half-circle visible, top half off-screen */
+    #offlyn-field-summary.ofl-edge-top {
+      border-radius: 0 0 50% 50%;
+      box-shadow: 0 4px 20px rgba(0,0,0,.30);
+    }
+    #offlyn-field-summary.ofl-edge-top:hover {
+      transform: translateY(6px);
+      box-shadow: 0 8px 28px rgba(39, 227, 141, 0.45);
+    }
+    /* Bottom edge: top half-circle visible, bottom half off-screen */
+    #offlyn-field-summary.ofl-edge-bottom {
+      border-radius: 50% 50% 0 0;
+      box-shadow: 0 -4px 20px rgba(0,0,0,.30);
+    }
+    #offlyn-field-summary.ofl-edge-bottom:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 -8px 28px rgba(39, 227, 141, 0.45);
+    }
+
+    /* ─── Edge tab content ─── */
+    .ofl-edge-tab {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 6px;
+    }
+    .ofl-edge-tab-logo {
+      width: 26px;
+      height: 26px;
+      object-fit: contain;
+      user-select: none;
+      pointer-events: none;
+      filter: brightness(10);
+    }
+
+    /* ─── Cube logo ─── */
     .ofl-cube {
       width: 64px;
       height: 40px;
-      /* tusk white base + top-half gloss sheen */
       background:
         linear-gradient(
           180deg,
@@ -435,41 +671,62 @@ function addStyles(): void {
     /* ─── Header ─── */
     .ofl-header {
       background: #0F172A;
-      padding: 12px 16px;
+      padding: 10px 12px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      cursor: move;
+      gap: 6px;
+      cursor: grab;
     }
+    .ofl-header:active { cursor: grabbing; }
+
+    .ofl-drag-grip {
+      color: rgba(255,255,255,0.35);
+      font-size: 14px;
+      line-height: 1;
+      cursor: grab;
+      flex-shrink: 0;
+      user-select: none;
+      padding: 0 2px;
+      transition: color .15s;
+    }
+    .ofl-header:hover .ofl-drag-grip { color: rgba(255,255,255,0.7); }
+
     .ofl-brand {
       display: flex;
       align-items: center;
       gap: 8px;
+      flex: 1;
+      min-width: 0;
     }
     .ofl-logo {
-      width: 24px; height: 24px;
+      width: 22px; height: 22px;
       border-radius: 5px;
       object-fit: contain;
+      flex-shrink: 0;
     }
     .ofl-title {
       font-weight: 700;
-      font-size: 15px;
+      font-size: 14px;
       color: #fff;
       letter-spacing: .3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .ofl-header-actions {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 2px;
+      flex-shrink: 0;
     }
     .ofl-minimize-btn,
     .ofl-close {
       background: transparent;
       border: none;
-      color: rgba(255,255,255,.8);
-      font-size: 20px;
+      color: rgba(255,255,255,.7);
+      font-size: 16px;
       cursor: pointer;
-      width: 28px; height: 28px;
+      width: 26px; height: 26px;
       border-radius: 6px;
       display: flex;
       align-items: center;
@@ -477,6 +734,7 @@ function addStyles(): void {
       transition: all .15s;
       padding: 0;
       font-family: inherit;
+      flex-shrink: 0;
     }
     .ofl-minimize-btn:hover,
     .ofl-close:hover {
@@ -546,9 +804,9 @@ function addStyles(): void {
       transform: translateY(-1px);
       box-shadow: 0 6px 20px rgba(39, 227, 141, 0.3);
     }
-    .ofl-btn-fill:active { 
+    .ofl-btn-fill:active {
       background: #1EB86B;
-      transform: translateY(0); 
+      transform: translateY(0);
     }
     .ofl-btn-cover {
       background: #0F172A;
@@ -561,9 +819,9 @@ function addStyles(): void {
       transform: translateY(-1px);
       box-shadow: 0 6px 20px rgba(39, 227, 141, 0.2);
     }
-    .ofl-btn-cover:active { 
+    .ofl-btn-cover:active {
       background: #0F172A;
-      transform: translateY(0); 
+      transform: translateY(0);
     }
 
     .ofl-status {
@@ -597,9 +855,9 @@ function addStyles(): void {
       transition: all .15s;
       font-family: inherit;
     }
-    .ofl-link-btn:hover { 
-      color: #0F172A; 
-      background: rgba(39, 227, 141, 0.1); 
+    .ofl-link-btn:hover {
+      color: #0F172A;
+      background: rgba(39, 227, 141, 0.1);
     }
     .ofl-link-btn:disabled { opacity: .5; cursor: default; }
     .ofl-sep { flex: 1; }

@@ -22,6 +22,34 @@ export interface FieldSchema {
   selector: string;
   valuePreview: string | null;
   radioOptions?: Array<{ selector: string; label: string; value: string }>;
+  /** 1 = verified ATS/application form, 2 = probable first-party form, 3 = untrusted (cookie/chat/marketing) */
+  trustTier?: 1 | 2 | 3;
+  /** Where the field was detected from, e.g. "greenhouse.io iframe", "parent_page", "onetrust_banner" */
+  detectedFrom?: string;
+  /** Type of container the field lives in, e.g. "ats_iframe", "onetrust", "chat_widget", "marketing" */
+  containerType?: string;
+  /** Whether this field is eligible to be autofilled */
+  fillEligible?: boolean;
+  /** Whether patterns from this field should be learned into graph memory */
+  learnEligible?: boolean;
+  /** Human-readable reason why this field was excluded from fill/learn, if applicable */
+  exclusionReason?: string;
+}
+
+/** Three-state page classification used to gate scanning, filling, and learning */
+export type PageState = 'NOT_JOB_PAGE' | 'JOB_POSTING_PAGE' | 'JOB_APPLICATION_PAGE' | 'FORM_HELPER_PAGE';
+
+export interface PageClassification {
+  state: PageState;
+  reason: string;
+  /** True if a trusted ATS iframe (Greenhouse, Lever, Workday, etc.) was detected in the DOM */
+  hasTrustedATSIframe: boolean;
+  /** True when parent page field scanning is suppressed because a trusted ATS iframe handles the form */
+  parentFillSuppressed: boolean;
+  /** True when at least one real application form or ATS iframe with fields has been verified */
+  applicationFieldsVerified: boolean;
+  /** Detailed trace of which signals fired during detection */
+  detectionReason: string;
 }
 
 export type ApplyEventType = 'PAGE_DETECTED' | 'SUBMIT_ATTEMPT';

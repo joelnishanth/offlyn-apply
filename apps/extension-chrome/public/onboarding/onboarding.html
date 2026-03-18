@@ -1546,6 +1546,14 @@
     .adv-test-result.ok { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
     .adv-test-result.fail { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
 
+    .setup-oneliner-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .ollama-setup-substate { margin-bottom: 4px; }
     .setup-steps-list {
       display: flex;
       flex-direction: column;
@@ -1721,11 +1729,19 @@
     html.dark .btn-back:hover { background: #334155; color: #f1f5f9; }
     html.dark .connection-status { background: #1e293b; border-color: #334155; color: #94a3b8; }
     html.dark .file-info { background: #0f172a; border-color: #334155; color: #94a3b8; }
+    html.dark .ts-dialog { background: #0f172a; border-color: #1e293b; }
+    html.dark .ts-dialog-header { background: #1e2a3a; border-bottom-color: #334155; }
+    html.dark .ts-dialog-header h2 { color: #f1f5f9; }
+    html.dark .ts-close { color: #64748b; }
+    html.dark .ts-close:hover { color: #f1f5f9; }
+    html.dark .ts-dialog-body { color: #94a3b8; }
+    html.dark .ts-section h3 { color: #f1f5f9; }
     html.dark .ts-issue { border-bottom-color: #334155; }
     html.dark .ts-issue h4 { color: #f1f5f9; }
     html.dark .ts-issue p,
     html.dark .ts-issue ul { color: #94a3b8; }
-    html.dark .ts-issue code { background: #0f172a; color: #a5b4fc; }
+    html.dark .ts-issue code { background: #1e2a3a; color: #a3e635; }
+    html.dark .ts-resources a { color: #a3e635; }
     html.dark .ts-skip-wrap { border-top-color: #334155; color: #94a3b8; }
   </style>
   <script src="../pdf.worker.min.js"></script>
@@ -1751,15 +1767,15 @@
   <div class="step-wizard" id="stepWizard">
     <div class="wizard-step active" data-step="1">
       <div class="wizard-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-      </div>
-      <div class="wizard-label">Resume</div>
-    </div>
-    <div class="wizard-step" data-step="2">
-      <div class="wizard-icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
       </div>
       <div class="wizard-label">AI Setup</div>
+    </div>
+    <div class="wizard-step" data-step="2">
+      <div class="wizard-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      </div>
+      <div class="wizard-label">Resume</div>
     </div>
     <div class="wizard-step" data-step="3">
       <div class="wizard-icon">
@@ -1806,8 +1822,8 @@
     </div>
     
     <div class="content">
-      <!-- Step 1: Upload Resume -->
-      <div id="step-upload" class="step active">
+      <!-- Step 2: Upload Resume -->
+      <div id="step-upload" class="step">
         <div class="content-card">
           <h2 class="step-title">Upload Your Resume</h2>
           <p class="step-subtitle">We'll auto-extract your information to save time (optional)</p>
@@ -1880,11 +1896,12 @@
         </div>
       </div>
       
-      <!-- Step 2: Ollama AI Setup -->
-      <div id="step-ollama" class="step">
+      <!-- Step 1: Ollama AI Setup -->
+      <div id="step-ollama" class="step active">
         <div class="content-card">
-          <h2 class="step-title">AI Setup (Ollama)</h2>
-          <p class="step-subtitle">Connect local AI for smart resume parsing and field suggestions</p>
+          <h2 class="step-title">Supercharge Your Applications with Local AI</h2>
+          <p class="step-subtitle">Offlyn uses on-device AI — your data never leaves your computer.</p>
+          <p style="font-size:13px;color:#475569;margin:0 0 16px;line-height:1.6;">We believe AI should work for you privately. Offlyn runs AI models directly on your device so your resume, work history, and personal info stay 100% yours.</p>
 
           <!-- State: Checking -->
           <div id="ollamaChecking" class="ollama-state active">
@@ -1913,40 +1930,34 @@
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               <div style="flex:1;">
                 <h4>CORS Blocked — AI calls will fail</h4>
-                <p>Ollama is reachable but blocking requests from this extension. You need to restart Ollama with the CORS origin flag.</p>
+                <p style="margin-bottom:12px;">Ollama is running but blocking requests from this extension. Click below to fix it automatically — no terminal needed.</p>
 
-                <p style="margin-bottom:6px;"><strong>Step 1 — Stop the current Ollama process</strong></p>
-                <p style="font-size:12px;color:#78350f;margin-bottom:8px;">If Ollama is in the macOS menu bar: right-click its icon → <em>Quit Ollama</em>.<br>If started in a terminal: press <strong>Ctrl+C</strong> in that terminal window.</p>
+                <button class="btn btn-primary" id="runCorsFixBtn" style="display:inline-flex;align-items:center;gap:8px;font-size:13px;padding:9px 16px;margin-bottom:10px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  Fix CORS Automatically
+                </button>
 
-                <p style="margin-bottom:6px;"><strong>Step 2 — Start Ollama with CORS enabled (copy the whole line)</strong></p>
-                <div class="cors-fix-cmd">
-                  <code id="corsFixCmdText">OLLAMA_ORIGINS='moz-extension://*' ollama serve</code>
-                  <button class="btn-copy-cmd" data-copy="OLLAMA_ORIGINS='moz-extension://*' ollama serve">Copy</button>
-                </div>
-                <p style="font-size:12px;color:#92400e;margin:6px 0 12px;">⚠️ This must be one single command — do NOT press Enter after the env var part.<br>Keep the terminal window open while using the extension.</p>
+                <!-- Reuses the same progress log element -->
+                <div id="corsFixProgressLog" style="display:none;margin-top:8px;background:#0f1117;border-radius:8px;padding:12px 14px;max-height:160px;overflow-y:auto;font-family:monospace;font-size:12px;color:#a3e635;line-height:1.6;"></div>
 
-                <details style="margin-bottom:12px;">
-                  <summary style="cursor:pointer;font-size:12px;font-weight:600;color:#92400e;list-style:none;display:flex;align-items:center;gap:4px;">
-                    ▶ Permanent fix — never do this again
-                  </summary>
-                  <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px;">
-                    <div>
-                      <p style="font-size:12px;color:#78350f;margin-bottom:5px;"><strong>macOS / Linux</strong> — add to your shell config once:</p>
-                      <div class="cors-fix-cmd"><code>echo 'export OLLAMA_ORIGINS="moz-extension://*"' &gt;&gt; ~/.zshrc &amp;&amp; source ~/.zshrc</code><button class="btn-copy-cmd" data-copy='echo '"'"'export OLLAMA_ORIGINS="moz-extension://*"'"'"' >> ~/.zshrc && source ~/.zshrc'>Copy</button></div>
-                      <p style="font-size:12px;color:#92400e;margin-top:5px;">Then quit &amp; restart Ollama. From then on, plain <code style="background:#1e2a3a;color:#fbbf24;padding:1px 5px;border-radius:3px;font-size:11px;">ollama serve</code> always has the right origins.</p>
-                    </div>
-                    <div>
-                      <p style="font-size:12px;color:#78350f;margin-bottom:5px;"><strong>Windows (PowerShell)</strong>:</p>
-                      <div class="cors-fix-cmd"><code>$env:OLLAMA_ORIGINS='moz-extension://*'; ollama serve</code><button class="btn-copy-cmd" data-copy="$env:OLLAMA_ORIGINS='moz-extension://*'; ollama serve">Copy</button></div>
-                    </div>
-                  </div>
-                </details>
-
-                <p style="margin-bottom:6px;"><strong>Step 3 — Re-test after restarting</strong></p>
-                <button class="btn btn-secondary" id="retestAfterCorsBtn" style="font-size:13px;padding:8px 14px;display:inline-flex;align-items:center;gap:6px;">
+                <button class="btn btn-secondary" id="retestAfterCorsBtn" style="font-size:13px;padding:8px 14px;display:inline-flex;align-items:center;gap:6px;margin-top:10px;">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                   Re-test Connection
                 </button>
+
+                <details style="margin-top:12px;">
+                  <summary style="cursor:pointer;font-size:12px;font-weight:600;color:#92400e;list-style:none;">▶ Manual fix (advanced)</summary>
+                  <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px;">
+                    <div>
+                      <p style="font-size:12px;color:#78350f;margin-bottom:5px;"><strong>macOS / Linux</strong> — permanent fix:</p>
+                      <div class="cors-fix-cmd"><code>echo 'export OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*"' &gt;&gt; ~/.zshrc &amp;&amp; source ~/.zshrc</code><button class="btn-copy-cmd" data-copy='echo '"'"'export OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*"'"'"' >> ~/.zshrc && source ~/.zshrc'>Copy</button></div>
+                    </div>
+                    <div>
+                      <p style="font-size:12px;color:#78350f;margin-bottom:5px;"><strong>Windows (PowerShell)</strong>:</p>
+                      <div class="cors-fix-cmd"><code>[System.Environment]::SetEnvironmentVariable('OLLAMA_ORIGINS','chrome-extension://*,moz-extension://*','User')</code><button class="btn-copy-cmd" data-copy="[System.Environment]::SetEnvironmentVariable('OLLAMA_ORIGINS','chrome-extension://*,moz-extension://*','User')">Copy</button></div>
+                    </div>
+                  </div>
+                </details>
               </div>
             </div>
 
@@ -1988,60 +1999,63 @@
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               <div class="ollama-status-body">
                 <h3>Ollama Not Detected</h3>
-                <p class="ollama-status-meta">Ollama enables AI-powered resume parsing, cover letter generation, and smart field suggestions.</p>
+                <p class="ollama-status-meta">Ollama enables AI-powered resume parsing, cover letter generation, and smart field suggestions — running 100% on your device.</p>
               </div>
             </div>
 
-            <div style="margin-bottom:16px;">
-              <h3 style="font-size:14px;font-weight:700;color:#1e2a3a;margin-bottom:12px;">Quick Setup (5 minutes)</h3>
-              <div class="setup-steps-list">
-                <div class="setup-step-item">
-                  <div class="setup-step-num">1</div>
-                  <div class="setup-step-content">
-                    <h4>Download Ollama</h4>
-                    <p>Install Ollama for your operating system.</p>
-                    <a href="https://ollama.com/download" target="_blank" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:8px 16px;">
-                      Download Ollama
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                    </a>
-                  </div>
+            <!-- Sub-state A: helper not installed -->
+            <div id="helperNotInstalled" class="ollama-setup-substate">
+              <div class="setup-oneliner-card">
+                <h3 style="font-size:14px;font-weight:700;color:#1e2a3a;margin-bottom:6px;">Step 1 of 2 — Install the Offlyn Helper (one-time)</h3>
+                <p style="font-size:13px;color:#475569;margin-bottom:12px;">A tiny helper lets the extension set everything up for you automatically. Run this command once in a terminal, then you're done with the terminal forever.</p>
+                <p id="helperTerminalHint" style="font-size:12px;color:#64748b;margin-bottom:8px;"></p>
+                <div class="code-cmd" style="margin-bottom:10px;">
+                  <code id="helperInstallCmd" style="font-size:12px;word-break:break-all;"></code>
+                  <button class="btn-copy-cmd" id="copyHelperCmd">Copy</button>
                 </div>
-                <div class="setup-step-item">
-                  <div class="setup-step-num">2</div>
-                  <div class="setup-step-content">
-                    <h4>Install the AI Model</h4>
-                    <p>Open your terminal and run:</p>
-                    <div class="code-cmd"><code>ollama pull llama3.2</code><button class="btn-copy-cmd" data-copy="ollama pull llama3.2">Copy</button></div>
-                  </div>
-                </div>
-                <div class="setup-step-item">
-                  <div class="setup-step-num">3</div>
-                  <div class="setup-step-content">
-                    <h4>Verify Installation</h4>
-                    <div class="code-cmd"><code>ollama list</code><button class="btn-copy-cmd" data-copy="ollama list">Copy</button></div>
-                  </div>
-                </div>
-                <div class="setup-step-item">
-                  <div class="setup-step-num">4</div>
-                  <div class="setup-step-content">
-                    <h4>Retry Connection</h4>
-                    <p>Once installed and running, click below.</p>
-                    <button class="btn btn-secondary" id="retryOllamaBtn" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:8px 16px;">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                      Test Connection Again
-                    </button>
-                  </div>
-                </div>
+                <p style="font-size:12px;color:#64748b;margin-bottom:12px;">After it finishes, come back here and click the button below.</p>
+                <button class="btn btn-secondary" id="checkHelperBtn" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:8px 16px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                  Helper Installed — Check Again
+                </button>
               </div>
-              <div style="margin-top:12px;">
-                <a href="#" id="showTroubleshootingBtn" style="font-size:13px;color:#558b2f;text-decoration:none;">Having trouble? View troubleshooting guide →</a>
+            </div>
+
+            <!-- Sub-state B: helper installed, ready to run setup -->
+            <div id="helperInstalled" class="ollama-setup-substate" style="display:none;">
+              <div class="setup-oneliner-card" style="border-color:#22c55e20;background:#f0fdf4;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span style="font-size:13px;font-weight:600;color:#15803d;">Offlyn Helper ready</span>
+                </div>
+                <h3 style="font-size:14px;font-weight:700;color:#1e2a3a;margin-bottom:6px;">Step 2 of 2 — Install AI</h3>
+                <p style="font-size:13px;color:#475569;margin-bottom:8px;">One click installs everything — Ollama, the AI models, and CORS config. Takes about 5 minutes depending on your connection.</p>
+                <details style="margin-bottom:12px;">
+                  <summary style="font-size:12px;color:#64748b;cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:4px;">▶ How does this work?</summary>
+                  <p style="font-size:12px;color:#64748b;margin:6px 0 0;line-height:1.6;">The Offlyn Helper runs a setup script that downloads <strong>Ollama</strong> (the AI runtime) and pulls two models: <code>llama3.2</code> for text understanding and <code>nomic-embed-text</code> for semantic search. Everything runs locally — no cloud, no account needed.</p>
+                </details>
+                <button class="btn btn-primary" id="runSetupBtn" style="display:inline-flex;align-items:center;gap:8px;font-size:14px;padding:10px 20px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  Install AI (Free, ~2.5 GB)
+                </button>
               </div>
+
+              <!-- Live progress log (hidden until setup starts) -->
+              <div id="setupProgressLog" style="display:none;margin-top:12px;background:#0f1117;border-radius:8px;padding:12px 14px;max-height:220px;overflow-y:auto;font-family:monospace;font-size:12px;color:#a3e635;line-height:1.6;"></div>
+            </div>
+
+            <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <button class="btn btn-secondary" id="retryOllamaBtn" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:8px 16px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                Test Connection
+              </button>
+              <a href="#" id="showTroubleshootingBtn" style="font-size:13px;color:#558b2f;text-decoration:none;">Manual setup / Troubleshooting →</a>
             </div>
           </div>
         </div>
 
         <div class="button-group" style="margin-top:24px;">
-          <button id="backFromOllamaBtn" class="btn btn-secondary">
+          <button id="backFromOllamaBtn" class="btn btn-secondary" style="display:none;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
             Back
           </button>

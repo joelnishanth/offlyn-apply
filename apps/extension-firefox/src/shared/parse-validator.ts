@@ -67,6 +67,19 @@ export class ParseValidator {
   }
 
   /**
+   * Merge two already-parsed profiles without calling the parsers again.
+   * Used when the caller runs both parsers externally (e.g. in parallel).
+   */
+  merge(ragResult: any, legacyResult: any): ParseComparison {
+    const differences = this.compareResults(ragResult, legacyResult);
+    const merged = this.mergeResults(ragResult, legacyResult, differences);
+    const confidence = this.calculateConfidence(differences);
+
+    console.log(`[Validator] Merged — ${differences.length} differences, confidence: ${(confidence * 100).toFixed(1)}%`);
+    return { ragResult, legacyResult, merged, differences, confidence };
+  }
+
+  /**
    * Compare two parse results
    */
   private compareResults(rag: any, legacy: any): ParseDifference[] {

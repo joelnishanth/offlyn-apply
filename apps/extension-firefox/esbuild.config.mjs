@@ -48,6 +48,12 @@ const buildOptions = {
   },
 };
 
+// Build options for the React Data Explorer — needs JSX + larger chunk budget
+const dataExplorerOptions = {
+  ...buildOptions,
+  jsx: 'automatic',
+};
+
 // Custom output paths
 const pathMap = {
   'src/background.ts': 'dist/background.js',
@@ -57,7 +63,6 @@ const pathMap = {
   'src/dashboard/dashboard.ts': 'dist/dashboard/dashboard.js',
   'src/settings/settings.ts': 'dist/settings/settings.js',
   'src/chat/chat.ts': 'dist/chat/chat.js',
-  'src/data/data.ts': 'dist/data/data.js',
 };
 
 async function build() {
@@ -73,6 +78,13 @@ async function build() {
         outfile,
       });
     }
+
+    // Build the React Data Explorer separately with JSX support
+    await esbuild.build({
+      ...dataExplorerOptions,
+      entryPoints: ['src/data/data.tsx'],
+      outfile: 'dist/data/data.js',
+    });
     
     console.log('Build complete!');
   } catch (error) {
@@ -96,6 +108,14 @@ if (watch) {
       contexts.push(ctx);
     }
     
+    // Add Data Explorer with JSX support
+    const dataCtx = await esbuild.context({
+      ...dataExplorerOptions,
+      entryPoints: ['src/data/data.tsx'],
+      outfile: 'dist/data/data.js',
+    });
+    contexts.push(dataCtx);
+
     // Watch all contexts
     await Promise.all(contexts.map(ctx => ctx.watch()));
     console.log('Watching for changes...');

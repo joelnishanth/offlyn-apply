@@ -74,11 +74,26 @@
       gap: 8px;
     }
     .job-dot {
+      position: relative;
       width: 8px; height: 8px;
       background: #4ade80;
       border-radius: 50%;
       margin-top: 4px;
       flex-shrink: 0;
+    }
+    .job-dot::before {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 100%; height: 100%;
+      border-radius: 50%;
+      background: #4ade80;
+      opacity: 0.75;
+      animation: job-dot-ping 1.4s ease-out infinite;
+    }
+    @keyframes job-dot-ping {
+      0%   { transform: translate(-50%, -50%) scale(1); opacity: 0.75; }
+      75%, 100% { transform: translate(-50%, -50%) scale(2.8); opacity: 0; }
     }
     .job-bar-label {
       font-weight: 700;
@@ -361,6 +376,16 @@
       margin-right: 6px;
     }
     .dark-mode-toggle:hover { background: rgba(255,255,255,0.22); transform: scale(1.1); }
+
+    /* ── Disabled action buttons (no profile) ── */
+    .btn-primary-action.btn-no-profile,
+    .btn-secondary-action.btn-no-profile {
+      opacity: 0.45;
+      cursor: not-allowed;
+      pointer-events: none;
+      transform: none !important;
+      box-shadow: none !important;
+    }
 
     /* ── Dark mode overrides ── */
     html.dark body { background: #0f172a; color: #f1f5f9; }

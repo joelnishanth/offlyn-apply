@@ -11,6 +11,24 @@ import type { Message } from './types';
 declare const browser: any;
 
 /**
+ * Robustly extract and parse JSON from a potentially malformed LLM response.
+ */
+function repairJSON(raw: string): unknown {
+  const cleaned = raw.trim().replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  try { return JSON.parse(cleaned); } catch { /* fall through */ }
+  const arrayMatch = cleaned.match(/(\[[\s\S]*\])/);
+  if (arrayMatch) { try { return JSON.parse(arrayMatch[1]); } catch { /* fall through */ } }
+  const objectMatch = cleaned.match(/(\{[\s\S]*\})/);
+  if (objectMatch) { try { return JSON.parse(objectMatch[1]); } catch { /* fall through */ } }
+  for (let i = cleaned.length - 1; i >= 0; i--) {
+    if (cleaned[i] === ']' || cleaned[i] === '}') {
+      try { return JSON.parse(cleaned.slice(0, i + 1)); } catch { /* continue */ }
+    }
+  }
+  return [];
+}
+
+/**
  * AI-powered agent for form field analysis and resume parsing
  * Uses AI SDK with Ollama provider (browser-compatible)
  */
@@ -19,6 +37,8 @@ class MastraAgentService {
   private model: string;
   private embeddingModel: string;
   private ollamaProvider: ReturnType<typeof ollama>;
+  /** Set to false after the first embedding failure so callers can skip embedding-based retrieval */
+  embeddingsAvailable = true;
 
   constructor(baseUrl = 'http://localhost:11434', model = 'llama3.2') {
     this.baseUrl = baseUrl;
@@ -68,6 +88,7 @@ class MastraAgentService {
       model?: string;
       temperature?: number;
       timeout?: number;
+      maxTokens?: number;
     }
   ): Promise<string> {
     try {
@@ -83,13 +104,13 @@ class MastraAgentService {
       // Combine all user/assistant messages into a prompt
       const prompt = userMessages.map((msg) => msg.content).join('\n\n');
 
-      // Generate text using AI SDK
+      // Generate text using AI SDK — default 4096 to avoid truncating long JSON responses
       const result = await generateText({
         model: this.ollamaProvider,
         system: systemMessage?.content,
         prompt: prompt,
         temperature: options?.temperature ?? 0.1,
-        maxTokens: 2000,
+        maxTokens: options?.maxTokens ?? 4096,
       });
 
       const content = result.text;
@@ -110,31 +131,26 @@ class MastraAgentService {
   }
 
   /**
-   * Create embeddings for text chunks using Ollama's embedding API
+   * Create embeddings for text chunks using Ollama's embedding API.
+   * Throws on failure so callers can detect unavailability and fall back to keyword retrieval.
    */
   async createEmbedding(text: string): Promise<number[]> {
-    try {
-      const response = await fetch(`${this.baseUrl}/api/embeddings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: this.embeddingModel,
-          prompt: text,
-        }),
-      });
+    const response = await fetch(`${this.baseUrl}/api/embeddings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: this.embeddingModel, prompt: text }),
+    });
 
-      if (!response.ok) {
-        throw new Error(`Embedding failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.embedding || [];
-    } catch (error) {
-        console.error('[AIAgent] Embedding creation failed:', error);
-      return [];
+    if (!response.ok) {
+      throw new Error(`Embedding API returned ${response.status} — is ${this.embeddingModel} pulled?`);
     }
+
+    const data = await response.json();
+    const vec = data.embedding as number[] | undefined;
+    if (!vec || vec.length === 0) {
+      throw new Error(`Empty embedding vector returned for model ${this.embeddingModel}`);
+    }
+    return vec;
   }
 
   /**
@@ -216,25 +232,12 @@ Be thorough and capture ALL details. Return ONLY valid JSON with no markdown for
       maxTokens: 3000,
     });
 
-    // Extract JSON - handle various response formats
-    let jsonStr = response.text.trim();
-
-    // Remove markdown code blocks
-    jsonStr = jsonStr.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-
-    // Remove any leading/trailing text before/after JSON
-    const jsonMatch = jsonStr.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-
-    if (jsonMatch) {
-      try {
-        return JSON.parse(jsonMatch[0]);
-      } catch (err) {
-        console.error(`[AIAgent] Failed to parse ${sectionType} JSON:`, err);
-        return null;
-      }
+    // Extract JSON with repair fallback for malformed LLM output
+    const repaired = repairJSON(response.text);
+    if (repaired !== null && repaired !== undefined && !(Array.isArray(repaired) && (repaired as unknown[]).length === 0 && response.text.trim().length > 10)) {
+      return repaired;
     }
-
-      console.warn(`[AIAgent] No valid JSON found for ${sectionType}`);
+    console.warn(`[AIAgent] No valid JSON found for ${sectionType}`);
     return null;
   }
 
@@ -369,8 +372,9 @@ Return ONLY valid JSON. Never include markdown, explanations, or any text outsid
 
 {
   "personal": {
-    "firstName": "Full first name",
-    "lastName": "Full last name", 
+    "firstName": "Given name only (e.g. Joel)",
+    "middleName": "Middle name if present, otherwise empty string",
+    "lastName": "Family/surname ONLY — never include middle names here (e.g. Ponukumatla)",
     "email": "email@example.com",
     "phone": "+1234567890",
     "location": "City, State/Country"
@@ -424,27 +428,14 @@ Return ONLY the JSON object, nothing else:`;
 
     console.log('[AIAgent] Raw response:', response.text.substring(0, 500));
 
-    // Extract JSON from response
-    let jsonStr = response.text.trim().replace(/```json\s*/g, '').replace(/```\s*/g, '');
-    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-
-    if (!jsonMatch) {
-      console.error('[AIAgent] No JSON found in response');
-      throw new Error('Could not find JSON in response. Response: ' + jsonStr.substring(0, 200));
-    }
-
-    console.log('[AIAgent] Extracted JSON string:', jsonMatch[0].substring(0, 300));
-
-    try {
-      const parsed = JSON.parse(jsonMatch[0]);
+    // Extract JSON with repair fallback for malformed LLM output
+    const repaired = repairJSON(response.text);
+    if (repaired !== null && repaired !== undefined) {
       console.log('[AIAgent] Successfully parsed JSON');
-      return parsed;
-    } catch (err) {
-      console.error('[AIAgent] JSON parse failed:', err);
-      throw new Error(
-        'Invalid JSON in response: ' + (err instanceof Error ? err.message : 'Unknown error')
-      );
+      return repaired;
     }
+    console.error('[AIAgent] JSON repair failed for response:', response.text.substring(0, 200));
+    throw new Error('Could not parse JSON from response after repair attempt');
   }
 }
 

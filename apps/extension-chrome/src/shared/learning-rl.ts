@@ -255,8 +255,35 @@ export class ReinforcementLearningSystem {
     return removed;
   }
 
+  /**
+   * Evict low-confidence / old patterns when the set grows too large.
+   * Keeps at most MAX_PATTERNS, prioritising high-confidence and recently used.
+   */
+  private evictIfNeeded(): void {
+    const MAX_PATTERNS = 200;
+    const MAX_CORRECTIONS = 100;
+
+    if (this.patterns.size > MAX_PATTERNS) {
+      const sorted = Array.from(this.patterns.entries()).sort(([, a], [, b]) => {
+        // Primary sort: confidence descending; secondary: lastUsed descending
+        if (b.confidence !== a.confidence) return b.confidence - a.confidence;
+        return (b.lastUsed ?? 0) - (a.lastUsed ?? 0);
+      });
+      // Drop the tail beyond MAX_PATTERNS
+      for (const [key] of sorted.slice(MAX_PATTERNS)) {
+        this.patterns.delete(key);
+      }
+      console.log(`[RL] Evicted patterns — keeping top ${MAX_PATTERNS}`);
+    }
+
+    if (this.corrections.length > MAX_CORRECTIONS) {
+      this.corrections = this.corrections.slice(-MAX_CORRECTIONS);
+    }
+  }
+
   /** Persist current state to browser.storage.local (async, non-blocking). */
   private save(): void {
+    this.evictIfNeeded();
     const patternsArr = Array.from(this.patterns.values());
 
     browser.storage.local

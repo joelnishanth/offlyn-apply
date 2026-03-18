@@ -2,7 +2,323 @@
  * DOM utilities for extracting job metadata and form schemas
  */
 
-import type { JobMeta, FieldSchema } from './types';
+import type { JobMeta, FieldSchema, PageClassification } from './types';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Trust / exclusion constants (shared by extractFormSchema and classifyPage)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Hostnames that unambiguously host a job application form. */
+const TRUSTED_ATS_HOSTNAMES = [
+  'greenhouse.io',
+  'lever.co',
+  'workday.com',
+  'myworkdayjobs.com',
+  'smartrecruiters.com',
+  'workable.com',
+  'breezy.hr',
+  'bamboohr.com',
+  'icims.com',
+  'ultipro.com',
+  'ashbyhq.com',
+  'jobvite.com',
+  'taleo.net',
+  'successfactors.com',
+  'jazz.co',
+  'fountain.com',
+  'recruiting.paylocity.com',
+  'applytojob.com',
+  'hire.withgoogle.com',
+  'jobs.lever.co',
+  'jobs.workday.com',
+  'app.ashbyhq.com',
+  'boards.greenhouse.io',
+  'job-boards.greenhouse.io',
+];
+
+/**
+ * Returns true when an iframe src URL belongs to a trusted ATS platform.
+ * Exported so content.ts can use the same check for iframe forwarding.
+ */
+export function isTrustedATSIframe(src: string): boolean {
+  if (!src || src === 'about:blank' || src.startsWith('javascript:')) return false;
+  try {
+    const hostname = new URL(src).hostname.toLowerCase();
+    return TRUSTED_ATS_HOSTNAMES.some(ats => hostname === ats || hostname.endsWith('.' + ats));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * CSS selectors for containers that must never be scanned for autofill fields.
+ * Covers cookie banners, privacy modals, chat widgets, marketing embeds, etc.
+ */
+const EXCLUDED_CONTAINER_SELECTORS = [
+  // OneTrust / cookie consent
+  '#onetrust-consent-sdk',
+  '#onetrust-banner-sdk',
+  '#onetrust-pc-sdk',
+  '[id*="onetrust"]',
+  '[class*="onetrust"]',
+  // Generic cookie / GDPR banners
+  '[id*="cookie-banner"]',
+  '[id*="cookie-consent"]',
+  '[id*="cookie-notice"]',
+  '[class*="cookie-banner"]',
+  '[class*="cookie-consent"]',
+  '[class*="cookie-notice"]',
+  '[class*="gdpr"]',
+  '[id*="gdpr"]',
+  // Privacy preference / CMP panels
+  '[class*="privacy-banner"]',
+  '[class*="privacy-center"]',
+  '[id*="privacy-modal"]',
+  '[class*="sp_message"]',
+  '[class*="sp-message"]',
+  '[id*="sp_message"]',
+  '#didomi-host',
+  '[class*="didomi"]',
+  '#quantcast-choice',
+  '[class*="qc-cmp"]',
+  // Chat / live-support widgets
+  '[id*="intercom"]',
+  '[class*="intercom-"]',
+  '[id*="drift-widget"]',
+  '[class*="drift-"]',
+  '#hubspot-messages-iframe-container',
+  '[class*="zendesk"]',
+  '[id*="zendesk"]',
+  '[id*="qualified"]',
+  '[class*="crisp-chat"]',
+  '[id*="crisp"]',
+  '[class*="livechat"]',
+  '[class*="freshchat"]',
+  '[class*="tawk"]',
+  '[id*="chat-widget"]',
+  '[class*="chat-widget"]',
+  // reCAPTCHA / CAPTCHA
+  '[id*="recaptcha"]',
+  '[class*="recaptcha"]',
+  '[id*="captcha"]',
+  '.g-recaptcha',
+  // Share / social widgets
+  '[class*="sharethis"]',
+  '[class*="addthis"]',
+  '[class*="social-share"]',
+  // Analytics / experimentation
+  '[class*="optimizely"]',
+  '[id*="optimizely"]',
+  // Vendor list / privacy preference manager
+  '[class*="vendor-list"]',
+  '[id*="vendor-list"]',
+  '[class*="iab-vendor"]',
+  // Marketing / promotional overlays
+  '[class*="promo-banner"]',
+  '[class*="announcement-bar"]',
+  '[id*="announcement-bar"]',
+];
+
+/** Returns true if `el` or any of its ancestors matches an excluded container. */
+function isInsideExcludedContainer(el: Element): { excluded: boolean; containerType: string } {
+  for (const sel of EXCLUDED_CONTAINER_SELECTORS) {
+    if (el.closest(sel)) {
+      // Derive a human-readable container type from the selector
+      let containerType = 'untrusted_widget';
+      if (sel.includes('onetrust') || sel.includes('cookie') || sel.includes('gdpr') ||
+          sel.includes('privacy') || sel.includes('sp_message') || sel.includes('didomi') ||
+          sel.includes('qc-cmp') || sel.includes('quantcast')) {
+        containerType = 'cookie_consent';
+      } else if (sel.includes('intercom') || sel.includes('drift') || sel.includes('hubspot-messages') ||
+                 sel.includes('zendesk') || sel.includes('qualified') || sel.includes('crisp') ||
+                 sel.includes('livechat') || sel.includes('freshchat') || sel.includes('tawk') ||
+                 sel.includes('chat-widget')) {
+        containerType = 'chat_widget';
+      } else if (sel.includes('recaptcha') || sel.includes('captcha')) {
+        containerType = 'captcha';
+      } else if (sel.includes('sharethis') || sel.includes('addthis') || sel.includes('social-share') ||
+                 sel.includes('optimizely')) {
+        containerType = 'marketing_widget';
+      } else if (sel.includes('vendor-list') || sel.includes('iab-vendor')) {
+        containerType = 'vendor_list';
+      }
+      return { excluded: true, containerType };
+    }
+  }
+  return { excluded: false, containerType: '' };
+}
+
+/**
+ * Classify the current page into one of three states:
+ *  - NOT_JOB_PAGE: no job signals
+ *  - JOB_POSTING_PAGE: looks like a job detail page but has no real application form
+ *  - JOB_APPLICATION_PAGE: contains a real form or trusted ATS iframe
+ *
+ * This replaces the old boolean `isJobApplicationPage()` and adds the nuance
+ * needed to avoid scanning/learning on job-posting-only pages.
+ */
+// Payment processor iframes that should always be silently ignored
+const PAYMENT_PROCESSOR_HOSTNAMES = [
+  /checkout\.pci\./i,
+  /pay\.google\.com/i,
+  /shop\.app/i,
+  /checkout\.shopify\.com/i,
+  /js\.stripe\.com/i,
+];
+
+// URL patterns that indicate a checkout/shopping page (not a job application)
+const CHECKOUT_URL_PATTERNS = [
+  /\/checkouts?\//i,
+  /\/cart\//i,
+  /\/orders?\//i,
+  /\/purchase\//i,
+  /\/checkout$/i,
+];
+
+export function classifyPage(): PageClassification {
+  const url = window.location.href.toLowerCase();
+  const hostname = window.location.hostname.toLowerCase();
+  const signals: string[] = [];
+
+  // ── Hard-block payment processor iframes — always silent ─────────────────
+  if (PAYMENT_PROCESSOR_HOSTNAMES.some(p => p.test(hostname))) {
+    return {
+      state: 'NOT_JOB_PAGE',
+      reason: 'Payment processor iframe — silent',
+      hasTrustedATSIframe: false,
+      parentFillSuppressed: false,
+      applicationFieldsVerified: false,
+      detectionReason: `Payment processor: ${hostname}`,
+    };
+  }
+
+  // ── Tier 1: We are running directly inside a known ATS hostname ──────────
+  if (TRUSTED_ATS_HOSTNAMES.some(ats => hostname === ats || hostname.endsWith('.' + ats))) {
+    return {
+      state: 'JOB_APPLICATION_PAGE',
+      reason: 'Running on a trusted ATS hostname',
+      hasTrustedATSIframe: false,
+      parentFillSuppressed: false,
+      applicationFieldsVerified: true,
+      detectionReason: `ATS hostname: ${hostname}`,
+    };
+  }
+
+  // ── Trusted ATS iframe present ────────────────────────────────────────────
+  const iframes = Array.from(document.querySelectorAll('iframe'));
+  const trustedIframe = iframes.find(iframe => isTrustedATSIframe(iframe.src));
+  if (trustedIframe) {
+    signals.push(`trusted ATS iframe: ${trustedIframe.src}`);
+    return {
+      state: 'JOB_APPLICATION_PAGE',
+      reason: 'Trusted ATS iframe detected',
+      hasTrustedATSIframe: true,
+      // Suppress parent page field scanning — the iframe has the real form
+      parentFillSuppressed: true,
+      applicationFieldsVerified: true,
+      detectionReason: signals.join('; '),
+    };
+  }
+
+  // ── Checkout / shopping pages — friendly form helper ─────────────────────
+  const hasCheckoutUrl = CHECKOUT_URL_PATTERNS.some(p => p.test(url));
+
+  // ── Scoring for first-party pages ─────────────────────────────────────────
+  let score = 0;
+
+  const jobUrlPatterns = [
+    /\/job[s]?\/[^/]+/i,
+    /\/position[s]?\/[^/]+/i,
+    /\/opening[s]?\/[^/]+/i,
+    /\/apply\b/i,
+    /\/application\b/i,
+    /\/publication\//i,
+  ];
+  if (jobUrlPatterns.some(p => p.test(url))) {
+    score += 2;
+    signals.push('strong job URL');
+  } else if (/\/career[s]?\//i.test(url) || /\/recruitment\//i.test(url)) {
+    score += 1;
+    signals.push('weak career URL');
+  }
+
+  // A real application form is required to reach JOB_APPLICATION_PAGE on a first-party page
+  const forms = Array.from(document.querySelectorAll('form'));
+  const substantialFormFields = 'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="search"]):not([type="password"]), select, textarea';
+  let hasSubstantialForm = false;
+  for (const form of forms) {
+    const fieldCount = form.querySelectorAll(substantialFormFields).length;
+    if (fieldCount >= 4) {
+      hasSubstantialForm = true;
+      // Reduced from 3→2 so a form alone no longer reaches the JOB_APPLICATION threshold
+      score += 2;
+      signals.push(`real form (${fieldCount} fields)`);
+      break;
+    }
+  }
+
+  // Checkout page with a fillable form → FORM_HELPER_PAGE (name/address fill, no credit cards)
+  if (hasCheckoutUrl && hasSubstantialForm) {
+    return {
+      state: 'FORM_HELPER_PAGE',
+      reason: 'Shopping checkout with fillable form',
+      hasTrustedATSIframe: false,
+      parentFillSuppressed: false,
+      applicationFieldsVerified: false,
+      detectionReason: `checkout URL + form`,
+    };
+  }
+
+  const applyBtnPattern = /\bapply\b|submit application|start application|begin application/i;
+  const hasApplyButton = Array.from(document.querySelectorAll('button, input[type="submit"], a[role="button"]'))
+    .some(btn => applyBtnPattern.test(getVisibleText(btn)));
+  if (hasApplyButton) {
+    score += 1;
+    signals.push('apply button');
+  }
+
+  const bodyText = document.body.textContent?.toLowerCase() ?? '';
+  const jobContentSignals = ['apply for this position', 'submit your application', 'upload resume', 'cover letter', 'upload cv'];
+  if (jobContentSignals.some(s => bodyText.includes(s))) {
+    score += 1;
+    signals.push('job content');
+  }
+
+  const detectionReason = `score=${score}; ${signals.join('; ')}`;
+
+  // Need BOTH a job URL signal AND a verified form to reach APPLICATION_PAGE
+  if (score >= 3 && hasSubstantialForm) {
+    return {
+      state: 'JOB_APPLICATION_PAGE',
+      reason: 'Verified application form on first-party page',
+      hasTrustedATSIframe: false,
+      parentFillSuppressed: false,
+      applicationFieldsVerified: true,
+      detectionReason,
+    };
+  }
+
+  // Has job signals but no form = posting page only
+  if (score >= 2 || hasApplyButton) {
+    return {
+      state: 'JOB_POSTING_PAGE',
+      reason: 'Job posting detected but no application form yet',
+      hasTrustedATSIframe: false,
+      parentFillSuppressed: false,
+      applicationFieldsVerified: false,
+      detectionReason,
+    };
+  }
+
+  return {
+    state: 'NOT_JOB_PAGE',
+    reason: 'No job signals detected',
+    hasTrustedATSIframe: false,
+    parentFillSuppressed: false,
+    applicationFieldsVerified: false,
+    detectionReason,
+  };
+}
 
 /**
  * Get visible text from an element, excluding script and style tags
@@ -360,10 +676,44 @@ export function extractFormSchema(form: HTMLFormElement | Document): FieldSchema
   const formFields = form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(selector);
   console.log('[OA] Found', formFields.length, 'fields with standard query');
   
+  // Determine the trust context for this extraction call.
+  // Fields inside excluded containers (cookie banners, chat widgets, etc.)
+  // are annotated as Tier 3 and marked as not eligible for fill or learning.
+  const hostname = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
+  const isATSHost = TRUSTED_ATS_HOSTNAMES.some(ats => hostname === ats || hostname.endsWith('.' + ats));
+  const baseTier: 1 | 2 = isATSHost ? 1 : 2;
+  const detectedFrom = isATSHost ? `ats_host:${hostname}` : 'parent_page';
+
   // Add fields from standard DOM
   for (const field of formFields) {
     const label = extractLabel(field);
     const fieldSelector = generateSelector(field, form instanceof HTMLFormElement ? form : null);
+
+    // Container exclusion check
+    const { excluded, containerType } = isInsideExcludedContainer(field);
+    if (excluded) {
+      // Still include in schema for debug visibility, but mark as Tier 3 / ineligible
+      fields.push({
+        tagName: field.tagName.toLowerCase(),
+        type: field instanceof HTMLInputElement ? (field.type || null) : null,
+        name: field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement ? (field.name || null) : null,
+        id: field.id || null,
+        autocomplete: null,
+        required: false,
+        disabled: true,
+        multiple: false,
+        label,
+        selector: fieldSelector,
+        valuePreview: null,
+        trustTier: 3,
+        detectedFrom,
+        containerType,
+        fillEligible: false,
+        learnEligible: false,
+        exclusionReason: `Inside excluded container (${containerType})`,
+      });
+      continue;
+    }
     
     // For checkboxes/radio, always include the value attribute
     let valuePreview: string | null = null;
@@ -381,7 +731,7 @@ export function extractFormSchema(form: HTMLFormElement | Document): FieldSchema
     }
     
     // Detect if this text input is actually a dropdown (common in ATS platforms)
-    let actualType = field.type || null;
+    let actualType = field instanceof HTMLInputElement ? (field.type || null) : (field.tagName === 'SELECT' ? 'select' : 'textarea');
     let options: string[] | undefined = undefined;
     
     if (detectLikelyDropdown(field, label)) {
@@ -400,16 +750,21 @@ export function extractFormSchema(form: HTMLFormElement | Document): FieldSchema
     fields.push({
       tagName: field.tagName.toLowerCase(),
       type: actualType,
-      name: field.name || null,
+      name: field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement ? (field.name || null) : null,
       id: field.id || null,
-      autocomplete: field.autocomplete || null,
-      required: field.required,
-      disabled: field.disabled,
-      multiple: field.multiple || false,
+      autocomplete: field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement ? (field.autocomplete || null) : null,
+      required: field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement ? field.required : false,
+      disabled: field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement ? field.disabled : false,
+      multiple: field instanceof HTMLInputElement || field instanceof HTMLSelectElement ? (field.multiple || false) : false,
       label,
       selector: fieldSelector,
       valuePreview,
       options,
+      trustTier: baseTier,
+      detectedFrom,
+      containerType: isATSHost ? 'ats_host' : 'application_form',
+      fillEligible: true,
+      learnEligible: true,
     });
   }
   
@@ -682,6 +1037,20 @@ const CONFIRMATION_HEADINGS = new Set([
   'you\'ve applied',
   'you applied',
   'application successful',
+  // Single-word page headings that appear on confirmation/thank-you pages
+  'confirmation',
+  'submitted',
+  'success',
+  'congratulations',
+  'congrats',
+  'done',
+  // Multi-word variants
+  'your application is under review',
+  'we\'ll be in touch',
+  'application complete',
+  'application confirmed',
+  'you have successfully applied',
+  'successfully submitted',
 ]);
 
 // ATS provider names that should never be used as a company name

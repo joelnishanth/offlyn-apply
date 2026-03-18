@@ -146,16 +146,84 @@ function buildEmptyState(): LoadedGraphState {
   };
 }
 
+// ── Eviction ──────────────────────────────────────────────────────────────────
+
+const MAX_GRAPH_NODES = 400;
+const MAX_GRAPH_EDGES = 800;
+
+/**
+ * Prune the graph in-place when it exceeds size limits.
+ *
+ * Eviction order for nodes:
+ *   1. `internal` nodes (housekeeping) — lowest priority
+ *   2. Low-weight answer nodes (confidence < 0.3)
+ *   3. Oldest nodes by updatedAt
+ *
+ * Edges whose from/to node no longer exists are removed automatically.
+ */
+function pruneGraphIfNeeded(
+  nodes: Map<string, GraphNode>,
+  edges: Map<string, GraphEdge>
+): void {
+  if (nodes.size <= MAX_GRAPH_NODES && edges.size <= MAX_GRAPH_EDGES) return;
+
+  if (nodes.size > MAX_GRAPH_NODES) {
+    const sorted = Array.from(nodes.entries()).sort(([, a], [, b]) => {
+      // Internal nodes are lowest priority
+      const aInternal = a.internal ? 0 : 1;
+      const bInternal = b.internal ? 0 : 1;
+      if (aInternal !== bInternal) return aInternal - bInternal;
+      // Low-confidence answer nodes next
+      const aConf = (a.payload as any).confidence ?? 1;
+      const bConf = (b.payload as any).confidence ?? 1;
+      if (Math.abs(aConf - bConf) > 0.05) return aConf - bConf;
+      // Oldest last-updated last
+      return a.updatedAt - b.updatedAt;
+    });
+
+    for (const [id] of sorted.slice(0, nodes.size - MAX_GRAPH_NODES)) {
+      nodes.delete(id);
+    }
+    console.log(`[Graph] Evicted nodes — keeping ${nodes.size}`);
+  }
+
+  // Remove dangling edges
+  const validNodeIds = new Set(nodes.keys());
+  let edgesRemoved = 0;
+  for (const [id, edge] of edges) {
+    if (!validNodeIds.has(edge.from) || !validNodeIds.has(edge.to)) {
+      edges.delete(id);
+      edgesRemoved++;
+    }
+  }
+
+  // If still over limit, remove lowest-weight edges
+  if (edges.size > MAX_GRAPH_EDGES) {
+    const sortedEdges = Array.from(edges.entries()).sort(([, a], [, b]) => a.weight - b.weight);
+    for (const [id] of sortedEdges.slice(0, edges.size - MAX_GRAPH_EDGES)) {
+      edges.delete(id);
+    }
+    console.log(`[Graph] Evicted edges — keeping ${edges.size}`);
+  }
+
+  if (edgesRemoved > 0) {
+    console.log(`[Graph] Removed ${edgesRemoved} dangling edges`);
+  }
+}
+
 // ── Save ──────────────────────────────────────────────────────────────────────
 
 /**
  * Persist the full graph state to browser.storage.local.
  * Converts in-memory Maps back to Record shapes before writing.
+ * Prunes the graph to stay within size limits before persisting.
  */
 export async function saveGraphState(
   nodes: Map<string, GraphNode>,
   edges: Map<string, GraphEdge>
 ): Promise<void> {
+  pruneGraphIfNeeded(nodes, edges);
+
   const persistedNodes: PersistedNodes = Object.fromEntries(nodes);
   const persistedEdges: PersistedEdges = Object.fromEntries(edges);
   const meta: GraphMeta = buildMeta(persistedNodes, persistedEdges, {
@@ -201,12 +269,25 @@ export async function loadEmbeddingCache(): Promise<Map<string, number[]>> {
   return new Map();
 }
 
+const MAX_EMBEDDING_CACHE = 150;
+
 /**
  * Persist the embedding cache to browser.storage.local.
+ * Caps the cache at MAX_EMBEDDING_CACHE entries (drops oldest keys first).
  */
 export async function saveEmbeddingCache(cache: Map<string, number[]>): Promise<void> {
+  let toPersist = cache;
+
+  if (cache.size > MAX_EMBEDDING_CACHE) {
+    const entries = Array.from(cache.entries());
+    // Keep the most recently added entries (tail of insertion order)
+    const trimmed = entries.slice(entries.length - MAX_EMBEDDING_CACHE);
+    toPersist = new Map(trimmed);
+    console.log(`[Graph] Embedding cache trimmed to ${MAX_EMBEDDING_CACHE} entries`);
+  }
+
   try {
-    const persisted: PersistedEmbeddingCache = Object.fromEntries(cache);
+    const persisted: PersistedEmbeddingCache = Object.fromEntries(toPersist);
     await browser.storage.local.set({
       [GRAPH_STORAGE_KEYS.embeddingCache]: persisted,
     });
