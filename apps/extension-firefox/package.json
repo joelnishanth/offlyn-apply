@@ -1,6 +1,6 @@
 {
   "name": "offlyn-firefox-extension",
-  "version": "0.7.0",
+  "version": "0.6.1",
   "description": "Offline-first Firefox WebExtension for job application automation",
   "type": "module",
   "scripts": {
