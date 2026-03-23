@@ -69,6 +69,7 @@ export interface WorkAuthorization {
 export interface UserProfile {
   personal: {
     firstName: string;
+    middleName?: string;
     lastName: string;
     email: string;
     phone: string | PhoneDetails;       // supports both string (legacy) and split object

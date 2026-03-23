@@ -148,15 +148,20 @@ export class ParseValidator {
       }
     }
 
-    if (rag.education && legacy.education) {
-      const eduDiff = this.compareArrays(rag.education, legacy.education);
+    // Strip blank entries (e.g. {school:"", degree:"", field:"", graduationYear:""}) before comparing
+    // so a RAG blank placeholder never causes "longer array wins" to pick legacy hallucinations
+    const validEdu = (arr: any[]) => (arr || []).filter(e => e.school?.trim() || e.degree?.trim());
+    const ragEdu = validEdu(rag.education);
+    const legacyEdu = validEdu(legacy.education);
+    if (ragEdu.length > 0 || legacyEdu.length > 0) {
+      const eduDiff = this.compareArrays(ragEdu, legacyEdu);
       if (eduDiff.different) {
         differences.push({
           field: 'education',
-          ragValue: rag.education,
-          legacyValue: legacy.education,
+          ragValue: ragEdu,
+          legacyValue: legacyEdu,
           recommended: eduDiff.longer === 'rag' ? 'rag' : 'legacy',
-          reason: `RAG found ${rag.education.length} entries, Legacy found ${legacy.education.length}`,
+          reason: `RAG found ${ragEdu.length} valid entries, Legacy found ${legacyEdu.length}`,
         });
       }
     }
@@ -233,6 +238,18 @@ export class ParseValidator {
     const ragDated   = hasDates(ragWork);
     const legacyDated = hasDates(legacyWork);
 
+    // If legacy has 3x more dated entries than RAG and RAG has at least 2 entries,
+    // legacy is almost certainly duplicating across overlapping chunks — trust RAG
+    if (legacyDated.length > ragDated.length * 3 && ragDated.length >= 2) {
+      return 'rag';
+    }
+
+    // If RAG found 0 work entries (model returned bad JSON / empty) but legacy has many,
+    // we can't verify — still prefer legacy but the caller will cap the array
+    if (ragWork.length === 0 && legacyWork.length > 0) {
+      return 'legacy';
+    }
+
     if (ragDated.length !== legacyDated.length) {
       return ragDated.length > legacyDated.length ? 'rag' : 'legacy';
     }
@@ -283,6 +300,16 @@ export class ParseValidator {
     // Merge personal
     merged.personal = this.mergeObject(rag.personal || {}, legacy.personal || {}, recommendations, 'personal');
 
+    // Post-process: if the model bundled middle+last into lastName and middleName is blank,
+    // split the first word into middleName (e.g. "Nishanth Ponukumatla" → mid:"Nishanth" last:"Ponukumatla")
+    if (merged.personal.lastName && !merged.personal.middleName) {
+      const parts = String(merged.personal.lastName).trim().split(/\s+/);
+      if (parts.length >= 2) {
+        merged.personal.middleName = parts[0];
+        merged.personal.lastName = parts.slice(1).join(' ');
+      }
+    }
+
     // Merge professional
     merged.professional = this.mergeObject(rag.professional || {}, legacy.professional || {}, recommendations, 'professional');
 
@@ -294,13 +321,16 @@ export class ParseValidator {
     merged.skills = Array.from(new Set(allSkills.map(s => s.toLowerCase())))
       .map(s => allSkills.find(skill => skill.toLowerCase() === s) || s);
 
-    // Merge work (use recommended)
+    // Merge work (use recommended); cap at 8 to prevent hallucinated entries from inflating the list
     const workRec = recommendations.get('work');
-    merged.work = workRec ? workRec.value : (rag.work || legacy.work || []);
+    const rawWork = workRec ? workRec.value : (rag.work || legacy.work || []);
+    merged.work = rawWork.slice(0, 8);
 
-    // Merge education (use recommended)
+    // Merge education (use recommended, otherwise fall back to whichever has valid entries)
     const eduRec = recommendations.get('education');
-    merged.education = eduRec ? eduRec.value : (rag.education || legacy.education || []);
+    merged.education = eduRec
+      ? eduRec.value
+      : (rag.education || legacy.education || []).filter((e: any) => e.school?.trim() || e.degree?.trim());
 
     // Summary (prefer RAG)
     merged.summary = rag.summary || legacy.summary || '';

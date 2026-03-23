@@ -39,6 +39,23 @@ function updateUI(): void {
     }
   }
 
+  // Make ollama-bar clickable only when disconnected → opens AI Setup onboarding
+  const ollamaBar = document.getElementById('ollama-bar');
+  if (ollamaBar) {
+    if (currentState.nativeHostConnected) {
+      ollamaBar.classList.remove('clickable');
+      ollamaBar.title = '';
+      ollamaBar.onclick = null;
+    } else {
+      ollamaBar.classList.add('clickable');
+      ollamaBar.title = 'Click to set up AI';
+      ollamaBar.onclick = () => {
+        browser.tabs.create({ url: browser.runtime.getURL('onboarding/onboarding.html') });
+        window.close();
+      };
+    }
+  }
+
   // Job info
   const jobInfoEl = document.getElementById('job-info');
   if (jobInfoEl) {

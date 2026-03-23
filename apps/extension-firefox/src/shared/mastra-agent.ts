@@ -325,6 +325,24 @@ Be thorough and capture ALL details. Return ONLY valid JSON with no markdown for
         }
       }
     }
+    // Deduplicate by normalized title (strip parentheticals) + company
+    // Overlapping chunks produce variants like "Staff Architect" and "Staff Architect (Strategic Accounts)"
+    // which share the same normalised title key and should collapse to one entry.
+    const normalizeTitle = (t: string) =>
+      String(t || '').replace(/\s*\(.*?\)\s*/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
+    const seenWork = new Set<string>();
+    profile.work = profile.work.filter((j: any) => {
+      const titleKey = normalizeTitle(j.title);
+      const company = String(j.company || '').toLowerCase().trim();
+      const fullKey = company ? `${company}|${titleKey}` : titleKey;
+      // Reject if we've already seen this normalised title regardless of company variation
+      if (seenWork.has(titleKey) || seenWork.has(fullKey)) return false;
+      seenWork.add(titleKey);
+      seenWork.add(fullKey);
+      return true;
+    });
+    // Cap at 8 entries — a single resume cannot have more real positions than this
+    if (profile.work.length > 8) profile.work = profile.work.slice(0, 8);
 
     // Extract education
     onProgress?.('Extracting education...', 90);
@@ -340,6 +358,14 @@ Be thorough and capture ALL details. Return ONLY valid JSON with no markdown for
         }
       }
     }
+    // Deduplicate education by school+degree
+    const seenEdu = new Set<string>();
+    profile.education = profile.education.filter((e: any) => {
+      const key = `${e.school}|${e.degree}`.toLowerCase().trim();
+      if (seenEdu.has(key)) return false;
+      seenEdu.add(key);
+      return true;
+    });
 
     // Generate summary
     onProgress?.('Generating summary...', 95);

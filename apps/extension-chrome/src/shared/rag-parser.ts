@@ -422,12 +422,18 @@ If no valid dated work experience found, return [].`,
       9
     );
     if (workData && Array.isArray(workData)) {
-      // Filter entries that have no date at all; accept any non-empty startDate string
-      const validWork = workData.filter((j: any) => j.company && j.title && j.startDate && String(j.startDate).trim());
+      // Require at least a title and a startDate — company may be blank if the model missed it
+      const validWork = workData.filter((j: any) =>
+        j.title && String(j.title).trim() && j.startDate && String(j.startDate).trim()
+      );
       const seen = new Set<string>();
       profile.work = validWork.filter((j: any) => {
-        const key = `${j.company}|${j.title}`.toLowerCase().trim();
-        if (seen.has(key)) return false;
+        // Deduplicate: normalize title (strip parentheticals) so variations collapse
+        const normTitle = String(j.title || '').replace(/\s*\(.*?\)\s*/g, '').toLowerCase().trim();
+        const company = String(j.company || '').toLowerCase().trim();
+        const key = company ? `${company}|${normTitle}` : normTitle;
+        if (seen.has(normTitle) || seen.has(key)) return false;
+        seen.add(normTitle);
         seen.add(key);
         return true;
       });

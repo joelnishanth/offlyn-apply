@@ -157,6 +157,12 @@
     }
   } catch {
     document.getElementById('ollamaDot').classList.add('disconnected');
-    document.getElementById('ollamaText').textContent = 'Ollama not detected - AI features unavailable';
+    document.getElementById('ollamaText').textContent = 'Ollama not detected — click to set up AI';
+    const chip = document.getElementById('ollamaStatus');
+    if (chip) {
+      chip.classList.add('clickable');
+      chip.title = 'Click to set up AI';
+      chip.addEventListener('click', () => openPage('onboarding/onboarding.html'));
+    }
   }
 })();

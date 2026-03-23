@@ -579,7 +579,64 @@
       border-radius: 16px;
       font-size: 13px;
     }
-    
+
+    .skill-chip-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+      padding: 10px 12px;
+      background: #f8fafc;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      min-height: 48px;
+      align-items: center;
+      cursor: text;
+    }
+    .skill-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #e8f5e9;
+      color: #2e7d32;
+      padding: 5px 10px 5px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .skill-chip .remove-chip {
+      cursor: pointer;
+      font-size: 15px;
+      line-height: 1;
+      color: #81c784;
+      padding: 0 2px;
+      border-radius: 50%;
+      transition: color 0.15s, background 0.15s;
+    }
+    .skill-chip .remove-chip:hover {
+      color: #c62828;
+      background: rgba(198,40,40,0.08);
+    }
+    .skill-chip-input {
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 13px;
+      min-width: 130px;
+      flex: 1;
+      padding: 4px 2px;
+      color: #374151;
+    }
+    .skill-chip-input::placeholder {
+      color: #94a3b8;
+    }
+    .skill-chip-hint {
+      width: 100%;
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 4px;
+    }
+
     .button-group {
       display: flex;
       gap: 12px;
@@ -809,7 +866,7 @@
     }
 
     .live-parse-feed {
-      display: none;
+      display: none !important;
       margin-top: 16px;
       background: #0f172a;
       border-radius: 10px;
@@ -823,7 +880,16 @@
       scroll-behavior: smooth;
       border: 1px solid #1e293b;
     }
-    .live-parse-feed.visible { display: block; }
+    .live-parse-feed.visible { display: none !important; }
+
+    .parse-status-label {
+      text-align: center;
+      font-size: 14px;
+      color: #64748b;
+      margin: 10px 0 0;
+      min-height: 20px;
+      transition: opacity 0.3s ease;
+    }
 
     .live-parse-feed::-webkit-scrollbar { width: 5px; }
     .live-parse-feed::-webkit-scrollbar-track { background: transparent; }
@@ -1858,6 +1924,7 @@
               <div class="progress-fill" id="progressFill"></div>
             </div>
             <div class="progress-text" id="progressText">Preparing...</div>
+            <p class="parse-status-label" id="parseFriendlyStatus"></p>
 
             <div class="live-parse-feed" id="liveParseFeed"></div>
             
@@ -2182,6 +2249,10 @@
               <div class="form-group">
                 <label class="profile-label">First Name <span class="required">*</span></label>
                 <input type="text" id="piFirstName" name="firstName" class="profile-input" required placeholder="Jane">
+              </div>
+              <div class="form-group">
+                <label class="profile-label">Middle Name</label>
+                <input type="text" id="piMiddleName" name="middleName" class="profile-input" placeholder="(optional)">
               </div>
               <div class="form-group">
                 <label class="profile-label">Last Name <span class="required">*</span></label>

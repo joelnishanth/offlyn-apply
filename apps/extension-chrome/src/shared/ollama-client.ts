@@ -57,12 +57,15 @@ export class OllamaClient {
    */
   async isAvailable(): Promise<boolean> {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       const response = await fetch(`${this.baseUrl}/api/version`, {
         method: 'GET',
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       return response.ok;
     } catch (error) {
-      console.error('[Ollama] Connection check failed:', error);
       return false;
     }
   }

@@ -49,6 +49,103 @@ async function init(): Promise<void> {
     });
   }
 
+  // --- Update Resume (re-upload & re-parse) ---
+  const reuploadBtn = document.getElementById('btn-reupload-resume');
+  const reuploadInput = document.getElementById('reupload-resume-input') as HTMLInputElement | null;
+  const reuploadFeedback = document.getElementById('feedback-reupload') as HTMLElement | null;
+
+  function showReuploadStatus(msg: string, isError = false): void {
+    if (!reuploadFeedback) return;
+    reuploadFeedback.textContent = msg;
+    reuploadFeedback.style.display = 'inline';
+    reuploadFeedback.style.color = isError ? '#dc2626' : '#16a34a';
+  }
+
+  async function extractTextForSettings(file: File): Promise<string> {
+    const name = file.name.toLowerCase();
+    if (file.type === 'text/plain' || name.endsWith('.txt')) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Failed to read text file'));
+        reader.readAsText(file);
+      });
+    }
+    if (file.type === 'application/pdf' || name.endsWith('.pdf')) {
+      const pdfjsLib = (window as any).pdfjsLib;
+      if (!pdfjsLib) throw new Error('PDF reader not available. Please reload the page and try again.');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let text = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map((item: any) => item.str).join(' ') + '\n';
+      }
+      return text;
+    }
+    if (name.endsWith('.docx') ||
+        file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      const mammoth = (window as any).mammoth;
+      if (!mammoth) throw new Error('DOCX reader not available. Please reload the page and try again.');
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({ arrayBuffer });
+      if (!result.value?.trim()) throw new Error('Could not extract text from DOCX file.');
+      return result.value;
+    }
+    throw new Error(`Unsupported file type. Please upload a PDF, DOCX, or TXT file.`);
+  }
+
+  if (reuploadBtn && reuploadInput) {
+    reuploadBtn.addEventListener('click', () => reuploadInput.click());
+
+    reuploadInput.addEventListener('change', async () => {
+      const file = reuploadInput.files?.[0];
+      if (!file) return;
+      reuploadInput.value = '';
+
+      reuploadBtn.setAttribute('disabled', 'true');
+      showReuploadStatus('Parsing resume...');
+
+      try {
+        const resumeText = await extractTextForSettings(file);
+
+        const nonPrintable = (resumeText.match(/[\x00-\x08\x0E-\x1F\x7F-\x9F]/g) || []).length;
+        if (nonPrintable / Math.max(resumeText.length, 1) > 0.05) {
+          throw new Error('File appears garbled or is a scanned image. Use a text-based PDF, DOCX, or TXT.');
+        }
+        if (resumeText.trim().length < 100) {
+          throw new Error('Extracted text is too short. Is the file empty?');
+        }
+
+        showReuploadStatus('AI is analyzing your resume...');
+        const response = await browser.runtime.sendMessage({ kind: 'PARSE_RESUME', resumeText });
+
+        if (response?.kind === 'RESUME_PARSED' && response.profile) {
+          const existing = (await browser.storage.local.get('userProfile'))?.userProfile || {};
+          const merged = {
+            ...existing,
+            skills: response.profile.skills || existing.skills || [],
+            work: response.profile.work || existing.work || [],
+            education: response.profile.education || existing.education || [],
+            summary: response.profile.summary || existing.summary || '',
+            resumeText,
+            lastUpdated: Date.now(),
+          };
+          await browser.storage.local.set({ userProfile: merged });
+          showReuploadStatus('Profile updated!');
+        } else {
+          throw new Error(response?.error || 'Parse failed. Please try again.');
+        }
+      } catch (err) {
+        showReuploadStatus(err instanceof Error ? err.message : 'Failed to update resume.', true);
+      } finally {
+        reuploadBtn.removeAttribute('disabled');
+      }
+    });
+  }
+
   // --- Export Profile ---
   document.getElementById('btn-export-profile')?.addEventListener('click', async () => {
     try {

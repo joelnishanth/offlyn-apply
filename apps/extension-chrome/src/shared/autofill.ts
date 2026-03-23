@@ -462,7 +462,12 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
   if (matchesAny([label, name, id], ['first', 'fname', 'firstname', 'given'])) {
     return profile.personal.firstName;
   }
-  
+
+  // Middle name
+  if (matchesAny([label, name, id], ['middle', 'mname', 'middlename', 'middleinitial', 'middle_name', 'middle_initial'])) {
+    return profile.personal.middleName ?? '';
+  }
+
   // Last name
   if (matchesAny([label, name, id], ['last', 'lname', 'lastname', 'family', 'surname'])) {
     const storedLast = profile.personal.lastName;
@@ -971,7 +976,14 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
       console.warn('[Autofill] Race value looks suspicious (might be location/work auth):', value);
       return null; // Skip filling
     }
-    
+    // If profile stored an ethnicity answer in the race field, skip — wrong category
+    if (!value ||
+        value.toLowerCase() === 'not hispanic or latino' ||
+        value.toLowerCase() === 'hispanic or latino') {
+      console.warn('[Autofill] Race value looks like an ethnicity answer, skipping:', value);
+      return null;
+    }
+
     return value;
   }
   
@@ -1500,15 +1512,43 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
     return value;
   }
   
-  // Transgender identity question (e.g. Netflix "Are you a person of transgender experience?")
-  if (matchesAny([label, name, id], ['transgender', 'trans experience', 'trans identity'])) {
+  // Transgender identity question (e.g. Netflix "Are you a person of transgender experience?", Greenhouse "Do you identify as transgender?")
+  if (matchesAny([label, name, id], ['transgender', 'trans experience', 'trans identity', 'identify as transgender'])) {
     const trans = (profile.selfId?.transgender || 'Decline to self-identify').toLowerCase();
-    if (trans === 'yes' || trans === 'true') {
-      return 'Yes';
-    } else if (trans === 'no' || trans === 'false') {
-      return 'No';
+    const isYes = trans === 'yes' || trans === 'true';
+    const isNo  = trans === 'no'  || trans === 'false';
+
+    if ('options' in field && Array.isArray((field as any).options)) {
+      const opts = (field as any).options as string[];
+      if (isYes) {
+        return opts.find(o => o.toLowerCase().includes('yes') || o.toLowerCase().includes('identify as transgender')) ?? 'Yes';
+      } else if (isNo) {
+        return opts.find(o => o.toLowerCase().includes('no') || o.toLowerCase().includes('do not identify')) ?? 'No';
+      }
+      return opts.find(o => o.toLowerCase().includes('decline') || o.toLowerCase().includes('prefer not')) ?? 'Decline to self-identify';
     }
+
+    if (isYes) return 'Yes';
+    if (isNo)  return 'No';
     return 'Prefer not to disclose';
+  }
+
+  // Sexual orientation
+  if (matchesAny([label, name, id], ['sexual orientation', 'orientation', 'sexual_orientation'])) {
+    const orientations = profile.selfId?.orientation || [];
+
+    if ('options' in field && Array.isArray((field as any).options)) {
+      const opts = (field as any).options as string[];
+      if (orientations.length > 0) {
+        const valLower = orientations[0].toLowerCase();
+        const match = opts.find(o => o.toLowerCase() === valLower || o.toLowerCase().includes(valLower) || valLower.includes(o.toLowerCase()));
+        if (match) return match;
+      }
+      return opts.find(o => o.toLowerCase().includes('decline') || o.toLowerCase().includes('prefer not')) ?? 'Decline to self-identify';
+    }
+
+    if (orientations.length > 0) return orientations[0];
+    return 'Decline to self-identify';
   }
 
   // ==========================================================================
@@ -1754,7 +1794,23 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
       }
     }
   }
-  
+
+  // Smart defaults when no workAuth profile data exists
+  if (!profile.workAuth) {
+    // "Will you require visa sponsorship / work permit?"
+    if (matchesAny([label, name, id], ['sponsorship', 'sponsor', 'work permit']) ||
+        (label && /require.*sponsor|sponsor.*now|future.*sponsor/i.test(label))) {
+      console.log('[Autofill] 💼 Sponsorship question, no workAuth — defaulting to No');
+      return 'No';
+    }
+    // "Are you legally authorized / eligible to work?"
+    if (matchesAny([label, name, id], ['legally authorized', 'authorized to work', 'eligible to work']) &&
+        !label.includes('sponsor')) {
+      console.log('[Autofill] 💼 Work authorization question, no workAuth — defaulting to Yes');
+      return 'Yes';
+    }
+  }
+
   // ==========================================================================
   // LOCATION FREEFORM FIELDS (AFTER work auth checks)
   // ==========================================================================

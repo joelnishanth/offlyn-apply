@@ -10,6 +10,7 @@ import { getOllamaConfig, saveOllamaConfig, testOllamaConnection, DEFAULT_OLLAMA
 import { setHTML, clearEl } from '../shared/html';
 import { classifyParseError } from '../shared/error-classify';
 import { extractPagesText } from '../shared/pdf-extract';
+import mammoth from 'mammoth';
 
 // PDF.js is loaded via CDN in the HTML
 declare const pdfjsLib: any;
@@ -147,45 +148,41 @@ function appendFeedLine(text: string, cls: string = ''): void {
 }
 
 /**
- * Stream extracted text word-by-word into the feed.
- * Shows ~first 120 words so the user can see actual resume content being read.
+ * Update the friendly status label shown under the progress bar.
  */
-function streamTextToFeed(rawText: string): void {
-  const feed = document.getElementById('liveParseFeed');
-  if (!feed) return;
+function setFriendlyStatus(msg: string): void {
+  const el = document.getElementById('parseFriendlyStatus');
+  if (el) el.textContent = msg;
+}
 
-  showLiveFeed();
-  appendFeedLine('Reading resume content...', 'stage-label');
+/**
+ * Map a raw stage name from the background to a user-friendly message.
+ */
+function friendlyStageMessage(stage: string, percent: number): string {
+  const s = stage.toLowerCase();
+  if (percent >= 85) return 'Almost there — putting on the final touches...';
+  if (s.includes('skill')) return 'Identifying your skills...';
+  if (s.includes('work') || s.includes('experience') || s.includes('job')) return 'Analyzing your work experience...';
+  if (s.includes('education') || s.includes('school') || s.includes('degree')) return 'Reading your education history...';
+  if (s.includes('personal') || s.includes('contact') || s.includes('name') || s.includes('email')) return 'Extracting your personal details...';
+  if (s.includes('summar')) return 'Crafting your professional summary...';
+  if (s.includes('embed') || s.includes('chunk') || s.includes('rag') || s.includes('index')) return 'Analyzing your resume content...';
+  if (s.includes('merge') || s.includes('valid') || s.includes('final')) return 'Almost there — putting on the final touches...';
+  if (s.includes('send') || s.includes('ai') || s.includes('ollama') || s.includes('parse')) return 'AI is reading your resume...';
+  return 'Processing your resume...';
+}
 
-  const words = rawText.replace(/\s+/g, ' ').trim().split(' ');
-  const maxWords = Math.min(words.length, 120);
-  let i = 0;
-  let currentLine = '';
-  const LINE_WORD_LIMIT = 12;
-
-  const tick = () => {
-    if (i >= maxWords) {
-      if (currentLine) appendFeedLine(currentLine, 'text-chunk');
-      if (words.length > maxWords) {
-        appendFeedLine(`... +${words.length - maxWords} more words`, 'text-chunk');
-      }
-      appendFeedLine('Text extraction complete', 'stage-label');
-      return;
-    }
-    currentLine += (currentLine ? ' ' : '') + words[i];
-    i++;
-    if (i % LINE_WORD_LIMIT === 0 || i >= maxWords) {
-      appendFeedLine(currentLine, 'text-chunk');
-      currentLine = '';
-    }
-    feedWordTimer = setTimeout(tick, 25);
-  };
-  tick();
+/**
+ * Legacy: text was previously streamed to the terminal feed.
+ * Now we just set a friendly status message instead.
+ */
+function streamTextToFeed(_rawText: string): void {
+  setFriendlyStatus('Reading your resume content...');
 }
 
 /**
  * Listen for PARSE_PROGRESS messages from the background script
- * and update the live feed + progress bar in real time.
+ * and update the friendly status label + progress bar in real time.
  */
 let progressListener: ((msg: any) => void) | null = null;
 
@@ -196,20 +193,14 @@ function startProgressListener(): void {
     if (typeof message !== 'object' || message === null) return;
     if (message.kind !== 'PARSE_PROGRESS') return;
 
-    const { stage, percent, detail } = message as { stage: string; percent: number; detail?: string };
+    const { stage, percent } = message as { stage: string; percent: number; detail?: string };
 
-    // Update the main progress bar
     const progressFill = document.getElementById('progressFill');
     const progressText = document.getElementById('progressText');
     if (progressFill) progressFill.style.width = `${Math.min(percent, 99)}%`;
-    if (progressText) progressText.textContent = stage;
+    if (progressText) progressText.textContent = '';
 
-    // Show in live feed
-    showLiveFeed();
-    appendFeedLine(stage, 'stage-label');
-    if (detail) {
-      appendFeedLine(detail, 'extracted');
-    }
+    setFriendlyStatus(friendlyStageMessage(stage, percent));
   };
 
   browser.runtime.onMessage.addListener(progressListener);
@@ -562,10 +553,34 @@ function setupOllamaStepListeners(): void {
   });
 
   // "Fix CORS Automatically" button
-  document.getElementById('runCorsFixBtn')?.addEventListener('click', () => {
+  document.getElementById('runCorsFixBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('runCorsFixBtn') as HTMLButtonElement | null;
-    if (btn) { btn.disabled = true; btn.textContent = 'Fixing...'; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Checking...'; }
 
+    const helperReady = await checkNativeHelper();
+
+    if (!helperReady) {
+      // No helper installed — replace button with pkg download prompt
+      const corsWrap = document.getElementById('runCorsFixBtn')?.parentElement;
+      if (corsWrap) {
+        corsWrap.innerHTML = `
+          <p style="font-size:13px;color:#92400e;margin-bottom:10px;">
+            <strong>To fix CORS automatically</strong>, install the Offlyn Helper first — it configures Ollama permissions in one step.
+          </p>
+          <a href="https://github.com/joelnishanth/offlyn-apply/releases/download/v0.5.0/offlyn-helper.pkg"
+             target="_blank"
+             class="btn btn-primary"
+             style="display:inline-flex;align-items:center;gap:8px;font-size:13px;padding:9px 16px;text-decoration:none;margin-bottom:10px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download Installer
+          </a>
+          <p style="font-size:12px;color:#78350f;">After the installer finishes, click <strong>Re-test Connection</strong> below.</p>
+        `;
+      }
+      return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Fixing...'; }
     runSetupViaHelper('corsFixProgressLog', (ok) => {
       if (btn) { btn.disabled = false; btn.textContent = 'Fix CORS Automatically'; }
       if (ok) checkOllamaConnection();
@@ -715,31 +730,65 @@ async function extractTextFromPDF(file: File): Promise<string> {
 }
 
 /**
+ * Validate extracted text quality — throw if it looks garbled or too short.
+ */
+function validateExtractedText(text: string, fileName: string): void {
+  const nonPrintable = (text.match(/[\x00-\x08\x0E-\x1F\x7F-\x9F]/g) || []).length;
+  const ratio = nonPrintable / Math.max(text.length, 1);
+  if (ratio > 0.05) {
+    throw new Error(
+      `Could not read "${fileName}" as text — the file may be a scanned image or corrupted. ` +
+      `Please use a text-based PDF, DOCX, or TXT file.`
+    );
+  }
+  if (text.trim().length < 100) {
+    throw new Error(`The extracted text from "${fileName}" is too short to parse. Is the file empty?`);
+  }
+}
+
+/**
  * Extract text from file based on type
  */
 async function extractTextFromFile(file: File): Promise<string> {
   console.log('Extracting text from file:', file.name, 'Type:', file.type);
-  
-  if (file.type === 'text/plain') {
-    return readFileAsText(file);
+  const name = file.name.toLowerCase();
+
+  if (file.type === 'text/plain' || name.endsWith('.txt')) {
+    const text = await readFileAsText(file);
+    validateExtractedText(text, file.name);
+    return text;
   }
-  
-  if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-    return extractTextFromPDF(file);
+
+  if (file.type === 'application/pdf' || name.endsWith('.pdf')) {
+    const text = await extractTextFromPDF(file);
+    validateExtractedText(text, file.name);
+    return text;
   }
-  
-  // For DOC/DOCX or unknown types, try plain text
+
+  if (name.endsWith('.docx') ||
+      file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    if (!result.value?.trim()) {
+      throw new Error('Could not extract text from DOCX file. Is the file empty or password-protected?');
+    }
+    validateExtractedText(result.value, file.name);
+    return result.value;
+  }
+
+  // Legacy .doc (binary format) — attempt plain text with a warning
   try {
     const text = await readFileAsText(file);
-    
-    // Check if it looks like PDF markup (starts with %PDF or has xref)
     if (text.includes('%PDF') || text.includes('xref')) {
-      throw new Error('This appears to be a PDF file. Please save as .pdf or use a plain text resume.');
+      throw new Error('This appears to be a PDF file. Please rename it to .pdf and try again.');
     }
-    
+    validateExtractedText(text, file.name);
     return text;
   } catch (err) {
-    throw new Error('Failed to read file. Please use a PDF (.pdf) or plain text (.txt) resume.');
+    if (err instanceof Error && err.message.includes('garbled')) throw err;
+    throw new Error(
+      `Could not read "${file.name}". For best results, save your resume as DOCX or PDF and try again.`
+    );
   }
 }
 
@@ -877,6 +926,7 @@ function populatePersonalInfoForm(profile: UserProfile): void {
   };
 
   setValue('piFirstName', profile.personal.firstName || '');
+  setValue('piMiddleName', profile.personal.middleName || '');
   setValue('piLastName', profile.personal.lastName || '');
   setValue('piEmail', profile.personal.email || '');
 
@@ -924,20 +974,23 @@ function renderProfilePreview(profile: UserProfile): void {
   
   let html = '<form id="profileForm">';
   
-  // Skills (editable list)
+  // Skills (chip UI)
   html += '<div class="profile-section">';
   html += '<h3>Skills</h3>';
-  html += '<div class="profile-field"><label class="profile-label">Skills:</label><div class="editable-list" id="skillsList">';
+  html += '<div class="profile-field">';
+  html += '<label class="profile-label">Skills:</label>';
+  html += '<div class="skill-chip-container" id="skillsList">';
   if (profile.skills && profile.skills.length > 0) {
-    profile.skills.forEach((skill, index) => {
-      html += `<div class="editable-list-item" data-skill-index="${index}">`;
-      html += `<input type="text" value="${escapeHtml(skill)}" />`;
-      html += `<button type="button" class="remove-skill-btn">Remove</button>`;
-      html += `</div>`;
+    profile.skills.forEach(skill => {
+      html += `<span class="skill-chip" data-skill="${escapeHtml(skill)}">`;
+      html += `${escapeHtml(skill)}<span class="remove-chip" aria-label="Remove ${escapeHtml(skill)}">&times;</span>`;
+      html += `</span>`;
     });
   }
-  html += '</div></div>';
-  html += '<button type="button" class="add-item-btn" id="addSkillBtn">Add Skill</button>';
+  html += `<input class="skill-chip-input" id="skillChipInput" type="text" placeholder="Type a skill and press Enter..." autocomplete="off" />`;
+  html += '</div>';
+  html += '<span class="skill-chip-hint">Press Enter or comma to add · Click × to remove</span>';
+  html += '</div>';
   html += '</div>';
   
   // Work Experience (simplified display - work/education are complex, keep as read-only for now)
@@ -998,45 +1051,70 @@ function renderProfilePreview(profile: UserProfile): void {
 }
 
 /**
- * Setup event listeners for skills management
+ * Add a skill chip to the chip container.
+ */
+function addSkillChip(container: HTMLElement, skill: string): void {
+  const trimmed = skill.trim();
+  if (!trimmed) return;
+  const existing = Array.from(container.querySelectorAll<HTMLElement>('.skill-chip'))
+    .map(el => el.dataset.skill?.toLowerCase());
+  if (existing.includes(trimmed.toLowerCase())) return;
+
+  const chip = document.createElement('span');
+  chip.className = 'skill-chip';
+  chip.dataset.skill = trimmed;
+  const removeBtn = document.createElement('span');
+  removeBtn.className = 'remove-chip';
+  removeBtn.setAttribute('aria-label', `Remove ${trimmed}`);
+  removeBtn.textContent = '\u00d7';
+  removeBtn.addEventListener('click', () => chip.remove());
+  chip.appendChild(document.createTextNode(trimmed));
+  chip.appendChild(removeBtn);
+
+  const input = container.querySelector('.skill-chip-input');
+  container.insertBefore(chip, input || null);
+}
+
+/**
+ * Setup event listeners for skills chip management
  */
 function setupSkillsEventListeners(): void {
-  // Add skill button
-  const addSkillBtn = document.getElementById('addSkillBtn');
-  if (addSkillBtn) {
-    addSkillBtn.addEventListener('click', () => {
-      const skillsList = document.getElementById('skillsList');
-      if (!skillsList) return;
-      
-      const index = skillsList.querySelectorAll('.editable-list-item').length;
-      const div = document.createElement('div');
-      div.className = 'editable-list-item';
-      div.setAttribute('data-skill-index', String(index));
-      setHTML(div, `<input type="text" placeholder="Enter skill..." /><button type="button" class="remove-skill-btn">Remove</button>`);
-      
-      // Add event listener to the new remove button
-      const removeBtn = div.querySelector('.remove-skill-btn');
-      if (removeBtn) {
-        removeBtn.addEventListener('click', () => {
-          div.remove();
-        });
-      }
-      
-      skillsList.appendChild(div);
-    });
-  }
-  
-  // Remove skill buttons (use event delegation for existing items)
-  const skillsList = document.getElementById('skillsList');
-  if (skillsList) {
-    skillsList.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement;
-      if (target.classList.contains('remove-skill-btn')) {
-        const item = target.closest('.editable-list-item');
-        if (item) {
-          item.remove();
+  const container = document.getElementById('skillsList') as HTMLElement | null;
+  if (!container) return;
+
+  container.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement) === container) {
+      container.querySelector<HTMLInputElement>('.skill-chip-input')?.focus();
+    }
+  });
+
+  container.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (target.classList.contains('remove-chip')) {
+      target.closest('.skill-chip')?.remove();
+    }
+  });
+
+  const input = container.querySelector<HTMLInputElement>('.skill-chip-input');
+  if (input) {
+    input.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        const val = input.value.replace(/,/g, '').trim();
+        if (val) {
+          addSkillChip(container, val);
+          input.value = '';
         }
       }
+    });
+    input.addEventListener('paste', (e: ClipboardEvent) => {
+      e.preventDefault();
+      const pasted = e.clipboardData?.getData('text') || '';
+      pasted.split(/[,\n]+/).forEach(s => {
+        const val = s.trim();
+        if (val) addSkillChip(container, val);
+      });
+      input.value = '';
     });
   }
 }
@@ -1419,7 +1497,7 @@ function populateReviewSummary(): void {
   const p = extractedProfile;
   let html = '';
 
-  const fullName = [p.personal.firstName, p.personal.lastName].filter(Boolean).join(' ');
+  const fullName = [p.personal.firstName, p.personal.middleName, p.personal.lastName].filter(Boolean).join(' ');
   const phoneDisplay    = formatPhone(p.personal.phone);
   const locationDisplay = formatLocation(p.personal.location);
   html += '<div class="review-section">';
@@ -1476,9 +1554,10 @@ function collectPersonalInfoFromForm(): UserProfile['personal'] | null {
     return el ? el.value.trim() : '';
   };
 
-  const firstName = getVal('piFirstName');
-  const lastName  = getVal('piLastName');
-  const email     = getVal('piEmail');
+  const firstName  = getVal('piFirstName');
+  const middleName = getVal('piMiddleName');
+  const lastName   = getVal('piLastName');
+  const email      = getVal('piEmail');
 
   if (!firstName || !lastName || !email) return null;
 
@@ -1501,7 +1580,7 @@ function collectPersonalInfoFromForm(): UserProfile['personal'] | null {
     zipCode: getVal('piZipCode') || undefined,
   };
 
-  return { firstName, lastName, email, phone, location };
+  return { firstName, middleName: middleName || undefined, lastName, email, phone, location };
 }
 
 /**
@@ -1512,14 +1591,19 @@ function collectProfileFromForm(): UserProfile | null {
   const personal = collectPersonalInfoFromForm();
   if (!personal) return null;
 
-  // Collect skills from the dynamic skill list
+  // Collect skills from chip container (data-skill attributes)
   const skillsList = document.getElementById('skillsList');
   const skills: string[] = [];
   if (skillsList) {
-    skillsList.querySelectorAll('.editable-list-item input').forEach((input: any) => {
-      const value = input.value.trim();
+    skillsList.querySelectorAll<HTMLElement>('.skill-chip[data-skill]').forEach(chip => {
+      const value = chip.dataset.skill?.trim();
       if (value) skills.push(value);
     });
+    const pendingInput = skillsList.querySelector<HTMLInputElement>('.skill-chip-input');
+    if (pendingInput) {
+      const pending = pendingInput.value.trim().replace(/,/g, '');
+      if (pending) skills.push(pending);
+    }
   }
 
   // Collect summary from profileForm if present
@@ -2454,16 +2538,13 @@ async function init(): Promise<void> {
       try {
         // Stage 1: Reading file
         updateProgress('read', 10, 'Reading file...');
-        showLiveFeed();
-        appendFeedLine('Starting resume analysis...', 'stage-label');
+        setFriendlyStatus('Reading your resume...');
         
         // Stage 2: Extract text from file
         const resumeText = await extractTextFromFile(uploadedFile);
         updateProgress('extract', 50, 'Text extraction complete');
+        setFriendlyStatus('Analyzing your resume content...');
 
-        // Stream the extracted text word-by-word to give live visual feedback
-        streamTextToFeed(resumeText);
-        
         // Stage 3: Parse with AI — start listening for background progress
         startProgressListener();
         const profile = await parseResume(resumeText);
@@ -2474,10 +2555,12 @@ async function init(): Promise<void> {
         
         // Stage 4: Complete
         updateProgress('done', 100, 'All done!');
-        appendFeedLine('Profile parsed successfully!', 'done-line');
+        setFriendlyStatus('Your profile is ready!');
         await new Promise(resolve => setTimeout(resolve, 800));
         
-        // Resume parsed — go directly to personal info
+        // Resume parsed — reset button first so re-entry is clean
+        parseBtn.disabled = false;
+        parseBtn.textContent = originalText;
         hideProgress();
         renderProfilePreview(profile);
         showStep('step-review');
@@ -2490,10 +2573,17 @@ async function init(): Promise<void> {
       }
     });
   }
-  
-  // Back button
+
+  // Back button — also reset parse button so it's not stuck on re-entry
   if (backBtn) {
     backBtn.addEventListener('click', () => {
+      const btn = document.getElementById('parseBtn') as HTMLButtonElement | null;
+      if (btn) {
+        btn.disabled = !uploadedFile;
+        btn.textContent = 'Parse Resume';
+      }
+      hideProgress();
+      setFriendlyStatus('');
       showStep('step-upload');
     });
   }
@@ -2665,6 +2755,9 @@ async function init(): Promise<void> {
       // Only allow navigating to completed steps or the current active step
       if (el.classList.contains('completed') || el.classList.contains('active')) {
         showStep(targetStepId);
+        if (targetStepId === 'step-ollama') {
+          checkOllamaConnection();
+        }
       }
     });
   });

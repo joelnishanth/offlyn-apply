@@ -108,7 +108,6 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
 
     if ((message as any).kind === 'RUN_OLLAMA_SETUP') {
       return new Promise((resolve) => {
-        browser.alarms.create('offlynSetupKeepalive', { periodInMinutes: 0.4 });
         let port: browser.runtime.Port;
         try {
           port = browser.runtime.connectNative(NATIVE_HOST_ID);
@@ -121,12 +120,10 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
         port.onMessage.addListener((nativeMsg: any) => {
           browser.runtime.sendMessage({ kind: 'SETUP_PROGRESS', ...nativeMsg }).catch(() => {});
           if (nativeMsg.type === 'done') {
-            browser.alarms.clear('offlynSetupKeepalive');
             port.disconnect();
           }
         });
         port.onDisconnect.addListener(() => {
-          browser.alarms.clear('offlynSetupKeepalive');
           const errMsg = (browser.runtime.lastError as any)?.message ?? 'Host disconnected';
           browser.runtime.sendMessage({ kind: 'SETUP_PROGRESS', type: 'done', ok: false, error: errMsg }).catch(() => {});
         });
@@ -1082,10 +1079,6 @@ function buildProfileSeedEntries(profile: UserProfile): Array<{ canonicalField: 
   return entries.filter(e => e.value.trim() !== '');
 }
 
-// No-op alarm listener — required so the keepalive alarm doesn't log an error
-browser.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'offlynSetupKeepalive') { /* intentional no-op */ }
-});
 
 // ── Init ───────────────────────────────────────────────────────────────────
 
