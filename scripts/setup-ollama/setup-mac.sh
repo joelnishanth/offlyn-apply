@@ -44,6 +44,7 @@ else
        -o "$TMP_TGZ" --no-progress-meter
 
   echo "→ Installing Ollama to ~/.offlyn/..."
+  mkdir -p "$HOME/.offlyn"
   tar -xzf "$TMP_TGZ" -C "$HOME/.offlyn/" ollama 2>/dev/null || tar -xzf "$TMP_TGZ" -C "$HOME/.offlyn/"
   rm -f "$TMP_TGZ"
   chmod +x "$OFFLYN_BIN"
@@ -59,7 +60,8 @@ echo "→ Configuring browser extension access (CORS)..."
 pkill -f "Ollama" 2>/dev/null || true
 sleep 2
 
-# Create LaunchAgent: sets OLLAMA_ORIGINS then opens Ollama at login
+mkdir -p "$(dirname "$PLIST")"
+
 cat > "$PLIST" << PLISTEOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
