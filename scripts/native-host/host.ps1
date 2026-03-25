@@ -32,13 +32,21 @@ function Send-NativeMessage($obj) {
 }
 
 function Invoke-Setup {
-    $url = "$SCRIPT_BASE/setup-win.ps1"
+    $offlyn_dir = Join-Path $env:USERPROFILE ".offlyn"
+    $local_script = Join-Path $offlyn_dir "setup-win.ps1"
     $logFile = "$env:TEMP\offlyn-setup-$(Get-Date -Format 'yyyyMMddHHmmss').log"
 
     try {
-        $process = Start-Process powershell.exe `
-            -ArgumentList "-ExecutionPolicy", "Bypass", "-Command", "irm '$url' | iex" `
-            -Wait -PassThru -RedirectStandardOutput $logFile -RedirectStandardError $logFile
+        if (Test-Path $local_script) {
+            $process = Start-Process powershell.exe `
+                -ArgumentList "-ExecutionPolicy", "Bypass", "-File", $local_script `
+                -Wait -PassThru -RedirectStandardOutput $logFile -RedirectStandardError $logFile
+        } else {
+            $url = "$SCRIPT_BASE/setup-win.ps1"
+            $process = Start-Process powershell.exe `
+                -ArgumentList "-ExecutionPolicy", "Bypass", "-Command", "irm '$url' | iex" `
+                -Wait -PassThru -RedirectStandardOutput $logFile -RedirectStandardError $logFile
+        }
 
         $output = if (Test-Path $logFile) { Get-Content $logFile -Raw } else { "" }
         Remove-Item $logFile -Force -ErrorAction SilentlyContinue
