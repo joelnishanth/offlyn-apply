@@ -273,6 +273,11 @@ async function init(): Promise<void> {
     window.close();
   });
 
+  document.getElementById('find-jobs-btn')?.addEventListener('click', () => {
+    browser.tabs.create({ url: browser.runtime.getURL('jobs/jobs.html') });
+    window.close();
+  });
+
   // ── Tailor Resume ──
   document.getElementById('tailor-resume-btn')?.addEventListener('click', () => {
     browser.tabs.create({ url: browser.runtime.getURL('resume-tailor/resume-tailor.html') });

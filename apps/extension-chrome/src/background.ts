@@ -550,6 +550,27 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
       return { kind: 'GRAPH_DEBUG_RESPONSE', provenance };
     }
 
+    // ── Job search ────────────────────────────────────────────────────────────
+    if (message.kind === 'SEARCH_JOBS') {
+      try {
+        const { searchJobs } = await import('./shared/job-search-service');
+        const result = await searchJobs((message as any).filters ?? {});
+        return { kind: 'SEARCH_JOBS_RESULT', result };
+      } catch (e) {
+        warn('[JobSearch] Search failed:', e);
+        return { kind: 'SEARCH_JOBS_RESULT', result: null, error: String(e) };
+      }
+    }
+
+    if (message.kind === 'GET_SAVED_JOBS') {
+      try {
+        const result = await browser.storage.local.get('savedJobs');
+        return { kind: 'SAVED_JOBS_RESULT', jobs: result.savedJobs ?? [] };
+      } catch {
+        return { kind: 'SAVED_JOBS_RESULT', jobs: [] };
+      }
+    }
+
     // ── Resume tailoring: scrape job description from active tab ──────────────
     if (message.kind === 'SCRAPE_JOB_DESCRIPTION') {
       try {

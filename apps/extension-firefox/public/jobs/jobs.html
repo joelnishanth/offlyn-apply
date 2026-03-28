@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" sizes="48x48" href="../icons/icon-48.png">
+  <title>Find Jobs - Offlyn Apply</title>
+  <script src="../shared/theme-init.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8fafc;
+      min-height: 100vh;
+      color: #1a1a1a;
+    }
+
+    .header {
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      position: sticky; top: 0; z-index: 10;
+    }
+
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header-brand { display: flex; align-items: center; gap: 16px; }
+    .header-brand img { height: 40px; width: auto; object-fit: contain; }
+    .header-brand h1 { font-size: 1.25em; color: #1e293b; font-weight: 600; }
+
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+
+    .dark-mode-toggle {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: transparent; border: 1px solid #e2e8f0;
+      cursor: pointer; color: #64748b;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: all .15s; flex-shrink: 0;
+    }
+    .dark-mode-toggle:hover { background: #f1f5f9; color: #1e293b; }
+
+    .btn-back {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: none; border: none; color: #64748b;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      padding: 6px 12px; border-radius: 6px;
+      text-decoration: none; transition: background 0.15s, color 0.15s;
+    }
+    .btn-back:hover { background: #f1f5f9; color: #1e293b; }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+    /* Search bar */
+    .search-bar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .search-bar input,
+    .search-bar select {
+      padding: 10px 14px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      color: #1e293b;
+      background: #fff;
+    }
+
+    .search-bar input:focus,
+    .search-bar select:focus {
+      outline: none;
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
+    }
+
+    .search-keywords { flex: 2; min-width: 200px; }
+    .search-location { flex: 1; min-width: 150px; }
+    .search-days { width: 140px; }
+
+    .btn-search {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #7c3aed; color: #fff; border: none;
+      padding: 10px 20px; border-radius: 8px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: all 0.15s; white-space: nowrap;
+    }
+    .btn-search:hover { background: #6d28d9; }
+    .btn-search:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #64748b;
+    }
+
+    .toggle-row input[type="checkbox"] { accent-color: #7c3aed; }
+
+    /* Results info */
+    .results-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #64748b;
+    }
+
+    .tab-bar {
+      display: flex;
+      gap: 4px;
+    }
+
+    .tab-btn {
+      padding: 6px 14px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      background: #fff;
+      color: #475569;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .tab-btn:hover { background: #f1f5f9; }
+    .tab-btn.active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+
+    /* Job cards grid */
+    .jobs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 16px;
+    }
+
+    .job-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 18px;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .job-card:hover {
+      border-color: #94a3b8;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+
+    .job-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .job-card-title {
+      font-weight: 700;
+      font-size: 1em;
+      color: #1e293b;
+      line-height: 1.3;
+    }
+
+    .job-card-score {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .score-high { background: #f0fdf4; color: #16a34a; border: 2px solid #bbf7d0; }
+    .score-medium { background: #fefce8; color: #ca8a04; border: 2px solid #fde68a; }
+    .score-low { background: #fef2f2; color: #dc2626; border: 2px solid #fecaca; }
+
+    .job-card-company {
+      font-size: 0.88em;
+      color: #64748b;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .job-card-location {
+      font-size: 0.82em;
+      color: #94a3b8;
+      margin-bottom: 8px;
+    }
+
+    .job-card-salary {
+      font-size: 0.85em;
+      font-weight: 600;
+      color: #16a34a;
+      margin-bottom: 8px;
+    }
+
+    .job-card-desc {
+      font-size: 0.82em;
+      color: #64748b;
+      line-height: 1.5;
+      flex: 1;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      margin-bottom: 12px;
+    }
+
+    .job-card-footer {
+      display: flex;
+      gap: 8px;
+      margin-top: auto;
+    }
+
+    .job-card-footer button,
+    .job-card-footer a {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.82em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: none;
+      font-family: inherit;
+      text-align: center;
+      text-decoration: none;
+    }
+
+    .btn-apply {
+      background: #16a34a;
+      color: #fff;
+    }
+    .btn-apply:hover { background: #15803d; }
+
+    .btn-save {
+      background: #f1f5f9;
+      color: #475569;
+    }
+    .btn-save:hover { background: #e2e8f0; }
+    .btn-save.saved {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .job-card-date {
+      font-size: 0.75em;
+      color: #94a3b8;
+      margin-top: 8px;
+    }
+
+    /* Empty + loading states */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #94a3b8;
+    }
+    .empty-state h3 {
+      font-size: 1.1em;
+      color: #475569;
+      margin-bottom: 8px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #64748b;
+    }
+
+    .loading-spinner {
+      border: 4px solid #e2e8f0;
+      border-top: 4px solid #7c3aed;
+      border-radius: 50%;
+      width: 36px; height: 36px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 12px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Dark mode */
+    html.dark body { background: #0f172a; color: #f1f5f9; }
+    html.dark .header { background: #1e293b; border-bottom-color: #334155; }
+    html.dark .header-brand h1 { color: #f1f5f9; }
+    html.dark .dark-mode-toggle { border-color: #334155; color: #94a3b8; }
+    html.dark .dark-mode-toggle:hover { background: #334155; color: #f1f5f9; }
+    html.dark .btn-back { color: #94a3b8; }
+    html.dark .btn-back:hover { background: #334155; color: #f1f5f9; }
+    html.dark .search-bar input,
+    html.dark .search-bar select { background: #1e293b; border-color: #334155; color: #f1f5f9; }
+    html.dark .search-bar input:focus,
+    html.dark .search-bar select:focus { border-color: #7c3aed; }
+    html.dark .tab-btn { background: #1e293b; border-color: #334155; color: #94a3b8; }
+    html.dark .tab-btn:hover { background: #334155; color: #f1f5f9; }
+    html.dark .tab-btn.active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+    html.dark .job-card { background: #1e293b; border-color: #334155; }
+    html.dark .job-card:hover { border-color: #475569; }
+    html.dark .job-card-title { color: #f1f5f9; }
+    html.dark .job-card-company { color: #94a3b8; }
+    html.dark .job-card-location { color: #64748b; }
+    html.dark .job-card-desc { color: #94a3b8; }
+    html.dark .btn-save { background: #334155; color: #cbd5e1; }
+    html.dark .btn-save:hover { background: #475569; color: #f1f5f9; }
+    html.dark .btn-save.saved { background: #422006; color: #fbbf24; }
+    html.dark .empty-state { color: #64748b; }
+    html.dark .empty-state h3 { color: #94a3b8; }
+    html.dark .toggle-row { color: #94a3b8; }
+    html.dark .results-info { color: #64748b; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <img src="../icons/primary-logo.png" alt="Offlyn Apply">
+        <h1>Find Jobs</h1>
+      </div>
+      <div class="header-actions">
+        <button id="dark-mode-toggle" class="dark-mode-toggle" aria-label="Toggle dark mode"></button>
+        <a href="../home/home.html" class="btn-back">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Back to Home
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="search-bar">
+      <input type="text" id="search-keywords" class="search-keywords" placeholder="Job title or keywords...">
+      <input type="text" id="search-location" class="search-location" placeholder="Location">
+      <select id="search-days" class="search-days">
+        <option value="">Any time</option>
+        <option value="1">Past 24h</option>
+        <option value="3">Past 3 days</option>
+        <option value="7">Past week</option>
+        <option value="30">Past month</option>
+      </select>
+      <div class="toggle-row">
+        <input type="checkbox" id="search-remote">
+        <label for="search-remote">Remote only</label>
+      </div>
+      <button class="btn-search" id="btn-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Search
+      </button>
+    </div>
+
+    <div class="results-info" id="results-info" style="display:none;">
+      <span id="results-count"></span>
+      <div class="tab-bar">
+        <button class="tab-btn active" id="tab-results" data-tab="results">Results</button>
+        <button class="tab-btn" id="tab-saved" data-tab="saved">Saved</button>
+      </div>
+    </div>
+
+    <div id="results-container">
+      <div class="empty-state" id="empty-state">
+        <h3>Search for jobs</h3>
+        <p>Enter keywords and location to discover job opportunities.</p>
+      </div>
+    </div>
+
+    <div id="loading" class="loading" style="display:none;">
+      <div class="loading-spinner"></div>
+      <p>Searching jobs...</p>
+    </div>
+
+    <div class="jobs-grid" id="jobs-grid" style="display:none;"></div>
+    <div class="jobs-grid" id="saved-grid" style="display:none;"></div>
+  </div>
+
+  <script src="jobs.js"></script>
+  <script src="../shared/dark-mode.js"></script>
+</body>
+</html>

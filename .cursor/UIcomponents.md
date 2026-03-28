@@ -242,7 +242,7 @@ Last updated: 2026-03-27
 
 ### 8. Browser Popup — `public/popup/popup.html` + `src/popup/popup.ts`
 
-**What it does:** The main browser extension popup (~320px wide). Contains enable toggle, profile switcher (multi-profile), job info bar, Auto-Fill / cover letter / LinkedIn Auto-Apply (shown when active tab URL contains `linkedin.com/jobs`) actions, nav links (Manage Profile opens profiles page), application stats, Ollama connection status, and a collapsible advanced section.
+**What it does:** The main browser extension popup (~320px wide). Contains enable toggle, profile switcher (multi-profile), job info bar, Auto-Fill / cover letter / LinkedIn Auto-Apply (shown when active tab URL contains `linkedin.com/jobs`) actions, nav links (Manage Profile, **Find Jobs** → `jobs/jobs.html`, Tailor Resume, etc.), application stats, Ollama connection status, and a collapsible advanced section.
 
 **Injection method:** Loaded as the `browser_action` / `action` popup page. Not injected into web pages.
 
@@ -256,9 +256,26 @@ Last updated: 2026-03-27
 - Ollama: `.ollama-bar`, `.ollama-status`
 - Advanced: `.advanced-toggle`, `.advanced-panel`, `.btn-adv`, `.mini-toggle`, `.toggle-row`
 - Footer: `.footer`, `.footer-link`, `.footer-divider`
-- IDs: `profile-switcher`, `profile-dot`, `profile-name-display`, `profile-role-display`, `profile-dropdown`, `popup-manage-profiles`, `enabled-toggle`, `job-info`, `manual-autofill-btn`, `cover-letter-btn`, `linkedin-autoapply-btn`, `profile-btn`, `tailor-resume-btn`, `view-dashboard-btn`, `chat-resume-btn`, `data-explorer-btn`, `stat-total`, `stat-interviewing`, `ollama-bar`, `advanced-toggle`, `advanced-panel`, `dryrun-toggle`, `view-learned-btn`, `clean-selfid-btn`, `debug-profile-btn`, `copy-summary-btn`, `home-btn`, `settings-btn`, `help-btn`, `privacy-btn`
+- IDs: `profile-switcher`, `profile-dot`, `profile-name-display`, `profile-role-display`, `profile-dropdown`, `popup-manage-profiles`, `enabled-toggle`, `job-info`, `manual-autofill-btn`, `cover-letter-btn`, `linkedin-autoapply-btn`, `profile-btn`, `find-jobs-btn`, `tailor-resume-btn`, `view-dashboard-btn`, `chat-resume-btn`, `data-explorer-btn`, `stat-total`, `stat-interviewing`, `ollama-bar`, `advanced-toggle`, `advanced-panel`, `dryrun-toggle`, `view-learned-btn`, `clean-selfid-btn`, `debug-profile-btn`, `copy-summary-btn`, `home-btn`, `settings-btn`, `help-btn`, `privacy-btn`
 
 **Dependencies (popup.ts):** `browser` from `../shared/browser-compat` (Chrome); `PopupState` from `../shared/types`; `getSettings`, `setSettings`, `getTodayApplications`, `generateSummaryMessage` from `../shared/storage`; `getUserProfile`, `checkProfileCompleteness`, `listProfiles`, `getActiveProfileId`, `setActiveProfile`, `migrateToMultiProfile` from `../shared/profile`; `log`, `error` from `../shared/log`; `setHTML` from `../shared/html`
+
+---
+
+### 8a. Find Jobs — `public/jobs/jobs.html` + `src/jobs/jobs.ts`
+
+**What it does:** Full-page job discovery: search via Adzuna (background `SEARCH_JOBS`), compatibility scores from profile skills, save jobs to `chrome.storage.local` (`savedJobs`). Tabs: Results / Saved. Parity: `apps/extension-chrome/` and `apps/extension-firefox/` (Chrome `jobs.ts` imports `browser` from `../shared/browser-compat`).
+
+**Injection method:** Opened via `browser.runtime.getURL('jobs/jobs.html')` from popup **Find Jobs**.
+
+**Key DOM elements / CSS classes:**
+- Layout: `.header`, `.header-inner`, `.header-brand`, `.header-actions`, `.container`, `.search-bar`, `.results-info`, `.jobs-grid`, `.loading`, `.empty-state`
+- Search: `.search-keywords`, `.search-location`, `.search-days`, `#search-remote`, `#btn-search`, `.toggle-row`
+- Tabs: `.tab-bar`, `.tab-btn`, `#tab-results`, `#tab-saved`
+- Cards: `.job-card`, `.job-card-header`, `.job-card-title`, `.job-card-score` (`.score-high` / `.medium` / `.low`), `.job-card-company`, `.job-card-location`, `.job-card-salary`, `.job-card-desc`, `.job-card-footer`, `.btn-apply`, `.btn-save`, `.job-card-date`
+- IDs: `search-keywords`, `search-location`, `search-days`, `search-remote`, `btn-search`, `results-info`, `results-count`, `empty-state`, `loading`, `jobs-grid`, `saved-grid`, `dark-mode-toggle`
+
+**Dependencies (jobs.ts):** `browser` from `../shared/browser-compat` (Chrome); `getUserProfile` from `../shared/profile`; `setHTML` from `../shared/html`; `computeCompatibilityScore` and types from `../shared/job-search-service`. Background dynamically imports `job-search-service` for `searchJobs`.
 
 ---
 
