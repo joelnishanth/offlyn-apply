@@ -207,11 +207,42 @@ Last updated: 2026-03-27
 
 ---
 
+### 9. LinkedIn Auto-Apply Overlay — `src/ui/linkedin-overlay.ts`
+
+**What it does:** Floating panel on LinkedIn Jobs (job search / job detail) for batch Easy Apply automation: max-applications slider, Start/Stop, live applied/skipped/failed counts, and status text. Same implementation in Firefox and Chrome extensions.
+
+**Exported functions:**
+| Function | Description |
+|----------|-------------|
+| `showLinkedInOverlay(profileName, profileColor, onStart, onStop)` | Build shadow UI and wire Start → `onStart(maxApply)` |
+| `updateOverlayControls(status, onStop?)` | Swap controls (Start / Stop / Done) and status line |
+| `updateOverlayStats(result)` | Update numeric stats from partial `AutoApplyResult` |
+| `hideLinkedInOverlay()` | Remove host from DOM and clear shadow reference |
+| `isOverlayVisible()` | Whether `#offlyn-linkedin-overlay` exists |
+
+**Injection method:** Appends `div#offlyn-linkedin-overlay` to `document.body` with `position:fixed`; attaches **open** Shadow DOM; injects scoped `<style>` and panel markup inside the shadow root.
+
+**Key DOM elements / CSS classes (inside shadow root):**
+- Host (light DOM): `#offlyn-linkedin-overlay`
+- Panel: `.oln-panel`, `.oln-header`, `.oln-brand`, `.oln-brand-dot`, `.oln-close`, `.oln-body`
+- Profile: `.oln-profile-row`, `.oln-profile-dot`, `.oln-profile-name`
+- Slider: `.oln-slider-row`, `.oln-slider-label`, `.oln-slider-value`, `.oln-slider`
+- Controls: `.oln-controls`, `.oln-btn`, `.oln-btn-start`, `.oln-btn-stop`, `.oln-btn-pause`
+- Stats: `.oln-stats`, `.oln-stat`, `.oln-stat-num` (`.applied` / `.skipped` / `.failed`), `.oln-stat-label`
+- Status: `.oln-status`, `.oln-status-dot` (`.idle` / `.running` / `.paused` / `.done`)
+- IDs: `oln-slider`, `oln-slider-val`, `oln-controls`, `oln-start`, `oln-stop`, `oln-applied`, `oln-skipped`, `oln-failed`, `oln-status`
+
+**Dependencies:** Types `AutoApplyResult`, `AutoApplyStatus` from `../linkedin/linkedin-autoapply`
+
+**Wiring:** `content.ts` dynamic-imports `./linkedin/linkedin-detector`, `./linkedin/linkedin-autoapply`, and this module on `linkedin.com`; popup can dispatch `offlyn-linkedin-autoapply` on the active tab to open the overlay.
+
+---
+
 ## Extension Popup UI
 
 ### 8. Browser Popup — `public/popup/popup.html` + `src/popup/popup.ts`
 
-**What it does:** The main browser extension popup (~320px wide). Contains enable toggle, profile switcher (multi-profile), job info bar, Auto-Fill / cover letter actions, nav links (Manage Profile opens profiles page), application stats, Ollama connection status, and a collapsible advanced section.
+**What it does:** The main browser extension popup (~320px wide). Contains enable toggle, profile switcher (multi-profile), job info bar, Auto-Fill / cover letter / LinkedIn Auto-Apply (shown when active tab URL contains `linkedin.com/jobs`) actions, nav links (Manage Profile opens profiles page), application stats, Ollama connection status, and a collapsible advanced section.
 
 **Injection method:** Loaded as the `browser_action` / `action` popup page. Not injected into web pages.
 
@@ -225,7 +256,7 @@ Last updated: 2026-03-27
 - Ollama: `.ollama-bar`, `.ollama-status`
 - Advanced: `.advanced-toggle`, `.advanced-panel`, `.btn-adv`, `.mini-toggle`, `.toggle-row`
 - Footer: `.footer`, `.footer-link`, `.footer-divider`
-- IDs: `profile-switcher`, `profile-dot`, `profile-name-display`, `profile-role-display`, `profile-dropdown`, `popup-manage-profiles`, `enabled-toggle`, `job-info`, `manual-autofill-btn`, `cover-letter-btn`, `profile-btn`, `stat-total`, `stat-interviewing`, `ollama-bar`, `advanced-toggle`, `advanced-panel`, `dryrun-toggle`, `view-learned-btn`, `clean-selfid-btn`, `debug-profile-btn`, `copy-summary-btn`
+- IDs: `profile-switcher`, `profile-dot`, `profile-name-display`, `profile-role-display`, `profile-dropdown`, `popup-manage-profiles`, `enabled-toggle`, `job-info`, `manual-autofill-btn`, `cover-letter-btn`, `linkedin-autoapply-btn`, `profile-btn`, `stat-total`, `stat-interviewing`, `ollama-bar`, `advanced-toggle`, `advanced-panel`, `dryrun-toggle`, `view-learned-btn`, `clean-selfid-btn`, `debug-profile-btn`, `copy-summary-btn`
 
 **Dependencies (popup.ts):** `browser` from `../shared/browser-compat` (Chrome); `PopupState` from `../shared/types`; `getSettings`, `setSettings`, `getTodayApplications`, `generateSummaryMessage` from `../shared/storage`; `getUserProfile`, `checkProfileCompleteness`, `listProfiles`, `getActiveProfileId`, `setActiveProfile`, `migrateToMultiProfile` from `../shared/profile`; `log`, `error` from `../shared/log`; `setHTML` from `../shared/html`
 

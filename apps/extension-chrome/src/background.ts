@@ -550,6 +550,35 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
       return { kind: 'GRAPH_DEBUG_RESPONSE', provenance };
     }
 
+    // ── LinkedIn auto-apply controls ─────────────────────────────────────────
+    if (message.kind === 'LINKEDIN_AUTO_APPLY_START') {
+      const tabId = (message as any).tabId;
+      if (tabId) {
+        try {
+          await browser.tabs.sendMessage(tabId, { kind: 'START_LINKEDIN_AUTOAPPLY', options: (message as any).options });
+        } catch (e) {
+          warn('[LinkedIn] Failed to send start message to tab:', e);
+        }
+      }
+      return { kind: 'LINKEDIN_AUTO_APPLY_START_ACK' };
+    }
+
+    if (message.kind === 'LINKEDIN_AUTO_APPLY_STOP') {
+      const tabId = (message as any).tabId;
+      if (tabId) {
+        try {
+          await browser.tabs.sendMessage(tabId, { kind: 'STOP_LINKEDIN_AUTOAPPLY' });
+        } catch (e) {
+          warn('[LinkedIn] Failed to send stop message to tab:', e);
+        }
+      }
+      return { kind: 'LINKEDIN_AUTO_APPLY_STOP_ACK' };
+    }
+
+    if (message.kind === 'LINKEDIN_AUTO_APPLY_STATUS') {
+      return { kind: 'LINKEDIN_AUTO_APPLY_STATUS_RESPONSE', status: 'idle' };
+    }
+
     // ── Multi-profile: switch active profile ──────────────────────────────────
     if (message.kind === 'SWITCH_PROFILE') {
       const profileId = (message as any).profileId as string;

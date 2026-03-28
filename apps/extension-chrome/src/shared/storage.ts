@@ -460,3 +460,29 @@ export async function getApplicationTrends(): Promise<DailyTrend[]> {
     return [];
   }
 }
+
+// ── LinkedIn applied jobs dedup ─────────────────────────────────────────────
+
+const LINKEDIN_APPLIED_KEY = 'linkedinAppliedJobs';
+
+export async function getLinkedInAppliedIds(): Promise<string[]> {
+  try {
+    const result = await browser.storage.local.get(LINKEDIN_APPLIED_KEY) as Record<string, unknown>;
+    return (result[LINKEDIN_APPLIED_KEY] as string[] | undefined) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function addLinkedInAppliedId(jobId: string): Promise<void> {
+  const ids = await getLinkedInAppliedIds();
+  if (!ids.includes(jobId)) {
+    ids.push(jobId);
+    await browser.storage.local.set({ [LINKEDIN_APPLIED_KEY]: ids });
+  }
+}
+
+export async function isLinkedInJobApplied(jobId: string): Promise<boolean> {
+  const ids = await getLinkedInAppliedIds();
+  return ids.includes(jobId);
+}
