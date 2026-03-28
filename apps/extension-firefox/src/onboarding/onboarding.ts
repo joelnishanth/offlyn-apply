@@ -3,7 +3,7 @@
  */
 
 import type { UserProfile, PhoneDetails, LocationDetails, SelfIdentification } from '../shared/profile';
-import { saveUserProfile, normalizeProfile, isPhoneDetails, isLocationDetails, formatPhone, formatLocation } from '../shared/profile';
+import { saveUserProfile, normalizeProfile, isPhoneDetails, isLocationDetails, formatPhone, formatLocation, setActiveProfile, getProfilesIndex } from '../shared/profile';
 import { rlSystem } from '../shared/learning-rl';
 import type { LearnedPattern } from '../shared/learning-types';
 import { getOllamaConfig, saveOllamaConfig, testOllamaConnection, DEFAULT_OLLAMA_CONFIG } from '../shared/ollama-config';
@@ -2407,6 +2407,21 @@ async function saveResumeWithChunking(file: File): Promise<void> {
 }
 
 async function init(): Promise<void> {
+  // If opened with ?profileId=<id>, switch to that profile first
+  const urlParams = new URLSearchParams(window.location.search);
+  const targetProfileId = urlParams.get('profileId');
+  if (targetProfileId) {
+    try {
+      const index = await getProfilesIndex();
+      if (index && index.profiles.some(p => p.id === targetProfileId)) {
+        await setActiveProfile(targetProfileId);
+        console.log(`[Onboarding] Switched active profile to "${targetProfileId}"`);
+      }
+    } catch (err) {
+      console.warn('[Onboarding] Could not switch to target profile:', err);
+    }
+  }
+
   // First, try to migrate any legacy bloated resume file storage
   await migrateResumeFileStorage();
   

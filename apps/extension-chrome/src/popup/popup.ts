@@ -6,7 +6,14 @@ import browser from '../shared/browser-compat';
 import type { PopupState } from '../shared/types';
 import { getSettings, setSettings, getTodayApplications, generateSummaryMessage } from '../shared/storage';
 import { log, error } from '../shared/log';
-import { getUserProfile, checkProfileCompleteness } from '../shared/profile';
+import {
+  getUserProfile,
+  checkProfileCompleteness,
+  listProfiles,
+  getActiveProfileId,
+  setActiveProfile,
+  migrateToMultiProfile,
+} from '../shared/profile';
 import { setHTML } from '../shared/html';
 
 let currentState: PopupState = {
@@ -181,16 +188,88 @@ async function checkProfileStatus(): Promise<void> {
   }
 }
 
+async function renderProfileSwitcher(): Promise<void> {
+  await migrateToMultiProfile();
+  const profiles = await listProfiles();
+  const activeId = await getActiveProfileId();
+  const active = profiles.find(p => p.id === activeId) ?? profiles[0];
+
+  const dotEl = document.getElementById('profile-dot');
+  const nameEl = document.getElementById('profile-name-display');
+  const roleEl = document.getElementById('profile-role-display');
+  const dropdownEl = document.getElementById('profile-dropdown');
+  const switcherEl = document.getElementById('profile-switcher');
+
+  if (!dotEl || !nameEl || !dropdownEl || !switcherEl) return;
+
+  switcherEl.style.display = '';
+
+  if (active) {
+    dotEl.style.background = active.color;
+    nameEl.textContent = active.name;
+    if (roleEl) roleEl.textContent = active.targetRole ?? '';
+  }
+
+  if (profiles.length <= 1 && !active?.targetRole) {
+    // Hide switcher when there's only one profile with no role
+    switcherEl.style.display = 'none';
+    return;
+  }
+
+  let dropdownHtml = '';
+  for (const p of profiles) {
+    const isActive = p.id === activeId;
+    dropdownHtml += `
+      <div class="profile-dropdown-item ${isActive ? 'active' : ''}" data-switch-profile="${escapeHtml(p.id)}">
+        <div class="profile-dot" style="background:${p.color}"></div>
+        <span class="pdi-name">${escapeHtml(p.name)}</span>
+        ${p.targetRole ? `<span class="pdi-role">${escapeHtml(p.targetRole)}</span>` : ''}
+      </div>
+    `;
+  }
+  dropdownHtml += `<div class="profile-dropdown-manage" id="popup-manage-profiles">Manage Profiles</div>`;
+  setHTML(dropdownEl, dropdownHtml);
+
+  switcherEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dropdownEl.classList.toggle('open');
+  });
+
+  document.addEventListener('click', () => {
+    dropdownEl.classList.remove('open');
+  });
+
+  dropdownEl.querySelectorAll('[data-switch-profile]').forEach(item => {
+    item.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = (item as HTMLElement).dataset.switchProfile!;
+      if (id === activeId) { dropdownEl.classList.remove('open'); return; }
+      await setActiveProfile(id);
+      await browser.runtime.sendMessage({ kind: 'SWITCH_PROFILE', profileId: id }).catch(() => {});
+      dropdownEl.classList.remove('open');
+      await renderProfileSwitcher();
+      await checkProfileStatus();
+    });
+  });
+
+  document.getElementById('popup-manage-profiles')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    browser.tabs.create({ url: browser.runtime.getURL('profiles/profiles.html') });
+    window.close();
+  });
+}
+
 async function init(): Promise<void> {
   const settings = await getSettings();
   currentState.enabled = settings.enabled;
   currentState.dryRun = settings.dryRun;
   requestState();
   checkProfileStatus();
+  renderProfileSwitcher();
 
-  // ── Manage Profile (single button → onboarding page) ──
+  // ── Manage Profile → profiles page ──
   document.getElementById('profile-btn')?.addEventListener('click', () => {
-    browser.tabs.create({ url: browser.runtime.getURL('onboarding/onboarding.html') });
+    browser.tabs.create({ url: browser.runtime.getURL('profiles/profiles.html') });
     window.close();
   });
 

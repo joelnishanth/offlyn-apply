@@ -58,6 +58,107 @@
     }
     .header-toggle.active::after { transform: translateX(18px); }
 
+    /* ── Profile switcher ─── */
+    .profile-switcher {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .profile-switcher:hover { background: #f1f5f9; }
+    .profile-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .profile-name {
+      font-weight: 600;
+      color: #1e293b;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .profile-role-hint {
+      color: #94a3b8;
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100px;
+    }
+    .profile-arrow {
+      color: #94a3b8;
+      font-size: 10px;
+      flex-shrink: 0;
+    }
+    .profile-dropdown {
+      display: none;
+      position: absolute;
+      left: 0; right: 0;
+      top: 100%;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-top: none;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      z-index: 100;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .profile-dropdown.open { display: block; }
+    .profile-dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 16px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.1s;
+    }
+    .profile-dropdown-item:hover { background: #f1f5f9; }
+    .profile-dropdown-item.active { background: #f5f3ff; }
+    .profile-dropdown-item .pdi-name {
+      font-weight: 600;
+      color: #1e293b;
+    }
+    .profile-dropdown-item .pdi-role {
+      color: #94a3b8;
+      font-size: 11px;
+      margin-left: auto;
+    }
+    .profile-dropdown-manage {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 8px 16px;
+      border-top: 1px solid #e2e8f0;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      color: #7c3aed;
+      transition: background 0.1s;
+    }
+    .profile-dropdown-manage:hover { background: #faf5ff; }
+
+    html.dark .profile-switcher { background: #0a1220; border-bottom-color: #334155; }
+    html.dark .profile-switcher:hover { background: #1e293b; }
+    html.dark .profile-name { color: #f1f5f9; }
+    html.dark .profile-role-hint { color: #64748b; }
+    html.dark .profile-arrow { color: #64748b; }
+    html.dark .profile-dropdown { background: #1e293b; border-color: #334155; }
+    html.dark .profile-dropdown-item:hover { background: #263346; }
+    html.dark .profile-dropdown-item.active { background: #1e1338; }
+    html.dark .profile-dropdown-item .pdi-name { color: #f1f5f9; }
+    html.dark .profile-dropdown-item .pdi-role { color: #64748b; }
+    html.dark .profile-dropdown-manage { border-top-color: #334155; color: #a78bfa; }
+    html.dark .profile-dropdown-manage:hover { background: #1e1338; }
+
     /* ── Job detection bar ─── */
     .job-bar {
       margin: 0 18px;
@@ -426,6 +527,15 @@
       <button id="dark-mode-toggle" class="dark-mode-toggle" aria-label="Toggle dark mode"></button>
       <div class="header-toggle active" id="enabled-toggle" title="Enable / Disable" role="switch" aria-checked="true" aria-label="Enable or disable extension" tabindex="0"></div>
     </div>
+  </div>
+
+  <!-- Profile switcher -->
+  <div class="profile-switcher" id="profile-switcher" style="position:relative;">
+    <div class="profile-dot" id="profile-dot"></div>
+    <span class="profile-name" id="profile-name-display">Default</span>
+    <span class="profile-role-hint" id="profile-role-display"></span>
+    <span class="profile-arrow">&#9662;</span>
+    <div class="profile-dropdown" id="profile-dropdown"></div>
   </div>
 
   <!-- Job detection bar -->

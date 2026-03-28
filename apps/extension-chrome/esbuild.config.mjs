@@ -61,6 +61,7 @@ const pathMap = {
   'src/dashboard/dashboard.ts': 'dist/dashboard/dashboard.js',
   'src/settings/settings.ts': 'dist/settings/settings.js',
   'src/chat/chat.ts': 'dist/chat/chat.js',
+  'src/profiles/profiles.ts': 'dist/profiles/profiles.js',
 };
 
 // Entry points that require JSX (React) compilation

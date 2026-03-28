@@ -13,7 +13,10 @@ import { ragParser } from './shared/rag-parser';
 import { ParseValidator } from './shared/parse-validator';
 import { enrichParseErrorMessage } from './shared/error-classify';
 import { graphMemory } from './shared/graph/service';
-import { getUserProfile, formatPhone, formatLocation, type UserProfile } from './shared/profile';
+import {
+  getUserProfile, formatPhone, formatLocation, type UserProfile,
+  migrateToMultiProfile, listProfiles, getActiveProfileId, getProfileById,
+} from './shared/profile';
 import { fieldClassifier, isTypeCompatible } from './shared/field-classifier';
 import { normalizeValue } from './shared/value-normalizer';
 import { isGenericJobEntry, isDuplicateSubmit, GENERIC_JOB_TITLES, GENERIC_COMPANY_NAMES } from './shared/job-dedup';
@@ -545,6 +548,26 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
       const msg = message as any;
       const provenance = graphMemory.getLastFillProvenance(msg.label ?? '');
       return { kind: 'GRAPH_DEBUG_RESPONSE', provenance };
+    }
+
+    // ── Multi-profile: switch active profile ──────────────────────────────────
+    if (message.kind === 'SWITCH_PROFILE') {
+      const profileId = (message as any).profileId as string;
+      info(`[Profile] Switching active profile to "${profileId}"`);
+      const profile = await getProfileById(profileId);
+      if (profile) {
+        const entries = buildProfileSeedEntries(profile);
+        graphMemory.seedFromProfile(entries);
+        info(`[Profile] Graph re-seeded for profile "${profileId}" (${entries.length} entries)`);
+      }
+      return { kind: 'SWITCH_PROFILE_ACK', profileId };
+    }
+
+    // ── Multi-profile: list all profiles ─────────────────────────────────────
+    if (message.kind === 'GET_PROFILES') {
+      const profiles = await listProfiles();
+      const activeId = await getActiveProfileId();
+      return { kind: 'PROFILES_LIST', profiles, activeId };
     }
 
     // ── Graph seed from profile ────────────────────────────────────────────────
@@ -1090,6 +1113,9 @@ async function init(): Promise<void> {
 
   // Initialize graph memory layer
   await graphMemory.initialize();
+
+  // Migrate single-profile to multi-profile system
+  await migrateToMultiProfile();
 
   // Seed graph with existing profile (handles users who installed before this feature)
   const existingProfile = await getUserProfile();

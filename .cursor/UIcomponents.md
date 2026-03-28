@@ -3,7 +3,7 @@
 > **Purpose:** Reference document for the upcoming full UI redesign.
 > Every UI component in the extension is cataloged here so nothing is missed during the rebuild.
 
-Last updated: 2026-02-15
+Last updated: 2026-03-27
 
 ---
 
@@ -211,22 +211,41 @@ Last updated: 2026-02-15
 
 ### 8. Browser Popup — `public/popup/popup.html` + `src/popup/popup.ts`
 
-**What it does:** The main browser extension popup (300px wide). Contains enable toggle, job info bar, Auto-Fill/Smart Fill/Profile buttons, application stats, Ollama connection status, and a collapsible advanced section.
+**What it does:** The main browser extension popup (~320px wide). Contains enable toggle, profile switcher (multi-profile), job info bar, Auto-Fill / cover letter actions, nav links (Manage Profile opens profiles page), application stats, Ollama connection status, and a collapsible advanced section.
 
-**Injection method:** Loaded as the `browser_action` popup page. Not injected into web pages.
+**Injection method:** Loaded as the `browser_action` / `action` popup page. Not injected into web pages.
 
 **Key DOM elements / CSS classes:**
 - Layout: `.header`, `.body`, `.footer`
 - Header: `.header-brand`, `.header-logo`, `.header-title`, `.header-toggle`
-- Job bar: `.job-bar`, `.job-bar-title`, `.job-bar-empty`
-- Actions: `.actions`, `.actions-row`, `.btn`, `.btn-fill`, `.btn-suggest`, `.btn-profile`
+- Profile switcher: `.profile-switcher`, `.profile-dot`, `.profile-name`, `.profile-role-hint`, `.profile-arrow`, `.profile-dropdown`, `.profile-dropdown-item`, `.profile-dropdown-manage`, `.pdi-name`, `.pdi-role`
+- Job bar: `.job-bar`, `.job-bar-detected`, `.job-bar-empty`, `.job-dot`, `.job-bar-label`, `.job-bar-detail`
+- Actions: `.actions`, `.btn-primary-action`, `.btn-secondary-action`
 - Stats: `.stats`, `.stat-card`, `.stat-num`, `.stat-label`
-- Connection: `.conn`, `.conn-ok`, `.conn-err`
+- Ollama: `.ollama-bar`, `.ollama-status`
 - Advanced: `.advanced-toggle`, `.advanced-panel`, `.btn-adv`, `.mini-toggle`, `.toggle-row`
-- Footer: `.footer-link`
-- IDs: `enabled-toggle`, `job-info`, `manual-autofill-btn`, `cover-letter-btn`, `profile-btn`, `stat-submitted`, `stat-detected`, `status`, `advanced-toggle`, `advanced-panel`, `dryrun-toggle`, `view-learned-btn`, `clean-selfid-btn`, `debug-profile-btn`, `copy-summary-btn`
+- Footer: `.footer`, `.footer-link`, `.footer-divider`
+- IDs: `profile-switcher`, `profile-dot`, `profile-name-display`, `profile-role-display`, `profile-dropdown`, `popup-manage-profiles`, `enabled-toggle`, `job-info`, `manual-autofill-btn`, `cover-letter-btn`, `profile-btn`, `stat-total`, `stat-interviewing`, `ollama-bar`, `advanced-toggle`, `advanced-panel`, `dryrun-toggle`, `view-learned-btn`, `clean-selfid-btn`, `debug-profile-btn`, `copy-summary-btn`
 
-**Dependencies (popup.ts):** `PopupState` from `../shared/types`; `getSettings`, `setSettings`, `getTodayApplications`, `generateSummaryMessage` from `../shared/storage`; `log`, `error` from `../shared/log`
+**Dependencies (popup.ts):** `browser` from `../shared/browser-compat` (Chrome); `PopupState` from `../shared/types`; `getSettings`, `setSettings`, `getTodayApplications`, `generateSummaryMessage` from `../shared/storage`; `getUserProfile`, `checkProfileCompleteness`, `listProfiles`, `getActiveProfileId`, `setActiveProfile`, `migrateToMultiProfile` from `../shared/profile`; `log`, `error` from `../shared/log`; `setHTML` from `../shared/html`
+
+---
+
+### 8b. Manage Profiles — `public/profiles/profiles.html` + `src/profiles/profiles.ts`
+
+**What it does:** Full-page UI to list profiles, set active, create (with optional clone), edit meta, delete, and open onboarding per profile (`?profileId=`).
+
+**Injection method:** Opened via `browser.runtime.getURL('profiles/profiles.html')` in a new tab.
+
+**Key DOM elements / CSS classes:**
+- Layout: `.header`, `.header-inner`, `.header-brand`, `.container`, `.section-title`
+- Banner: `.active-banner`, `.active-banner-dot`, `.active-banner-info`, `.active-banner-badge`
+- Grid: `.profiles-grid`, `.profile-card`, `.profile-card-new`, `.profile-card-header`, `.profile-card-dot`, `.profile-card-name`, `.profile-card-role`, `.profile-card-meta`, `.profile-card-actions`, `.active-tag`
+- Buttons: `.btn-activate`, `.btn-edit-profile`, `.btn-onboarding`, `.btn-delete-profile`
+- Modal: `.modal`, `.modal-content`, `.form-group`, `.color-picker`, `.color-swatch`, `.form-actions`, `.btn-primary`, `.btn-secondary`
+- IDs: `profiles-grid`, `active-banner`, `profile-modal`, `profile-form`, `profile-name`, `profile-role`, `clone-from`, `color-picker`, `btn-new-profile`
+
+**Dependencies:** `browser` from `../shared/browser-compat` (Chrome); profile CRUD + `migrateToMultiProfile` from `../shared/profile`; `setHTML` from `../shared/html`
 
 ---
 
@@ -234,7 +253,7 @@ Last updated: 2026-02-15
 
 ### 9. Onboarding Page — `public/onboarding/onboarding.html` + `src/onboarding/onboarding.ts`
 
-**What it does:** Multi-step onboarding flow opened in a new tab. Guides users through resume upload, profile review, Self-ID questions, work authorization, learned values management, and a success screen.
+**What it does:** Multi-step onboarding flow opened in a new tab. Guides users through resume upload, profile review, Self-ID questions, work authorization, learned values management, and a success screen. Supports `?profileId=<id>` to activate that profile before loading (e.g. from Manage Profiles “Setup”).
 
 **Steps:**
 1. Resume upload (PDF/DOC/DOCX/TXT)

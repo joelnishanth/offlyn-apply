@@ -156,7 +156,180 @@ export interface UserProfile {
   lastUpdated: number;
 }
 
-const PROFILE_KEY = 'userProfile';
+// ── Multi-profile system ────────────────────────────────────────────────────
+
+export interface ProfileMeta {
+  id: string;
+  name: string;
+  targetRole?: string;
+  color: string;
+  createdAt: number;
+}
+
+export interface ProfilesIndex {
+  activeId: string;
+  profiles: ProfileMeta[];
+}
+
+const LEGACY_PROFILE_KEY = 'userProfile';
+const PROFILES_INDEX_KEY = 'profilesIndex';
+const PROFILE_PREFIX = 'profile_';
+
+const PROFILE_COLORS = [
+  '#7c3aed', '#2563eb', '#059669', '#d97706',
+  '#dc2626', '#8b5cf6', '#0891b2', '#be185d',
+];
+
+function profileStorageKey(id: string): string {
+  return `${PROFILE_PREFIX}${id}`;
+}
+
+function generateProfileId(name: string): string {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  return `${slug}_${Date.now().toString(36)}`;
+}
+
+export async function getProfilesIndex(): Promise<ProfilesIndex | null> {
+  try {
+    const result = await browser.storage.local.get(PROFILES_INDEX_KEY);
+    return result[PROFILES_INDEX_KEY] || null;
+  } catch (err) {
+    console.error('[Profile] Failed to get profiles index:', err);
+    return null;
+  }
+}
+
+export async function saveProfilesIndex(index: ProfilesIndex): Promise<void> {
+  await browser.storage.local.set({ [PROFILES_INDEX_KEY]: index });
+}
+
+export async function getActiveProfileId(): Promise<string> {
+  const index = await getProfilesIndex();
+  return index?.activeId ?? 'default';
+}
+
+export async function setActiveProfile(id: string): Promise<void> {
+  const index = await getProfilesIndex();
+  if (!index) return;
+  const exists = index.profiles.some(p => p.id === id);
+  if (!exists) throw new Error(`Profile "${id}" does not exist`);
+  index.activeId = id;
+  await saveProfilesIndex(index);
+}
+
+export async function getProfileById(id: string): Promise<UserProfile | null> {
+  try {
+    const key = profileStorageKey(id);
+    const result = await browser.storage.local.get(key);
+    return result[key] || null;
+  } catch (err) {
+    console.error(`[Profile] Failed to get profile ${id}:`, err);
+    return null;
+  }
+}
+
+export async function saveProfileById(id: string, profile: UserProfile): Promise<void> {
+  profile.lastUpdated = Date.now();
+  await browser.storage.local.set({ [profileStorageKey(id)]: profile });
+}
+
+export async function createProfile(
+  name: string,
+  targetRole?: string,
+  cloneFromId?: string,
+): Promise<ProfileMeta> {
+  const index = await getProfilesIndex() ?? {
+    activeId: 'default',
+    profiles: [],
+  };
+
+  const id = generateProfileId(name);
+  const colorIndex = index.profiles.length % PROFILE_COLORS.length;
+  const meta: ProfileMeta = {
+    id,
+    name,
+    targetRole,
+    color: PROFILE_COLORS[colorIndex],
+    createdAt: Date.now(),
+  };
+
+  if (cloneFromId) {
+    const source = await getProfileById(cloneFromId);
+    if (source) {
+      await saveProfileById(id, { ...source, lastUpdated: Date.now() });
+    }
+  }
+
+  index.profiles.push(meta);
+  await saveProfilesIndex(index);
+  return meta;
+}
+
+export async function deleteProfile(id: string): Promise<void> {
+  const index = await getProfilesIndex();
+  if (!index) return;
+  if (index.profiles.length <= 1) {
+    throw new Error('Cannot delete the last profile');
+  }
+  index.profiles = index.profiles.filter(p => p.id !== id);
+  if (index.activeId === id) {
+    index.activeId = index.profiles[0].id;
+  }
+  await saveProfilesIndex(index);
+  await browser.storage.local.remove(profileStorageKey(id));
+}
+
+export async function updateProfileMeta(
+  id: string,
+  updates: Partial<Pick<ProfileMeta, 'name' | 'targetRole' | 'color'>>,
+): Promise<void> {
+  const index = await getProfilesIndex();
+  if (!index) return;
+  const meta = index.profiles.find(p => p.id === id);
+  if (!meta) throw new Error(`Profile "${id}" not found`);
+  if (updates.name !== undefined) meta.name = updates.name;
+  if (updates.targetRole !== undefined) meta.targetRole = updates.targetRole;
+  if (updates.color !== undefined) meta.color = updates.color;
+  await saveProfilesIndex(index);
+}
+
+export async function listProfiles(): Promise<ProfileMeta[]> {
+  const index = await getProfilesIndex();
+  return index?.profiles ?? [];
+}
+
+/**
+ * One-time migration: wrap the legacy single `userProfile` into the
+ * multi-profile system. Safe to call repeatedly (idempotent).
+ */
+export async function migrateToMultiProfile(): Promise<void> {
+  const existing = await getProfilesIndex();
+  if (existing) return; // already migrated
+
+  const legacy = await (async () => {
+    try {
+      const result = await browser.storage.local.get(LEGACY_PROFILE_KEY);
+      return result[LEGACY_PROFILE_KEY] as UserProfile | undefined;
+    } catch { return undefined; }
+  })();
+
+  const meta: ProfileMeta = {
+    id: 'default',
+    name: 'Default',
+    color: PROFILE_COLORS[0],
+    createdAt: Date.now(),
+  };
+
+  const index: ProfilesIndex = { activeId: 'default', profiles: [meta] };
+  await saveProfilesIndex(index);
+
+  if (legacy) {
+    await saveProfileById('default', legacy);
+  }
+  // Keep legacy key for one version cycle as fallback
+}
+
+const PROFILE_KEY = LEGACY_PROFILE_KEY;
 
 /**
  * Normalize a raw parsed profile before it is saved.
@@ -264,10 +437,17 @@ export function normalizeProfile(raw: any): UserProfile {
 }
 
 /**
- * Get stored user profile
+ * Get the active user profile. Multi-profile-aware: reads from the active
+ * profile slot. Falls back to the legacy `userProfile` key if the
+ * multi-profile migration hasn't run yet.
  */
 export async function getUserProfile(): Promise<UserProfile | null> {
   try {
+    const index = await getProfilesIndex();
+    if (index) {
+      return await getProfileById(index.activeId);
+    }
+    // Pre-migration fallback
     const result = await browser.storage.local.get(PROFILE_KEY);
     return result[PROFILE_KEY] || null;
   } catch (err) {
@@ -277,12 +457,17 @@ export async function getUserProfile(): Promise<UserProfile | null> {
 }
 
 /**
- * Save user profile
+ * Save the active user profile. Multi-profile-aware.
  */
 export async function saveUserProfile(profile: UserProfile): Promise<void> {
   try {
-    profile.lastUpdated = Date.now();
-    await browser.storage.local.set({ [PROFILE_KEY]: profile });
+    const index = await getProfilesIndex();
+    if (index) {
+      await saveProfileById(index.activeId, profile);
+    } else {
+      profile.lastUpdated = Date.now();
+      await browser.storage.local.set({ [PROFILE_KEY]: profile });
+    }
   } catch (err) {
     console.error('Failed to save profile:', err);
     throw err;
@@ -290,11 +475,16 @@ export async function saveUserProfile(profile: UserProfile): Promise<void> {
 }
 
 /**
- * Clear user profile
+ * Clear the active user profile.
  */
 export async function clearUserProfile(): Promise<void> {
   try {
-    await browser.storage.local.remove(PROFILE_KEY);
+    const index = await getProfilesIndex();
+    if (index) {
+      await browser.storage.local.remove(profileStorageKey(index.activeId));
+    } else {
+      await browser.storage.local.remove(PROFILE_KEY);
+    }
   } catch (err) {
     console.error('Failed to clear profile:', err);
     throw err;
@@ -302,7 +492,7 @@ export async function clearUserProfile(): Promise<void> {
 }
 
 /**
- * Check if profile exists
+ * Check if the active profile exists.
  */
 export async function hasUserProfile(): Promise<boolean> {
   const profile = await getUserProfile();
