@@ -550,6 +550,43 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
       return { kind: 'GRAPH_DEBUG_RESPONSE', provenance };
     }
 
+    // ── Resume tailoring: scrape job description from active tab ──────────────
+    if (message.kind === 'SCRAPE_JOB_DESCRIPTION') {
+      try {
+        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+        const tab = tabs[0];
+        if (!tab?.id) return { kind: 'SCRAPE_JOB_DESCRIPTION_RESULT', text: '' };
+
+        const [injection] = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            const selectors = [
+              '.job-details-jobs-unified-top-card__job-insight',
+              '.jobs-description__content',
+              '.jobs-description-content',
+              '#job-details',
+              '[class*="job-description"]',
+              '[class*="jobDescription"]',
+              'article',
+              'main',
+            ];
+            for (const sel of selectors) {
+              const el = document.querySelector(sel);
+              const t = el?.textContent?.trim() ?? '';
+              if (t.length > 100) return t;
+            }
+            return document.body.innerText.substring(0, 5000);
+          },
+        });
+
+        const text = typeof injection?.result === 'string' ? injection.result : '';
+        return { kind: 'SCRAPE_JOB_DESCRIPTION_RESULT', text };
+      } catch (e) {
+        warn('[ResumeTailor] Failed to scrape JD:', e);
+        return { kind: 'SCRAPE_JOB_DESCRIPTION_RESULT', text: '' };
+      }
+    }
+
     // ── LinkedIn auto-apply controls ─────────────────────────────────────────
     if (message.kind === 'LINKEDIN_AUTO_APPLY_START') {
       const tabId = (message as any).tabId;

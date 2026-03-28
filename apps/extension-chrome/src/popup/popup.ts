@@ -273,6 +273,12 @@ async function init(): Promise<void> {
     window.close();
   });
 
+  // ── Tailor Resume ──
+  document.getElementById('tailor-resume-btn')?.addEventListener('click', () => {
+    browser.tabs.create({ url: browser.runtime.getURL('resume-tailor/resume-tailor.html') });
+    window.close();
+  });
+
   // ── View Dashboard ──
   document.getElementById('view-dashboard-btn')?.addEventListener('click', () => {
     browser.tabs.create({ url: browser.runtime.getURL('dashboard/dashboard.html') });

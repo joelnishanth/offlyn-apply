@@ -256,7 +256,7 @@ Last updated: 2026-03-27
 - Ollama: `.ollama-bar`, `.ollama-status`
 - Advanced: `.advanced-toggle`, `.advanced-panel`, `.btn-adv`, `.mini-toggle`, `.toggle-row`
 - Footer: `.footer`, `.footer-link`, `.footer-divider`
-- IDs: `profile-switcher`, `profile-dot`, `profile-name-display`, `profile-role-display`, `profile-dropdown`, `popup-manage-profiles`, `enabled-toggle`, `job-info`, `manual-autofill-btn`, `cover-letter-btn`, `linkedin-autoapply-btn`, `profile-btn`, `stat-total`, `stat-interviewing`, `ollama-bar`, `advanced-toggle`, `advanced-panel`, `dryrun-toggle`, `view-learned-btn`, `clean-selfid-btn`, `debug-profile-btn`, `copy-summary-btn`
+- IDs: `profile-switcher`, `profile-dot`, `profile-name-display`, `profile-role-display`, `profile-dropdown`, `popup-manage-profiles`, `enabled-toggle`, `job-info`, `manual-autofill-btn`, `cover-letter-btn`, `linkedin-autoapply-btn`, `profile-btn`, `tailor-resume-btn`, `view-dashboard-btn`, `chat-resume-btn`, `data-explorer-btn`, `stat-total`, `stat-interviewing`, `ollama-bar`, `advanced-toggle`, `advanced-panel`, `dryrun-toggle`, `view-learned-btn`, `clean-selfid-btn`, `debug-profile-btn`, `copy-summary-btn`, `home-btn`, `settings-btn`, `help-btn`, `privacy-btn`
 
 **Dependencies (popup.ts):** `browser` from `../shared/browser-compat` (Chrome); `PopupState` from `../shared/types`; `getSettings`, `setSettings`, `getTodayApplications`, `generateSummaryMessage` from `../shared/storage`; `getUserProfile`, `checkProfileCompleteness`, `listProfiles`, `getActiveProfileId`, `setActiveProfile`, `migrateToMultiProfile` from `../shared/profile`; `log`, `error` from `../shared/log`; `setHTML` from `../shared/html`
 
@@ -277,6 +277,22 @@ Last updated: 2026-03-27
 - IDs: `profiles-grid`, `active-banner`, `profile-modal`, `profile-form`, `profile-name`, `profile-role`, `clone-from`, `color-picker`, `btn-new-profile`
 
 **Dependencies:** `browser` from `../shared/browser-compat` (Chrome); profile CRUD + `migrateToMultiProfile` from `../shared/profile`; `setHTML` from `../shared/html`
+
+---
+
+### 8c. Resume Tailor — `public/resume-tailor/resume-tailor.html` + `src/resume-tailor/resume-tailor.ts`
+
+**What it does:** Full-page UI to paste or scrape a job description, load resume text from the active profile, run Ollama tailoring + keyword gap analysis, then copy or print-to-PDF the result. Parity: `apps/extension-chrome/` and `apps/extension-firefox/`.
+
+**Injection method:** Opened via `browser.runtime.getURL('resume-tailor/resume-tailor.html')` in a new tab (e.g. from popup **Tailor Resume**).
+
+**Key DOM elements / CSS classes:**
+- Layout: `.header`, `.header-inner`, `.header-brand`, `.header-actions`, `.container`, `.panels`, `.panel`, `.panel-header`, `.panel-body`, `.action-bar`, `.keyword-section`, `.result-panel`
+- Buttons: `.btn-back`, `.btn-scrape`, `.btn-tailor`, `.btn-export`, `.btn-copy`, `.dark-mode-toggle`
+- Keyword UI: `.keyword-title`, `.keyword-score` (`.high` / `.medium` / `.low`), `.keyword-badges`, `.keyword-badge` (`.present` / `.missing`), `.keyword-group-label`
+- IDs: `resume-text`, `jd-text`, `btn-scrape`, `btn-tailor`, `btn-export`, `btn-copy`, `status-text`, `keyword-section`, `keyword-score`, `keywords-present`, `keywords-missing`, `result-panel`, `result-text`, `dark-mode-toggle`
+
+**Dependencies (resume-tailor.ts):** `browser` from `../shared/browser-compat` (Chrome build); `getUserProfile` from `../shared/profile`; `tailorResume`, `analyzeKeywordGap` from `../shared/resume-tailor-service`. Background handles `SCRAPE_JOB_DESCRIPTION` (Chrome: `chrome.scripting.executeScript` on the active tab).
 
 ---
 

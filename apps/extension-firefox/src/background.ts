@@ -548,6 +548,40 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
       return { kind: 'GRAPH_DEBUG_RESPONSE', provenance };
     }
 
+    // ── Resume tailoring ──────────────────────────────────────────────────────
+    if (message.kind === 'SCRAPE_JOB_DESCRIPTION') {
+      try {
+        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+        const tab = tabs[0];
+        if (!tab?.id) return { kind: 'SCRAPE_JOB_DESCRIPTION_RESULT', text: '' };
+
+        const results = await browser.tabs.executeScript(tab.id, {
+          code: `(function() {
+            const selectors = [
+              '.job-details-jobs-unified-top-card__job-insight',
+              '.jobs-description__content',
+              '.jobs-description-content',
+              '#job-details',
+              '[class*="job-description"]',
+              '[class*="jobDescription"]',
+              'article',
+              'main',
+            ];
+            for (const sel of selectors) {
+              const el = document.querySelector(sel);
+              if (el && el.textContent.trim().length > 100) return el.textContent.trim();
+            }
+            return document.body.innerText.substring(0, 5000);
+          })()`,
+        });
+
+        return { kind: 'SCRAPE_JOB_DESCRIPTION_RESULT', text: results?.[0] ?? '' };
+      } catch (e) {
+        warn('[ResumeTailor] Failed to scrape JD:', e);
+        return { kind: 'SCRAPE_JOB_DESCRIPTION_RESULT', text: '' };
+      }
+    }
+
     // ── LinkedIn auto-apply controls ─────────────────────────────────────────
     if (message.kind === 'LINKEDIN_AUTO_APPLY_START') {
       const tabId = (message as any).tabId;
