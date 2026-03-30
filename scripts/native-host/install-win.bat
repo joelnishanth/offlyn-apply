@@ -13,10 +13,9 @@ set HOST_NAME=ai.offlyn.helper
 set OFFLYN_DIR=%USERPROFILE%\.offlyn
 set HOST_PS1=%OFFLYN_DIR%\helper.ps1
 set HOST_EXE=%OFFLYN_DIR%\helper.exe
-set RAW_BASE=https://raw.githubusercontent.com/rahulraonatarajan/offlyn-apply/Windows-ollama-setup/scripts/native-host
-set SETUP_BASE=https://raw.githubusercontent.com/rahulraonatarajan/offlyn-apply/Windows-ollama-setup/scripts/setup-ollama
+set RAW_BASE=https://raw.githubusercontent.com/joelnishanth/offlyn-apply/main/scripts/native-host
+set SETUP_BASE=https://raw.githubusercontent.com/joelnishanth/offlyn-apply/main/scripts/setup-ollama
 set CHROME_EXT_ID=bjllpojjllhfghiemokcoknfmhpmfbph
-set CHROME_DEV_EXT_ID=nfflflctcndcpdmoclbcasiblbgjng
 set FIREFOX_EXT_ID={e0857c2d-15a6-4d0c-935e-57761715dc3d}
 set CHAT_MODEL=llama3.2:1b
 set EMBED_MODEL=nomic-embed-text
@@ -59,7 +58,7 @@ echo    helper.exe OK
 
 :: ---- Step 4: Write manifest and register native messaging host ---------------
 echo [3/5] Registering Offlyn with Chrome and Firefox...
-powershell -ExecutionPolicy Bypass -Command "$m=[ordered]@{name='%HOST_NAME%';description='Offlyn AI Setup Helper';path='%HOST_EXE%';type='stdio';allowed_origins=@('chrome-extension://%CHROME_EXT_ID%/','chrome-extension://%CHROME_DEV_EXT_ID%/');allowed_extensions=@('%FIREFOX_EXT_ID%')}; $m | ConvertTo-Json | Set-Content '%MANIFEST_FILE%' -Encoding UTF8"
+powershell -ExecutionPolicy Bypass -Command "$m=[ordered]@{name='%HOST_NAME%';description='Offlyn AI Setup Helper';path='%HOST_EXE%';type='stdio';allowed_origins=@('chrome-extension://%CHROME_EXT_ID%/');allowed_extensions=@('%FIREFOX_EXT_ID%')}; $m | ConvertTo-Json | Set-Content '%MANIFEST_FILE%' -Encoding UTF8"
 reg add "HKCU\Software\Google\Chrome\NativeMessagingHosts\%HOST_NAME%" /ve /t REG_SZ /d "%MANIFEST_FILE%" /f >nul 2>&1
 reg add "HKCU\Software\Mozilla\NativeMessagingHosts\%HOST_NAME%"       /ve /t REG_SZ /d "%MANIFEST_FILE%" /f >nul 2>&1
 echo    Registered OK
@@ -145,7 +144,7 @@ echo  ============================================================
 echo   ERROR: Could not download a required file.
 echo.
 echo   Please check your internet connection and try again.
-echo   If the problem persists, visit: https://github.com/rahulraonatarajan/offlyn-apply
+echo   If the problem persists, visit: https://github.com/joelnishanth/offlyn-apply
 echo  ============================================================
 pause & exit /b 1
 

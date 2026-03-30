@@ -430,11 +430,11 @@ async function checkOllamaConnection(): Promise<void> {
 // ── Native Messaging helpers ──────────────────────────────────────────────
 
 const HELPER_INSTALL_BASE =
-  'https://raw.githubusercontent.com/rahulraonatarajan/offlyn-apply/Windows-ollama-setup/scripts/native-host';
+  'https://raw.githubusercontent.com/joelnishanth/offlyn-apply/main/scripts/native-host';
 const HELPER_PKG_URL =
-  'https://raw.githubusercontent.com/rahulraonatarajan/offlyn-apply/Windows-ollama-setup/scripts/native-host/install-mac-linux.sh';
+  'https://github.com/joelnishanth/offlyn-apply/releases/download/v0.7.0/offlyn-helper.pkg';
 const HELPER_WIN_BAT_URL =
-  'https://raw.githubusercontent.com/rahulraonatarajan/offlyn-apply/Windows-ollama-setup/scripts/native-host/install-win.bat';
+  'https://raw.githubusercontent.com/joelnishanth/offlyn-apply/main/scripts/native-host/install-win.bat';
 
 function detectOS(): 'mac' | 'windows' | 'linux' {
   const ua = navigator.userAgent.toLowerCase();
@@ -465,6 +465,19 @@ function populateHelperInstructions(): void {
   if (!container) return;
 
   const os = detectOS();
+  const cmd = getHelperInstallCommand();
+  const hint = getHelperTerminalHint();
+
+  const manualToggle = `
+    <details style="margin-top:10px;">
+      <summary style="cursor:pointer;font-size:12px;color:#64748b;user-select:none;">Manual steps (terminal)</summary>
+      <p style="font-size:12px;color:#475569;margin:8px 0 6px;">${hint}</p>
+      <div style="background:#1e293b;border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:10px;">
+        <code id="helperInstallCmd" style="flex:1;font-size:12px;color:#e2e8f0;word-break:break-all;font-family:monospace;">${cmd}</code>
+        <button id="copyHelperCmd" style="background:#334155;border:none;color:#e2e8f0;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap;">Copy</button>
+      </div>
+    </details>
+  `;
 
   if (os === 'mac') {
     container.innerHTML = `
@@ -472,31 +485,37 @@ function populateHelperInstructions(): void {
       <a href="${HELPER_PKG_URL}"
          target="_blank"
          class="btn btn-primary"
-         style="display:inline-flex;align-items:center;gap:8px;font-size:14px;padding:10px 20px;text-decoration:none;margin-bottom:14px;">
+         style="display:inline-flex;align-items:center;gap:8px;font-size:14px;padding:10px 20px;text-decoration:none;margin-bottom:4px;">
         ${DOWNLOAD_SVG}
         Download for Mac
       </a>
+      ${manualToggle}
     `;
   } else if (os === 'windows') {
     container.innerHTML = `
-      <p style="font-size:13px;color:#475569;margin-bottom:16px;">Download and double-click the installer — it takes about 10 seconds. No terminal required.</p>
+      <p style="font-size:13px;color:#475569;margin-bottom:16px;">Download and double-click the installer — it sets up everything automatically. No terminal required.</p>
       <a href="${HELPER_WIN_BAT_URL}"
          target="_blank"
          class="btn btn-primary"
-         style="display:inline-flex;align-items:center;gap:8px;font-size:14px;padding:10px 20px;text-decoration:none;margin-bottom:14px;">
+         style="display:inline-flex;align-items:center;gap:8px;font-size:14px;padding:10px 20px;text-decoration:none;margin-bottom:4px;">
         ${DOWNLOAD_SVG}
         Download for Windows (.bat)
       </a>
+      ${manualToggle}
     `;
   } else {
-    const cmd = getHelperInstallCommand();
-    const hint = getHelperTerminalHint();
+    const shUrl = `${HELPER_INSTALL_BASE}/install-mac-linux.sh`;
     container.innerHTML = `
-      <p style="font-size:13px;color:#475569;margin-bottom:10px;">${hint}</p>
-      <div style="background:#1e293b;border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-        <code id="helperInstallCmd" style="flex:1;font-size:12px;color:#e2e8f0;word-break:break-all;font-family:monospace;">${cmd}</code>
-        <button id="copyHelperCmd" style="background:#334155;border:none;color:#e2e8f0;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap;">Copy</button>
-      </div>
+      <p style="font-size:13px;color:#475569;margin-bottom:16px;">Download the installer script and run it — it handles everything automatically.</p>
+      <a href="${shUrl}"
+         target="_blank"
+         class="btn btn-primary"
+         style="display:inline-flex;align-items:center;gap:8px;font-size:14px;padding:10px 20px;text-decoration:none;margin-bottom:4px;">
+        ${DOWNLOAD_SVG}
+        Download for Linux (.sh)
+      </a>
+      <p style="font-size:11px;color:#94a3b8;margin-top:6px;margin-bottom:0;">After downloading, run: <code style="background:#f1f5f9;padding:2px 4px;border-radius:3px;font-size:11px;">bash ~/Downloads/install-mac-linux.sh</code></p>
+      ${manualToggle}
     `;
   }
 }
