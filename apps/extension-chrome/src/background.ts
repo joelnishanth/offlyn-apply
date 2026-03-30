@@ -125,14 +125,18 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
           const port = browser.runtime.connectNative(NATIVE_HOST_ID);
           port.postMessage({ cmd: 'ping' });
           port.onMessage.addListener((res: any) => {
+            console.log('[NativeMsg] ping response:', res);
             resolve({ installed: true, version: res.version ?? '?' });
             port.disconnect();
           });
           port.onDisconnect.addListener(() => {
-            resolve({ installed: false, error: (browser.runtime.lastError as any)?.message });
+            const errMsg = (browser.runtime.lastError as any)?.message ?? 'unknown disconnect';
+            console.error('[NativeMsg] connectNative disconnected:', errMsg);
+            resolve({ installed: false, error: errMsg });
           });
-        } catch {
-          resolve({ installed: false });
+        } catch (err) {
+          console.error('[NativeMsg] connectNative threw:', err);
+          resolve({ installed: false, error: String(err) });
         }
       });
     }

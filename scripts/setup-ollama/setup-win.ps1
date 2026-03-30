@@ -60,11 +60,11 @@ Write-Host "OK Ollama is running"
 # ── Step 4: Pull models ────────────────────────────────────────────────────
 $modelList = & ollama list 2>&1
 
-if ($modelList -notmatch "llama3\.2") {
-    Write-Host "-> Downloading llama3.2 (~2.2 GB — this takes several minutes)..."
-    & ollama pull llama3.2
+if ($modelList -notmatch "llama3\.2:1b") {
+    Write-Host "-> Downloading llama3.2:1b (~637 MB)..."
+    & ollama pull llama3.2:1b
 } else {
-    Write-Host "OK llama3.2 already downloaded"
+    Write-Host "OK llama3.2:1b already downloaded"
 }
 
 if ($modelList -notmatch "nomic-embed-text") {

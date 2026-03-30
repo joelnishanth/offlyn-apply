@@ -31,8 +31,8 @@ export function enrichParseErrorMessage(raw: string): string {
   if (/not found|404|model .* not found/i.test(raw)) {
     return (
       'Required AI model not found. Please install the models by running:\n' +
-      'ollama pull llama3.2\n' +
-      'ollama pull nomic-embed-text'
+    'ollama pull llama3.2:1b\n' +
+    'ollama pull nomic-embed-text'
     );
   }
   return raw;

@@ -4,8 +4,6 @@
  */
 
 import browser from './browser-compat';
-import { generateText } from 'ai';
-import { ollama } from 'ollama-ai-provider-v2';
 import type { Message } from './types';
 
 /**
@@ -41,19 +39,45 @@ class MastraAgentService {
   private baseUrl: string;
   private model: string;
   private embeddingModel: string;
-  private ollamaProvider: ReturnType<typeof ollama>;
   /** Set to false after the first embedding failure so callers can skip embedding-based retrieval */
   embeddingsAvailable = true;
 
-  constructor(baseUrl = 'http://localhost:11434', model = 'llama3.2') {
+  constructor(baseUrl = 'http://localhost:11434', model = 'llama3.2:1b') {
     this.baseUrl = baseUrl;
     this.model = model;
     this.embeddingModel = 'nomic-embed-text';
+  }
 
-    // Initialize Ollama provider with AI SDK (browser-compatible)
-    this.ollamaProvider = ollama(this.model, {
-      baseURL: this.baseUrl,
+  /**
+   * Direct fetch to Ollama /api/generate — avoids AI SDK version incompatibilities.
+   */
+  private async ollamaGenerate(
+    system: string,
+    prompt: string,
+    options: { temperature?: number; maxTokens?: number } = {}
+  ): Promise<string> {
+    const response = await fetch(`${this.baseUrl}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: this.model,
+        system,
+        prompt,
+        stream: false,
+        options: {
+          temperature: options.temperature ?? 0.1,
+          num_predict: options.maxTokens ?? 4096,
+        },
+      }),
     });
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => response.statusText);
+      throw new Error(`Ollama /api/generate returned ${response.status}: ${errText}`);
+    }
+
+    const data = await response.json();
+    return (data.response as string) ?? '';
   }
 
   /**
@@ -102,23 +126,15 @@ class MastraAgentService {
         messageCount: messages.length,
       });
 
-      // Convert messages to AI SDK format
       const systemMessage = messages.find((m) => m.role === 'system');
       const userMessages = messages.filter((m) => m.role !== 'system');
-
-      // Combine all user/assistant messages into a prompt
       const prompt = userMessages.map((msg) => msg.content).join('\n\n');
 
-      // Generate text using AI SDK — default 4096 to avoid truncating long JSON responses
-      const result = await generateText({
-        model: this.ollamaProvider,
-        system: systemMessage?.content,
-        prompt: prompt,
-        temperature: options?.temperature ?? 0.1,
-        maxTokens: options?.maxTokens ?? 4096,
-      });
-
-      const content = result.text;
+      const content = await this.ollamaGenerate(
+        systemMessage?.content ?? '',
+        prompt,
+        { temperature: options?.temperature, maxTokens: options?.maxTokens }
+      );
 
       if (!content) {
         throw new Error('No response content from AI agent');
@@ -229,17 +245,11 @@ Be thorough and capture ALL details. Return ONLY valid JSON with no markdown for
 
     const userPrompt = `${prompts[sectionType]}\n\nResume text:\n${sectionText}\n\nReturn ONLY the JSON (no markdown, no explanations):`;
 
-    const response = await generateText({
-      model: this.ollamaProvider,
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: 0.1,
-      maxTokens: 3000,
-    });
+    const rawText = await this.ollamaGenerate(systemPrompt, userPrompt, { temperature: 0.1, maxTokens: 3000 });
 
     // Extract JSON - handle various response formats including malformed LLM output
-    const repaired = repairJSON(response.text);
-    if (repaired !== null && repaired !== undefined && !(Array.isArray(repaired) && (repaired as unknown[]).length === 0 && response.text.trim().length > 10)) {
+    const repaired = repairJSON(rawText);
+    if (repaired !== null && repaired !== undefined && !(Array.isArray(repaired) && (repaired as unknown[]).length === 0 && rawText.trim().length > 10)) {
       return repaired;
     }
     console.warn(`[AIAgent] No valid JSON found for ${sectionType}`);
@@ -375,14 +385,12 @@ Be thorough and capture ALL details. Return ONLY valid JSON with no markdown for
     // Generate summary
     onProgress?.('Generating summary...', 95);
     try {
-      const summaryResult = await generateText({
-        model: this.ollamaProvider,
-        system: 'Create a brief professional summary (2-3 sentences) from this resume text.',
-        prompt: chunks[0],
-        temperature: 0.3,
-        maxTokens: 200,
-      });
-      profile.summary = summaryResult.text.trim();
+      const summaryText = await this.ollamaGenerate(
+        'Create a brief professional summary (2-3 sentences) from this resume text.',
+        chunks[0],
+        { temperature: 0.3, maxTokens: 200 }
+      );
+      profile.summary = summaryText.trim();
     } catch {
       profile.summary = 'Professional with diverse experience and skills.';
     }
@@ -449,23 +457,17 @@ ${resumeText}
 
 Return ONLY the JSON object, nothing else:`;
 
-    const response = await generateText({
-      model: this.ollamaProvider,
-      system: systemPrompt,
-      prompt: userPrompt,
-      temperature: 0.1,
-      maxTokens: 4000,
-    });
+    const rawText = await this.ollamaGenerate(systemPrompt, userPrompt, { temperature: 0.1, maxTokens: 4000 });
 
-    console.log('[AIAgent] Raw response:', response.text.substring(0, 500));
+    console.log('[AIAgent] Raw response:', rawText.substring(0, 500));
 
     // Extract JSON from response
-    const repaired = repairJSON(response.text);
+    const repaired = repairJSON(rawText);
     if (repaired !== null && repaired !== undefined) {
       console.log('[AIAgent] Successfully parsed JSON');
       return repaired;
     }
-    console.error('[AIAgent] JSON repair failed for response:', response.text.substring(0, 200));
+    console.error('[AIAgent] JSON repair failed for response:', rawText.substring(0, 200));
     throw new Error('Could not parse JSON from response after repair attempt');
   }
 }

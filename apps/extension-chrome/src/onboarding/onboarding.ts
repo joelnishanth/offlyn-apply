@@ -425,7 +425,7 @@ async function checkOllamaConnection(): Promise<void> {
       }
     }
   } else {
-    console.warn('[Ollama Setup] Connection failed:', result.error);
+    console.log('[Ollama Setup] Connection failed:', result.error);
     showOllamaUIState('not-installed');
     // Determine whether the native helper is already installed and update sub-state
     checkNativeHelper().then(installed => updateHelperSubstate(installed));
@@ -435,9 +435,11 @@ async function checkOllamaConnection(): Promise<void> {
 // ── Native Messaging helpers ──────────────────────────────────────────────
 
 const HELPER_INSTALL_BASE =
-  'https://raw.githubusercontent.com/joelnishanth/offlyn-apply/main/scripts/native-host';
+  'https://raw.githubusercontent.com/rahulraonatarajan/offlyn-apply/Windows-ollama-setup/scripts/native-host';
 const HELPER_PKG_URL =
-  'https://github.com/joelnishanth/offlyn-apply/releases/download/v0.5.0/offlyn-helper.pkg';
+  'https://raw.githubusercontent.com/rahulraonatarajan/offlyn-apply/Windows-ollama-setup/scripts/native-host/install-mac-linux.sh';
+const HELPER_WIN_BAT_URL =
+  'https://raw.githubusercontent.com/rahulraonatarajan/offlyn-apply/Windows-ollama-setup/scripts/native-host/install-win.bat';
 
 function detectOS(): 'mac' | 'windows' | 'linux' {
   const ua = navigator.userAgent.toLowerCase();
@@ -477,7 +479,18 @@ function populateHelperInstructions(): void {
          class="btn btn-primary"
          style="display:inline-flex;align-items:center;gap:8px;font-size:14px;padding:10px 20px;text-decoration:none;margin-bottom:14px;">
         ${DOWNLOAD_SVG}
-        Download Installer
+        Download for Mac
+      </a>
+    `;
+  } else if (os === 'windows') {
+    container.innerHTML = `
+      <p style="font-size:13px;color:#475569;margin-bottom:16px;">Download and double-click the installer — it takes about 10 seconds. No terminal required.</p>
+      <a href="${HELPER_WIN_BAT_URL}"
+         target="_blank"
+         class="btn btn-primary"
+         style="display:inline-flex;align-items:center;gap:8px;font-size:14px;padding:10px 20px;text-decoration:none;margin-bottom:14px;">
+        ${DOWNLOAD_SVG}
+        Download for Windows (.bat)
       </a>
     `;
   } else {
@@ -496,8 +509,17 @@ function populateHelperInstructions(): void {
 async function checkNativeHelper(): Promise<boolean> {
   try {
     const res = await browser.runtime.sendMessage({ kind: 'CHECK_NATIVE_HELPER' });
-    return (res as any)?.installed === true;
-  } catch {
+    const installed = (res as any)?.installed === true;
+    if (!installed) {
+      const errMsg = (res as any)?.error ?? 'no error detail';
+      console.warn('[NativeHelper] not detected, reason:', errMsg);
+      // Show error in the helper status area so it is visible without DevTools
+      const hint = document.getElementById('helperErrorHint');
+      if (hint) hint.textContent = `Error: ${errMsg}`;
+    }
+    return installed;
+  } catch (err) {
+    console.error('[NativeHelper] sendMessage threw:', err);
     return false;
   }
 }
@@ -609,7 +631,21 @@ function setupOllamaStepListeners(): void {
                class="btn btn-primary"
                style="display:inline-flex;align-items:center;gap:8px;font-size:13px;padding:9px 16px;text-decoration:none;margin-bottom:10px;">
               ${DOWNLOAD_SVG}
-              Download Installer
+              Download for Mac
+            </a>
+            <p style="font-size:12px;color:#78350f;">After the installer finishes, click <strong>Re-test Connection</strong> below.</p>
+          `;
+        } else if (os === 'windows') {
+          corsWrap.innerHTML = `
+            <p style="font-size:13px;color:#92400e;margin-bottom:10px;">
+              <strong>To fix CORS automatically</strong>, install the Offlyn Helper first — it configures Ollama permissions in one step.
+            </p>
+            <a href="${HELPER_WIN_BAT_URL}"
+               target="_blank"
+               class="btn btn-primary"
+               style="display:inline-flex;align-items:center;gap:8px;font-size:13px;padding:9px 16px;text-decoration:none;margin-bottom:10px;">
+              ${DOWNLOAD_SVG}
+              Download for Windows (.bat)
             </a>
             <p style="font-size:12px;color:#78350f;">After the installer finishes, click <strong>Re-test Connection</strong> below.</p>
           `;

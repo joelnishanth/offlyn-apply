@@ -28,7 +28,7 @@ export interface ChatCompletionResponse {
 
 export class OllamaClient {
   private baseUrl = 'http://localhost:11434';
-  private model = 'llama3.2';
+  private model = 'llama3.2:1b';
   private embeddingModel = 'nomic-embed-text'; // Optimized for embeddings
 
   constructor(baseUrl?: string, model?: string) {
@@ -41,12 +41,11 @@ export class OllamaClient {
   private async loadStoredConfig(): Promise<void> {
     try {
       const config = await getOllamaConfig();
-      if (config.enabled) {
-        this.baseUrl = config.endpoint;
-        this.model = config.chatModel;
-        this.embeddingModel = config.embeddingModel;
-        console.log('[Ollama] Loaded config from storage:', config.endpoint, config.chatModel);
-      }
+      // Always load model names from stored config regardless of enabled state
+      this.baseUrl = config.endpoint;
+      this.model = config.chatModel;
+      this.embeddingModel = config.embeddingModel;
+      console.log('[Ollama] Loaded config from storage:', config.endpoint, config.chatModel);
     } catch (err) {
       console.warn('[Ollama] Failed to load stored config, using defaults:', err);
     }

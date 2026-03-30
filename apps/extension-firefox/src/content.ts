@@ -310,7 +310,7 @@ function detectPage(): void {
     console.log('[OA] Page state:', classification.state, '|', classification.detectionReason);
 
     if (classification.state === 'NOT_JOB_PAGE') {
-      console.warn('[OA] Not a job page — skipping');
+      console.log('[OA] Not a job page — skipping');
       return;
     }
 
