@@ -13,6 +13,7 @@ build/
 .output/
 .wxt/
 *.zip
+*.pkg
 
 # Environment variables
 .env

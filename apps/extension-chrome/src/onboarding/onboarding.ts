@@ -486,7 +486,7 @@ function populateHelperInstructions(): void {
 
   if (os === 'mac') {
     container.innerHTML = `
-      <p style="font-size:13px;color:#475569;margin-bottom:16px;">Download and run the installer — it takes about 10 seconds and just needs your Mac password. No terminal required.</p>
+      <p style="font-size:13px;color:#475569;margin-bottom:16px;">Download and double-click the installer — it sets up everything automatically. No terminal required.</p>
       <a href="${HELPER_PKG_URL}"
          target="_blank"
          class="btn btn-primary"
@@ -494,6 +494,7 @@ function populateHelperInstructions(): void {
         ${DOWNLOAD_SVG}
         Download for Mac
       </a>
+      <p style="font-size:11px;color:#94a3b8;margin-top:6px;margin-bottom:0;">Opens a standard macOS installer — approve and you're done.</p>
       ${manualToggle}
     `;
   } else if (os === 'windows') {
