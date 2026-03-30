@@ -15,7 +15,7 @@ export interface OllamaConfig {
 
 export const DEFAULT_OLLAMA_CONFIG: OllamaConfig = {
   endpoint: 'http://localhost:11434',
-  chatModel: 'llama3.2:1b',
+  chatModel: 'llama3.2',
   embeddingModel: 'nomic-embed-text',
   lastChecked: 0,
   enabled: false,

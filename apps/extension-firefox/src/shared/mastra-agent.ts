@@ -37,7 +37,7 @@ class MastraAgentService {
   /** Set to false after the first embedding failure so callers can skip embedding-based retrieval */
   embeddingsAvailable = true;
 
-  constructor(baseUrl = 'http://localhost:11434', model = 'llama3.2:1b') {
+  constructor(baseUrl = 'http://localhost:11434', model = 'llama3.2') {
     this.baseUrl = baseUrl;
     this.model = model;
     this.embeddingModel = 'nomic-embed-text';

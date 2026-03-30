@@ -39,7 +39,7 @@ export async function checkOllamaConnection(): Promise<boolean> {
  */
 export async function analyzeFieldsWithOllama(
   prompt: string,
-  model: string = 'llama3.2:1b'
+  model: string = 'llama3.2'
 ): Promise<OllamaResponse | null> {
   try {
     const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
@@ -284,7 +284,7 @@ Respond with ONLY the value, nothing else. No quotes, no explanation, no preambl
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'llama3.2:1b',
+        model: 'llama3.2',
         prompt,
         stream: useStreaming
       })
