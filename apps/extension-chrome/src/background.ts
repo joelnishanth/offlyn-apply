@@ -85,6 +85,34 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
       return;
     }
 
+    // ── Job URL Resolver ────────────────────────────────────────────────────
+    // Adzuna redirect chain:
+    //   land/api/job/{id} → HTTP 302 → details/{id} (HTML page)
+    //   details/{id} contains a land/ad/{id} apply link → HTTP 302 → employer
+    // We resolve both hops so the user goes directly to the employer's ATS.
+    if ((message as any).kind === 'RESOLVE_JOB_URL') {
+      const rawUrl: string = (message as any).url ?? '';
+      try {
+        // Hop 1: GET with redirect:follow lands on adzuna.com/details/{id}
+        const detailsResp = await fetch(rawUrl, { redirect: 'follow' });
+        const detailsUrl = detailsResp.url;
+        if (!detailsUrl.includes('adzuna.com')) {
+          return { url: detailsUrl }; // already resolved past Adzuna
+        }
+        // Hop 2: extract "Apply for this job" link from the details page HTML
+        const html = await detailsResp.text();
+        const match = html.match(/href="(https:\/\/www\.adzuna\.com\/land\/ad\/[^"]+)"/);
+        if (!match) return { url: detailsUrl };
+        const applyHref = match[1].replace(/&amp;/g, '&');
+        // Hop 3: HEAD the apply link — response.url is the final employer URL
+        const finalResp = await fetch(applyHref, { method: 'HEAD', redirect: 'follow' });
+        const finalUrl = finalResp.url;
+        return { url: (finalUrl && !finalUrl.includes('adzuna.com')) ? finalUrl : applyHref };
+      } catch {
+        return { url: rawUrl };
+      }
+    }
+
     // ── Native Messaging — Ollama Setup Helper ───────────────────────────────
     // These must live inside the async listener (not a separate one) because
     // Chrome MV3 treats Promise<undefined> returned by an async listener as a
@@ -166,44 +194,26 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
       };
       
       try {
-        info('Running dual-parse: RAG + legacy in parallel for best field coverage...');
-        broadcastProgress('Starting dual-pass analysis...', 62);
+        info('Parsing resume with RAG parser...');
+        broadcastProgress('Analyzing resume with AI...', 62);
 
-        // Run both parsers concurrently — each contributes its strengths
-        const [ragResult, legacyResult] = await Promise.allSettled([
-          ragParser.parseResume(resumeText, (stage, percent, detail) => {
-            info(`RAG: ${stage} (${percent}%)`);
-            broadcastProgress(stage, percent, detail);
-          }),
-          ollama.parseResume(resumeText, (stage, percent) => {
-            info(`Legacy: ${stage} (${percent}%)`);
-          }),
-        ]);
+        const profile = await ragParser.parseResume(resumeText, (stage, percent, detail) => {
+          info(`RAG: ${stage} (${percent}%)`);
+          broadcastProgress(stage, percent, detail);
+        });
 
-        const ragProfile   = ragResult.status    === 'fulfilled' ? ragResult.value    : null;
-        const legacyProfile = legacyResult.status === 'fulfilled' ? legacyResult.value : null;
-
-        if (ragResult.status    === 'rejected') warn('RAG parser failed:', ragResult.reason);
-        if (legacyResult.status === 'rejected') warn('Legacy parser failed:', legacyResult.reason);
-
-        if (!ragProfile && !legacyProfile) {
-          throw new Error('Both parsers failed — no profile could be extracted');
+        if (!profile) {
+          throw new Error('RAG parser returned no profile — check Ollama connection and models');
         }
 
-        let profile: any;
-
-        if (ragProfile && legacyProfile) {
-          // Both succeeded — use ParseValidator to pick best value per field
-          const validator = new ParseValidator();
-          const comparison = validator.merge(ragProfile, legacyProfile);
-          profile = comparison.merged;
-          info(`Merged profiles — RAG wins: ${comparison.differences.filter(d => d.recommended === 'rag').length} fields, Legacy wins: ${comparison.differences.filter(d => d.recommended === 'legacy').length} fields`);
-          broadcastProgress('Merging results...', 98);
-        } else {
-          // Only one succeeded — use it directly
-          profile = ragProfile ?? legacyProfile;
-          info('Single parser result used:', ragProfile ? 'RAG' : 'legacy');
+        // Validate and log warnings
+        const validator = new ParseValidator();
+        const validation = validator.validateProfile(profile);
+        if (validation.warnings.length > 0) {
+          warn('Parse warnings:', validation.warnings);
         }
+
+        broadcastProgress('Finalizing profile...', 98);
         
         return {
           kind: 'RESUME_PARSED',
@@ -655,6 +665,28 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
       const profiles = await listProfiles();
       const activeId = await getActiveProfileId();
       return { kind: 'PROFILES_LIST', profiles, activeId };
+    }
+
+    // ── Open settings page ────────────────────────────────────────────────────
+    if (message.kind === 'OPEN_SETTINGS_PAGE') {
+      chrome.tabs.create({ url: chrome.runtime.getURL('settings/settings.html') });
+      return { ok: true };
+    }
+
+    // ── Open profiles management page ─────────────────────────────────────────
+    if (message.kind === 'OPEN_PROFILES_PAGE') {
+      chrome.tabs.create({ url: chrome.runtime.getURL('profiles/profiles.html') });
+      return { ok: true };
+    }
+
+    // ── Open onboarding for a specific profile ────────────────────────────────
+    if (message.kind === 'OPEN_ONBOARDING') {
+      const profileId = (message as { kind: string; profileId?: string }).profileId ?? '';
+      const url = profileId
+        ? chrome.runtime.getURL(`onboarding/onboarding.html?profileId=${encodeURIComponent(profileId)}`)
+        : chrome.runtime.getURL('onboarding/onboarding.html');
+      chrome.tabs.create({ url });
+      return { ok: true };
     }
 
     // ── Graph seed from profile ────────────────────────────────────────────────
@@ -1239,5 +1271,11 @@ async function init(): Promise<void> {
   
   info('Background script initialized');
 }
+
+browser.runtime.onInstalled.addListener((details: { reason: string }) => {
+  if (details.reason === 'install') {
+    browser.tabs.create({ url: browser.runtime.getURL('onboarding/onboarding.html') });
+  }
+});
 
 init();

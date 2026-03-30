@@ -5,8 +5,8 @@
 import browser from '../shared/browser-compat';
 import type { UserProfile, PhoneDetails, LocationDetails, SelfIdentification } from '../shared/profile';
 import {
-  saveUserProfile, isPhoneDetails, isLocationDetails, formatPhone, formatLocation,
-  getProfilesIndex, setActiveProfile,
+  saveUserProfile, getUserProfile, isPhoneDetails, isLocationDetails, formatPhone, formatLocation,
+  getProfilesIndex, setActiveProfile, getActiveProfileId, listProfiles,
 } from '../shared/profile';
 import { rlSystem } from '../shared/learning-rl';
 import type { LearnedPattern } from '../shared/learning-types';
@@ -652,18 +652,27 @@ function setupOllamaStepListeners(): void {
 
   // Continue with AI Features
   document.getElementById('continueWithOllamaBtn')?.addEventListener('click', async () => {
-    const epInput = (document.getElementById('customOllamaEndpoint') as HTMLInputElement | null)?.value.trim() || DEFAULT_OLLAMA_CONFIG.endpoint;
-    const chatModel = (document.getElementById('customChatModel') as HTMLInputElement | null)?.value.trim() || DEFAULT_OLLAMA_CONFIG.chatModel;
-    const embModel = (document.getElementById('customEmbeddingModel') as HTMLInputElement | null)?.value.trim() || DEFAULT_OLLAMA_CONFIG.embeddingModel;
+    const errEl = document.getElementById('ollamaErrorMsg') as HTMLElement | null;
+    if (errEl) errEl.style.display = 'none';
+    try {
+      const epInput = (document.getElementById('customOllamaEndpoint') as HTMLInputElement | null)?.value.trim() || DEFAULT_OLLAMA_CONFIG.endpoint;
+      const chatModel = (document.getElementById('customChatModel') as HTMLInputElement | null)?.value.trim() || DEFAULT_OLLAMA_CONFIG.chatModel;
+      const embModel = (document.getElementById('customEmbeddingModel') as HTMLInputElement | null)?.value.trim() || DEFAULT_OLLAMA_CONFIG.embeddingModel;
 
-    const config = await getOllamaConfig();
-    config.enabled = true;
-    config.endpoint = epInput;
-    config.chatModel = chatModel;
-    config.embeddingModel = embModel;
-    config.lastChecked = Date.now();
-    await saveOllamaConfig(config);
-    showStep('step-upload');
+      const config = await getOllamaConfig() ?? { ...DEFAULT_OLLAMA_CONFIG };
+      config.enabled = true;
+      config.endpoint = epInput;
+      config.chatModel = chatModel;
+      config.embeddingModel = embModel;
+      config.lastChecked = Date.now();
+      await saveOllamaConfig(config);
+      showStep('step-upload');
+    } catch (err) {
+      if (errEl) {
+        errEl.textContent = `Failed to save AI config: ${String(err)}`;
+        errEl.style.display = '';
+      }
+    }
   });
 
   // Skip AI Features
@@ -2324,6 +2333,28 @@ async function init(): Promise<void> {
     }
   }
 
+  // Show which profile is being onboarded
+  try {
+    const activeId = await getActiveProfileId();
+    const profiles = await listProfiles();
+    const activeMeta = profiles.find(p => p.id === activeId);
+    if (activeMeta) {
+      const navInfo = document.querySelector('.top-nav-info');
+      if (navInfo) {
+        const badge = document.createElement('div');
+        badge.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:2px;';
+        const dot = document.createElement('span');
+        dot.style.cssText = `width:8px;height:8px;border-radius:50%;background:${activeMeta.color};display:inline-block;flex-shrink:0;`;
+        const label = document.createElement('span');
+        label.style.cssText = 'font-size:12px;color:#64748b;font-weight:500;';
+        label.textContent = activeMeta.name || 'My Profile';
+        badge.appendChild(dot);
+        badge.appendChild(label);
+        navInfo.appendChild(badge);
+      }
+    }
+  } catch (_) { /* non-critical */ }
+
   // First, try to migrate any legacy bloated resume file storage
   await migrateResumeFileStorage();
   
@@ -2347,28 +2378,17 @@ async function init(): Promise<void> {
     console.warn('[Onboarding] Failed to check learned values flag:', err);
   }
   
-  // Check if we're editing an existing profile
+  // Check if we're editing an existing profile — use multi-profile-aware loader
   let existingProfile: UserProfile | undefined;
   try {
-    const existingProfileData = await browser.storage.local.get('userProfile');
-    existingProfile = existingProfileData.userProfile as UserProfile | undefined;
+    const loaded = await getUserProfile();
+    // Only pre-fill if the profile has actual personal data (not an empty new profile)
+    if (loaded && loaded.personal && (loaded.personal.firstName || loaded.personal.lastName || loaded.personal.email)) {
+      existingProfile = loaded;
+    }
   } catch (err) {
     console.error('[Onboarding] Failed to load existing profile from storage:', err);
-    // Storage is broken - repair it
-    const repaired = await repairStorage();
-    if (repaired) {
-      try {
-        const retryData = await browser.storage.local.get('userProfile');
-        existingProfile = retryData.userProfile as UserProfile | undefined;
-        console.log('[Onboarding] Profile loaded after storage repair:', !!existingProfile);
-      } catch (retryErr) {
-        console.error('[Onboarding] Still failing after repair, starting completely fresh:', retryErr);
-        existingProfile = undefined;
-      }
-    } else {
-      console.error('[Onboarding] Storage repair failed, starting fresh');
-      existingProfile = undefined;
-    }
+    existingProfile = undefined;
   }
   
   if (existingProfile) {
@@ -2699,7 +2719,7 @@ async function init(): Promise<void> {
   // Done button - go to home page
   if (doneBtn) {
     doneBtn.addEventListener('click', () => {
-      window.location.href = '../home/home.html';
+      window.location.href = '../jobs/jobs.html';
     });
   }
 

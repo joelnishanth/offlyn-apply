@@ -13,6 +13,7 @@ export interface JobListing {
   salaryMax?: number;
   salaryCurrency?: string;
   url: string;
+  directUrl?: string;
   postedDate: string;
   source: string;
   category?: string;
@@ -37,8 +38,8 @@ export interface JobSearchResult {
   totalPages: number;
 }
 
-const ADZUNA_APP_ID = 'offlyn_apply';
-const ADZUNA_APP_KEY = ''; // Free tier works without key for basic search
+const ADZUNA_APP_ID = process.env.ADZUNA_APP_ID ?? 'ad50e38e';
+const ADZUNA_APP_KEY = process.env.ADZUNA_APP_KEY ?? '';
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const cache = new Map<string, { data: JobSearchResult; ts: number }>();
@@ -62,6 +63,11 @@ function buildAdzunaUrl(filters: JobSearchFilters): string {
   return `${base}?${params.toString()}`;
 }
 
+function isAbsoluteUrl(s: unknown): s is string {
+  if (typeof s !== 'string') return false;
+  return s.startsWith('http://') || s.startsWith('https://');
+}
+
 function normalizeAdzunaResult(raw: any): JobListing {
   return {
     id: raw.id?.toString() ?? `adzuna_${Date.now()}_${Math.random().toString(36).slice(2)}`,
@@ -73,6 +79,7 @@ function normalizeAdzunaResult(raw: any): JobListing {
     salaryMax: raw.salary_max ?? undefined,
     salaryCurrency: raw.salary_is_predicted !== undefined ? 'USD' : undefined,
     url: raw.redirect_url ?? raw.adref ?? '#',
+    directUrl: undefined,
     postedDate: raw.created ?? new Date().toISOString(),
     source: 'adzuna',
     category: raw.category?.label ?? undefined,

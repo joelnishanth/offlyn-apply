@@ -14,6 +14,7 @@ import {
   type DailyTrend,
 } from '../shared/storage';
 import type { JobApplication } from '../shared/types';
+import { getActiveProfileId, listProfiles } from '../shared/profile';
 
 // Chart.js type (loaded via CDN)
 declare const Chart: any;
@@ -29,6 +30,28 @@ let currentEditingApp: JobApplication | null = null;
  */
 async function init() {
   console.log('Dashboard initializing...');
+
+  // Show active profile indicator in header
+  try {
+    const activeId = await getActiveProfileId();
+    const profiles = await listProfiles();
+    const activeMeta = profiles.find(p => p.id === activeId);
+    if (activeMeta) {
+      const headerBrand = document.querySelector('.header-brand');
+      if (headerBrand) {
+        const badge = document.createElement('div');
+        badge.style.cssText = 'display:flex;align-items:center;gap:6px;margin-left:16px;padding:4px 12px;background:#f1f5f9;border-radius:20px;';
+        const dot = document.createElement('span');
+        dot.style.cssText = `width:8px;height:8px;border-radius:50%;background:${activeMeta.color};display:inline-block;flex-shrink:0;`;
+        const label = document.createElement('span');
+        label.style.cssText = 'font-size:12px;color:#475569;font-weight:500;white-space:nowrap;';
+        label.textContent = activeMeta.name || 'My Profile';
+        badge.appendChild(dot);
+        badge.appendChild(label);
+        headerBrand.appendChild(badge);
+      }
+    }
+  } catch (_) { /* non-critical */ }
   
   // Load data
   await loadDashboardData();

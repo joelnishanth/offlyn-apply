@@ -66,3 +66,5 @@ mastra/
 /chrome-store-assets
 /datasets
 /debug-logs
+/test-screenshots
+/.screenshots

@@ -228,7 +228,13 @@ document.getElementById('profile-form')!.addEventListener('submit', async (e) =>
     await updateProfileMeta(id, { name, targetRole: role, color });
   } else {
     const cloneFrom = (document.getElementById('clone-from') as HTMLSelectElement).value || undefined;
-    await createProfile(name, role, cloneFrom);
+    const newMeta = await createProfile(name, role, cloneFrom);
+    document.getElementById('profile-modal')!.classList.remove('active');
+    await loadProfiles();
+    browser.tabs.create({
+      url: browser.runtime.getURL(`onboarding/onboarding.html?profileId=${newMeta.id}`),
+    });
+    return;
   }
 
   document.getElementById('profile-modal')!.classList.remove('active');

@@ -132,8 +132,14 @@ function deterministic(label: string, _inputType: string, fieldName: string): Ru
   if (matches(both, 'middle name', 'middlename'))
     return ['middle_name', 'profile_field', 0.95];
 
+  // ── Profile — contact (email checked before full_name to avoid false-positive
+  //    when HTML name="name" makes `both` contain "name" alongside "email") ──
+
+  if (matches(both, 'email', 'e-mail', 'email address'))
+    return ['email', 'profile_field', 0.98];
+
   if (matches(both, /\bfull name\b/, /\byour name\b/, /\bname\b/) &&
-      !matches(both, 'company', 'employer', 'school', 'university', 'first', 'last', 'legal'))
+      !matches(both, 'company', 'employer', 'school', 'university', 'first', 'last', 'legal', 'email', 'e-mail'))
     return ['full_name', 'profile_field', 0.85];
 
   if (matches(both, 'preferred name', 'goes by', 'nickname'))
@@ -141,11 +147,6 @@ function deterministic(label: string, _inputType: string, fieldName: string): Ru
 
   if (matches(both, 'legal name', 'legal full name'))
     return ['full_name', 'profile_field', 0.92];
-
-  // ── Profile — contact ────────────────────────────────────────────────────
-
-  if (matches(both, 'email', 'e-mail', 'email address'))
-    return ['email', 'profile_field', 0.98];
 
   if (matches(both, /\bphone\b/, /\bmobile\b/, /\bcell\b/, /\btel\b/) &&
       !matches(both, 'country', 'code', 'extension'))
@@ -196,13 +197,20 @@ function deterministic(label: string, _inputType: string, fieldName: string): Ru
 
   // ── Profile — job details ────────────────────────────────────────────────
 
-  if (matches(both, 'current role', 'current title', 'current position', 'current job title'))
+  if (matches(both, 'current role', 'current title', 'current position', 'current job title',
+                   'most recent title', 'most recent role', 'most recent position',
+                   'recent title', 'recent role', 'recent position') ||
+      /current[\w\s()]*(?:role|title|position)|most recent[\w\s()]*(?:title|role)|recent[\w\s()]*(?:title|role)/.test(both))
     return ['current_role', 'profile_field', 0.92];
 
   if (matches(both, 'years of experience', 'years experience', 'total experience'))
     return ['years_experience', 'profile_field', 0.90];
 
-  if (matches(both, 'current company', 'current employer', 'current organization'))
+  if ((matches(both, 'current company', 'current employer', 'current organization',
+                   'most recent employer', 'most recent company',
+                   'recent employer', 'recent company') ||
+      /current[\w\s()]*(?:company|employer|organization)|most recent[\w\s()]*(?:employer|company)|recent[\w\s()]*(?:employer|company)/.test(both)) &&
+      !matches(both, 'name', 'email'))
     return ['current_company', 'profile_field', 0.90];
 
   // ── Profile — education ──────────────────────────────────────────────────

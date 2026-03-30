@@ -486,15 +486,15 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
     return storedLast;
   }
   
-  // Full name
-  if (matchesAny([label, name, id], ['name', 'fullname', 'full_name']) && 
-      !matchesAny([label, name, id], ['first', 'last', 'company'])) {
-    return `${profile.personal.firstName} ${profile.personal.lastName}`;
-  }
-  
-  // Email
+  // Email (checked before full-name because HTML `name="name"` can false-positive)
   if (matchesAny([label, name, id], ['email', 'e-mail', 'mail'])) {
     return profile.personal.email;
+  }
+
+  // Full name
+  if (matchesAny([label, name, id], ['name', 'fullname', 'full_name']) && 
+      !matchesAny([label, name, id], ['first', 'last', 'company', 'email', 'e-mail'])) {
+    return `${profile.personal.firstName} ${profile.personal.lastName}`;
   }
   
   // Phone - Country Code (separate field)
@@ -1974,6 +1974,23 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
     }
   }
   
+  // Current job title — handles "current title", "most recent title", and
+  // parenthetical forms like "current (or most recent) title"
+  const titlePatterns = /current[\w\s()]*(?:role|title|position|job title)|most recent[\w\s()]*(?:title|role|position)|recent[\w\s()]*(?:title|role|position)/i;
+  if ([label, name, id].some(t => titlePatterns.test(t || ''))) {
+    const cur = (profile.work ?? []).find((w: any) => w.current);
+    return cur?.title ?? (profile.professional as any)?.currentRole ?? null;
+  }
+
+  // Current employer — handles "current employer", "most recent employer", and
+  // parenthetical forms like "current (or most recent) employer"
+  const employerPatterns = /current[\w\s()]*(?:company|employer|organization)|most recent[\w\s()]*(?:employer|company)|recent[\w\s()]*(?:employer|company)/i;
+  if ([label, name, id].some(t => employerPatterns.test(t || '')) &&
+      !matchesAny([label, name, id], ['name', 'email'])) {
+    const cur = (profile.work ?? []).find((w: any) => w.current);
+    return cur?.company ?? (profile.professional as any)?.currentCompany ?? null;
+  }
+
   // Years of experience — only for short fields explicitly asking for a number
   if (matchesAny([label, name, id], ['experience', 'years', 'yoe'])) {
     const labelLower = (label || '').toLowerCase();

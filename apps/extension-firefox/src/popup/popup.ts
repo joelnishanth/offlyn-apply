@@ -147,13 +147,27 @@ async function checkProfileStatus(): Promise<void> {
     if (!warningEl) return;
 
     if (!profile) {
-      warningEl.style.display = 'block';
-      setHTML(warningEl, '<strong>No profile found.</strong> <a href="#" id="profile-warning-link" style="color:#ea580c;text-decoration:underline;">Set up your profile</a> to enable auto-fill.');
-      warningEl.querySelector('#profile-warning-link')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        browser.tabs.create({ url: browser.runtime.getURL('onboarding/onboarding.html') });
-        window.close();
-      });
+      const activeId = await getActiveProfileId();
+      const profiles = await listProfiles();
+      const activeMeta = profiles.find(p => p.id === activeId);
+
+      if (activeMeta) {
+        warningEl.style.display = 'block';
+        setHTML(warningEl, `<strong>${escapeHtml(activeMeta.name)} needs setup.</strong> <a href="#" id="profile-warning-link" style="color:#ea580c;text-decoration:underline;">Set up profile</a> to enable auto-fill.`);
+        warningEl.querySelector('#profile-warning-link')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          browser.tabs.create({ url: browser.runtime.getURL(`onboarding/onboarding.html?profileId=${encodeURIComponent(activeMeta.id)}`) });
+          window.close();
+        });
+      } else {
+        warningEl.style.display = 'block';
+        setHTML(warningEl, '<strong>No profile found.</strong> <a href="#" id="profile-warning-link" style="color:#ea580c;text-decoration:underline;">Set up your profile</a> to enable auto-fill.');
+        warningEl.querySelector('#profile-warning-link')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          browser.tabs.create({ url: browser.runtime.getURL('onboarding/onboarding.html') });
+          window.close();
+        });
+      }
       setActionButtonsDisabled(true);
       return;
     }
@@ -382,8 +396,7 @@ async function init(): Promise<void> {
     try {
       if (!confirm('Reset Self-ID data (Gender, Race, Disability, Veteran Status) to defaults?\n\nYour personal info and work history will not be affected.')) return;
 
-      const result = await browser.storage.local.get('userProfile');
-      const profile = result.userProfile;
+      const profile = await getUserProfile();
       if (!profile) { alert('No profile found. Set up your profile first.'); return; }
 
       profile.selfId = {
@@ -392,8 +405,8 @@ async function init(): Promise<void> {
         transgender: 'Decline to self-identify',
         disability: 'Decline to self-identify',
       };
-      profile.lastUpdated = Date.now();
-      await browser.storage.local.set({ userProfile: profile });
+      const { saveUserProfile } = await import('../shared/profile');
+      await saveUserProfile(profile);
 
       const btn = document.getElementById('clean-selfid-btn') as HTMLButtonElement;
       if (btn) { btn.textContent = 'Done!'; setTimeout(() => { btn.textContent = 'Clean Self-ID Data'; }, 1500); }
@@ -403,8 +416,7 @@ async function init(): Promise<void> {
   // ── Debug Profile ──
   document.getElementById('debug-profile-btn')?.addEventListener('click', async () => {
     try {
-      const result = await browser.storage.local.get('userProfile');
-      const profile = result.userProfile;
+      const profile = await getUserProfile();
       if (!profile) { alert('No profile found.'); return; }
 
       const text = JSON.stringify(profile, null, 2);

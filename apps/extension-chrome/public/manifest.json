@@ -24,7 +24,8 @@
   "host_permissions": [
     "http://localhost:11434/*",
     "http://127.0.0.1:11434/*",
-    "https://api.adzuna.com/*"
+    "https://api.adzuna.com/*",
+    "https://www.adzuna.com/*"
   ],
 
   "background": {
@@ -72,6 +73,6 @@
   ],
 
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'"
+    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: blob: https:"
   }
 }

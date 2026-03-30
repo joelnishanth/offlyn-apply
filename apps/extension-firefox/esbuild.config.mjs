@@ -1,7 +1,19 @@
 import * as esbuild from 'esbuild';
-import { readdirSync, statSync, copyFileSync, mkdirSync, existsSync } from 'fs';
+import { readdirSync, statSync, copyFileSync, mkdirSync, existsSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+
+// Load .env if present (credentials never committed to source control)
+function loadEnv(envPath) {
+  try {
+    const lines = readFileSync(envPath, 'utf-8').split('\n');
+    for (const line of lines) {
+      const eq = line.indexOf('=');
+      if (eq > 0) process.env[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+    }
+  } catch { /* .env is optional */ }
+}
+loadEnv(new URL('.env', import.meta.url).pathname);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -45,6 +57,8 @@ const buildOptions = {
   minify: !watch,
   define: {
     'process.env.NODE_ENV': watch ? '"development"' : '"production"',
+    'process.env.ADZUNA_APP_ID': JSON.stringify(process.env.ADZUNA_APP_ID ?? 'ad50e38e'),
+    'process.env.ADZUNA_APP_KEY': JSON.stringify(process.env.ADZUNA_APP_KEY ?? ''),
   },
 };
 

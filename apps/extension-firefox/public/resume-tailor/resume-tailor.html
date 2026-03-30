@@ -256,6 +256,50 @@
       overflow-y: auto;
     }
 
+    /* BETA badge */
+    .beta-badge {
+      display: inline-block;
+      background: #fef9c3; color: #854d0e;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+      padding: 2px 7px; border-radius: 20px;
+      border: 1px solid #fde68a;
+      vertical-align: middle; margin-left: 8px;
+    }
+    html.dark .beta-badge { background: #422006; color: #fbbf24; border-color: #92400e; }
+
+    /* PDF instructions banner */
+    .pdf-instructions {
+      display: none;
+      align-items: flex-start;
+      gap: 14px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #1e40af;
+      line-height: 1.6;
+    }
+    .pdf-instructions.visible { display: flex; }
+    .pdf-instructions-icon { flex-shrink: 0; margin-top: 2px; color: #3b82f6; }
+    .pdf-instructions-body { flex: 1; }
+    .pdf-instructions-body strong { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+    .pdf-instructions-steps { list-style: none; padding: 0; margin: 0; }
+    .pdf-instructions-steps li { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+    .pdf-instructions-steps li::before { content: counter(step); counter-increment: step; background: #3b82f6; color: #fff; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+    .pdf-instructions-steps { counter-reset: step; }
+    .btn-instr-close {
+      background: none; border: none; color: #3b82f6; cursor: pointer;
+      font-size: 11px; font-weight: 600; padding: 4px 8px;
+      border-radius: 5px; white-space: nowrap; align-self: flex-start;
+      transition: background 0.15s;
+    }
+    .btn-instr-close:hover { background: #dbeafe; }
+    html.dark .pdf-instructions { background: #0f1f40; border-color: #1e3a6e; color: #93c5fd; }
+    html.dark .btn-instr-close { color: #60a5fa; }
+    html.dark .btn-instr-close:hover { background: #1e3a6e; }
+
     /* Dark mode */
     html.dark body { background: #0f172a; color: #f1f5f9; }
     html.dark .header { background: #1e293b; border-bottom-color: #334155; }
@@ -286,7 +330,7 @@
     <div class="header-inner">
       <div class="header-brand">
         <img src="../icons/primary-logo.png" alt="Offlyn Apply">
-        <h1>Resume Tailor</h1>
+        <h1>Resume Tailor <span class="beta-badge">BETA</span></h1>
       </div>
       <div class="header-actions">
         <button id="dark-mode-toggle" class="dark-mode-toggle" aria-label="Toggle dark mode"></button>
@@ -317,6 +361,23 @@
       </div>
     </div>
 
+    <!-- PDF save-as instructions (shown after Export PDF is clicked) -->
+    <div class="pdf-instructions" id="pdf-instructions">
+      <div class="pdf-instructions-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <div class="pdf-instructions-body">
+        <strong>How to save as PDF</strong>
+        <ol class="pdf-instructions-steps">
+          <li>A print window just opened in a new tab — switch to it.</li>
+          <li>In the print dialog, set <strong>Destination → Save as PDF</strong>.</li>
+          <li>Optionally set <em>Margins → None</em> for a clean layout.</li>
+          <li>Click <strong>Save</strong> and pick a location on your device.</li>
+        </ol>
+      </div>
+      <button class="btn-instr-close" id="pdf-instructions-close">Got it ✕</button>
+    </div>
+
     <div class="action-bar">
       <button class="btn-tailor" id="btn-tailor">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/></svg>
@@ -324,7 +385,7 @@
       </button>
       <button class="btn-export" id="btn-export" disabled>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Export PDF
+        Export PDF <span class="beta-badge" style="font-size:9px;padding:1px 5px;">BETA</span>
       </button>
       <button class="btn-copy" id="btn-copy" disabled>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>

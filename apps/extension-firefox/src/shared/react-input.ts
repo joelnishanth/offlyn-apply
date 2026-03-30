@@ -68,6 +68,14 @@ export function setReactInputValue(
       element.value = value;
     }
     
+    // Invalidate React's internal _valueTracker so onChange fires.
+    // React 16-18 compare tracker.getValue() with the current value;
+    // if they match, the synthetic onChange is suppressed.
+    const tracker = (element as any)._valueTracker;
+    if (tracker) {
+      tracker.setValue(value === '' ? '__offlyn_reset__' : '');
+    }
+
     // Dispatch events that React listens to (in order of importance)
     // 1. input event - most important for React controlled components
     element.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
@@ -382,6 +390,12 @@ export async function fillWithHumanTyping(
         element.value = newValue;
       }
       
+      // Invalidate React _valueTracker so onChange fires
+      const tracker = (element as any)._valueTracker;
+      if (tracker) {
+        tracker.setValue(i === 0 ? '' : value.substring(0, i));
+      }
+
       // input event (this is what React listens to most)
       element.dispatchEvent(new InputEvent('input', {
         bubbles: true,

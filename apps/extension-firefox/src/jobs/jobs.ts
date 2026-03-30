@@ -73,15 +73,42 @@ async function loadSavedIds(): Promise<void> {
   savedJobIds = new Set(saved.map(j => j.id));
 }
 
+function companyNameToDomain(name: string): string {
+  const cleaned = name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .trim()
+    .split(/\s+/)
+    .join('');
+  return cleaned ? `${cleaned}.com` : '';
+}
+
+function getLogoUrl(job: JobListing): string {
+  const domain = companyNameToDomain(job.company);
+  if (!domain) return '';
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`;
+}
+
+
 function renderJobCard(job: JobListing, score: number): string {
   const salary = formatSalary(job.salaryMin, job.salaryMax, job.salaryCurrency);
   const scoreClass = score >= 70 ? 'score-high' : score >= 40 ? 'score-medium' : 'score-low';
   const isSaved = savedJobIds.has(job.id);
+  const logoUrl = getLogoUrl(job);
+  const monogramUrl = browser.runtime.getURL('icons/monogram-icon.png');
 
   return `
     <div class="job-card" data-job-id="${escapeHtml(job.id)}">
       <div class="job-card-header">
-        <div>
+        <div class="job-card-logo-wrap">
+          ${logoUrl
+            ? `<img class="job-card-logo" src="${escapeHtml(logoUrl)}" alt="" data-fallback="1">`
+            : ''}
+          <div class="job-card-logo-fallback" ${logoUrl ? 'style="display:none"' : ''}>
+            <img src="${escapeHtml(monogramUrl)}" alt="Offlyn" class="job-card-logo-monogram">
+          </div>
+        </div>
+        <div class="job-card-info">
           <div class="job-card-title">${escapeHtml(job.title)}</div>
           <div class="job-card-company">${escapeHtml(job.company)}</div>
           <div class="job-card-location">${escapeHtml(job.location)}</div>
@@ -91,7 +118,7 @@ function renderJobCard(job: JobListing, score: number): string {
       ${salary ? `<div class="job-card-salary">${escapeHtml(salary)}</div>` : ''}
       <div class="job-card-desc">${escapeHtml(job.description)}</div>
       <div class="job-card-footer">
-        <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener" class="btn-apply">Apply</a>
+        <button class="btn-apply" data-apply-url="${escapeHtml(job.url)}">Apply</button>
         <button class="btn-save ${isSaved ? 'saved' : ''}" data-save-id="${escapeHtml(job.id)}">
           ${isSaved ? 'Saved' : 'Save'}
         </button>
@@ -123,6 +150,8 @@ async function renderResults(): Promise<void> {
       setHTML(grid, cards.join(''));
     }
     bindSaveButtons(grid);
+    bindLogoFallbacks(grid);
+    bindApplyButtons(grid);
   } else {
     grid.style.display = 'none';
     savedGrid.style.display = '';
@@ -138,7 +167,53 @@ async function renderResults(): Promise<void> {
       setHTML(savedGrid, cards.join(''));
     }
     bindSaveButtons(savedGrid);
+    bindLogoFallbacks(savedGrid);
+    bindApplyButtons(savedGrid);
   }
+}
+
+function bindLogoFallbacks(container: HTMLElement): void {
+  container.querySelectorAll<HTMLImageElement>('img[data-fallback]').forEach(img => {
+    const showMonogram = () => {
+      img.style.display = 'none';
+      const fallback = img.nextElementSibling as HTMLElement | null;
+      if (fallback) fallback.style.display = 'flex';
+    };
+    img.addEventListener('error', showMonogram);
+    // Google's Favicon API returns a 16×16 generic globe for unknown domains
+    // even when sz=64 is requested. naturalWidth <= 16 → globe → use monogram.
+    if (img.complete) {
+      if (img.naturalWidth === 0 || img.naturalWidth <= 16) showMonogram();
+    } else {
+      img.addEventListener('load', () => {
+        if (img.naturalWidth <= 16) showMonogram();
+      });
+    }
+  });
+}
+
+function bindApplyButtons(container: HTMLElement): void {
+  container.querySelectorAll<HTMLButtonElement>('button.btn-apply').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const rawUrl = btn.dataset.applyUrl ?? '#';
+      if (!rawUrl || rawUrl === '#') return;
+      btn.disabled = true;
+      btn.textContent = 'Opening…';
+      try {
+        let finalUrl = rawUrl;
+        if (rawUrl.includes('adzuna.com')) {
+          const res = await browser.runtime.sendMessage({ kind: 'RESOLVE_JOB_URL', url: rawUrl }) as { url?: string } | undefined;
+          finalUrl = res?.url && res.url !== rawUrl ? res.url : rawUrl;
+        }
+        browser.tabs.create({ url: finalUrl });
+      } catch {
+        browser.tabs.create({ url: rawUrl });
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Apply';
+      }
+    });
+  });
 }
 
 function bindSaveButtons(container: HTMLElement): void {
@@ -230,4 +305,33 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   });
 });
 
-loadSavedIds();
+async function autoPopulateFromProfile(): Promise<void> {
+  const profile = await getUserProfile();
+  if (!profile) return;
+
+  const keywordsInput = document.getElementById('search-keywords') as HTMLInputElement;
+  const locationInput = document.getElementById('search-location') as HTMLInputElement;
+
+  const currentWork = (profile.work ?? []).find((w: any) => w.current);
+  const titleKeyword = currentWork?.title
+    ?? (profile.professional as any)?.currentRole
+    ?? (profile.professional as any)?.currentTitle
+    ?? '';
+  const skillKeywords = (profile.skills ?? []).slice(0, 3).join(', ');
+  const keywords = titleKeyword || skillKeywords;
+
+  if (keywords && !keywordsInput.value) {
+    keywordsInput.value = keywords;
+  }
+
+  const loc = profile.personal?.location;
+  if (loc && !locationInput.value) {
+    locationInput.value = typeof loc === 'string' ? loc : [loc.city, loc.state].filter(Boolean).join(', ');
+  }
+
+  if (keywordsInput.value) {
+    doSearch();
+  }
+}
+
+loadSavedIds().then(() => autoPopulateFromProfile());

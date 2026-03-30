@@ -19,8 +19,10 @@
   }
 
   // --- Navigation ---
+  document.getElementById('navFindJobs').addEventListener('click', () => openPage('jobs/jobs.html'));
+  document.getElementById('navFindJobsSide').addEventListener('click', () => openPage('jobs/jobs.html'));
   document.getElementById('navDashboard').addEventListener('click', () => openPage('dashboard/dashboard.html'));
-  document.getElementById('navProfile').addEventListener('click', () => openPage('onboarding/onboarding.html'));
+  document.getElementById('navProfile').addEventListener('click', () => openPage('profiles/profiles.html'));
   document.getElementById('navLearned').addEventListener('click', async () => {
     await browser.storage.local.set({ showLearnedValues: true });
     openPage('onboarding/onboarding.html');

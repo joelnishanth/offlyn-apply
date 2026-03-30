@@ -29,6 +29,12 @@ const resultText = document.getElementById('result-text') as HTMLElement;
 
 let tailoredResult = '';
 
+// Wire up "Got it" dismiss for the PDF instructions banner
+document.getElementById('pdf-instructions-close')?.addEventListener('click', () => {
+  const el = document.getElementById('pdf-instructions');
+  if (el) el.classList.remove('visible');
+});
+
 async function loadProfileResume(): Promise<void> {
   const profile = await getUserProfile();
   if (profile?.resumeText) {
@@ -120,10 +126,14 @@ btnCopy?.addEventListener('click', async () => {
 
 btnExport?.addEventListener('click', async () => {
   if (!tailoredResult) return;
-  statusText.textContent = 'Generating PDF...';
+
+  // Show the step-by-step instructions banner immediately
+  const instrEl = document.getElementById('pdf-instructions');
+  if (instrEl) instrEl.classList.add('visible');
+
+  statusText.textContent = 'Opening print window — set Destination → "Save as PDF" then click Save.';
 
   try {
-    // Simple PDF generation using a print-friendly approach
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       statusText.textContent = 'Please allow popups to export PDF.';
@@ -134,15 +144,19 @@ btnExport?.addEventListener('click', async () => {
       <!DOCTYPE html><html><head>
       <title>Tailored Resume</title>
       <style>
-        body { font-family: Georgia, 'Times New Roman', serif; font-size: 11pt; line-height: 1.5; margin: 1in; color: #000; }
-        @media print { body { margin: 0; } }
+        body { font-family: Georgia, 'Times New Roman', serif; font-size: 11pt; line-height: 1.6; margin: 1in; color: #000; }
+        pre { white-space: pre-wrap; font-family: inherit; }
+        @media print { body { margin: 0.5in; } }
       </style>
-      </head><body><pre style="white-space:pre-wrap;font-family:inherit;">${escapeHtml(tailoredResult)}</pre>
-      <script>window.print(); window.onafterprint = () => window.close();<\/script>
+      </head><body>
+      <pre>${escapeHtml(tailoredResult)}</pre>
+      <script>
+        // Slight delay so content renders before dialog opens
+        setTimeout(function() { window.print(); }, 400);
+      <\/script>
       </body></html>
     `);
     printWindow.document.close();
-    statusText.textContent = 'PDF dialog opened.';
   } catch (err) {
     statusText.textContent = 'PDF export failed.';
     console.error('PDF export failed:', err);

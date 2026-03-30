@@ -6,8 +6,8 @@ import type { ApplyEvent, FillPlan, FillResult, JobMeta, FieldSchema, PageClassi
 import { extractJobMetadata, extractFormSchema, isJobConfirmationPage, classifyPage, isTrustedATSIframe } from './shared/dom';
 import { log, info, warn, error } from './shared/log';
 import { hideFieldSummary, ensureFieldSummaryExpanded } from './ui/field-summary';
-import { showCompatibilityWidget, updateCompatibilityFields, removeCompatibilityWidget } from './ui/compatibility-widget';
-import { getUserProfile, saveUserProfile, type UserProfile } from './shared/profile';
+import { showCompatibilityWidget, updateCompatibilityFields, removeCompatibilityWidget, updateWidgetProfile, computeCompatibility } from './ui/compatibility-widget';
+import { getUserProfile, saveUserProfile, listProfiles, getActiveProfileId, setActiveProfile, getProfileById, type UserProfile } from './shared/profile';
 import { generateFillMappings } from './shared/autofill';
 import { 
   analyzeUnfilledFields, 
@@ -73,10 +73,54 @@ import { applyGraphEnhancement } from './shared/autofill';
 import { detectFieldType } from './shared/context-aware-storage';
 import { showFillDebugPanel } from './ui/fill-debug-panel';
 
+async function computeSetupProfileIds(profiles: { id: string }[]): Promise<Set<string>> {
+  const ids = new Set<string>();
+  await Promise.all(profiles.map(async p => {
+    try {
+      const data = await getProfileById(p.id);
+      if (data?.personal && (data.personal.firstName || data.personal.lastName || data.personal.email)) {
+        ids.add(p.id);
+      }
+    } catch (_) { /* skip */ }
+  }));
+  return ids;
+}
+
+async function computeProfileScores(
+  profiles: { id: string }[],
+  setupIds: Set<string>,
+  pageText: string,
+): Promise<Map<string, number>> {
+  const scores = new Map<string, number>();
+  await Promise.all(profiles.map(async p => {
+    if (!setupIds.has(p.id)) return;
+    try {
+      const data = await getProfileById(p.id);
+      if (!data) return;
+      const compat = computeCompatibility(data, pageText);
+      scores.set(p.id, compat.overall);
+    } catch (_) { /* skip */ }
+  }));
+  return scores;
+}
+
+const EMPTY_PROFILE: UserProfile = {
+  personal: { firstName: '', lastName: '', email: '', phone: '', location: '' },
+  professional: {},
+  work: [],
+  education: [],
+  skills: [],
+  lastUpdated: 0,
+};
+
 const IS_TOP_FRAME = window.self === window.top;
 
 let lastJobMeta: JobMeta | null = null;
 let lastSchema: string | null = null;
+let lastWidgetFields: FieldSchema[] = [];
+let lastWidgetMonogram = '';
+let lastWidgetLogo = '';
+let profileSwitchInProgress = false;
 let resumeFilesUploaded: Set<string> = new Set(); // Track which file inputs we've already filled
 let filledSelectors: Set<string> = new Set(); // Track which fields have been filled
 let userEditedFields: Set<string> = new Set(); // Track which fields user has manually edited
@@ -306,18 +350,30 @@ function detectPage(): void {
       if (IS_TOP_FRAME) {
         void (async () => {
           try {
-            const profileForCompat = await getUserProfile();
-            if (profileForCompat) {
-              showCompatibilityWidget(
-                profileForCompat,
-                jobMeta.jobTitle || '',
-                jobMeta.company || '',
-                document.body.innerText || '',
-                [], // fields will arrive via OFFLYN_IFRAME_FIELDS
-                browser.runtime.getURL('icons/monogram-nosquare.png'),
-                browser.runtime.getURL('icons/primary-logo.png')
-              );
-            }
+            const [profileForCompat, allProfiles, activeId] = await Promise.all([
+              getUserProfile(),
+              listProfiles(),
+              getActiveProfileId(),
+            ]);
+            const setupIds = await computeSetupProfileIds(allProfiles);
+            const pageText = document.body.innerText || '';
+            const scores = await computeProfileScores(allProfiles, setupIds, pageText);
+            lastWidgetFields = [];
+            lastWidgetMonogram = browser.runtime.getURL('icons/monogram-nosquare.png');
+            lastWidgetLogo = browser.runtime.getURL('icons/primary-logo.png');
+            if (!profileSwitchInProgress) showCompatibilityWidget(
+              profileForCompat ?? EMPTY_PROFILE,
+              jobMeta.jobTitle || '',
+              jobMeta.company || '',
+              pageText,
+              lastWidgetFields,
+              lastWidgetMonogram,
+              lastWidgetLogo,
+              allProfiles,
+              activeId,
+              setupIds,
+              scores,
+            );
           } catch (_) { /* non-critical */ }
         })();
       }
@@ -446,19 +502,30 @@ function detectPage(): void {
       // Show unified floating widget (compatibility oval + action panel)
       void (async () => {
         try {
-          const profileForCompat = await getUserProfile();
-          if (profileForCompat) {
-            const pageText = document.body.innerText || '';
-            showCompatibilityWidget(
-              profileForCompat,
-              jobMeta.jobTitle || '',
-              jobMeta.company || '',
-              pageText,
-              uniqueFields,
-              browser.runtime.getURL('icons/monogram-nosquare.png'),
-              browser.runtime.getURL('icons/primary-logo.png')
-            );
-          }
+          const [profileForCompat, allProfiles, activeId] = await Promise.all([
+            getUserProfile(),
+            listProfiles(),
+            getActiveProfileId(),
+          ]);
+          const setupIds = await computeSetupProfileIds(allProfiles);
+          const pageText = document.body.innerText || '';
+          const scores = await computeProfileScores(allProfiles, setupIds, pageText);
+          lastWidgetFields = uniqueFields;
+          lastWidgetMonogram = browser.runtime.getURL('icons/monogram-nosquare.png');
+          lastWidgetLogo = browser.runtime.getURL('icons/primary-logo.png');
+          if (!profileSwitchInProgress) showCompatibilityWidget(
+            profileForCompat ?? EMPTY_PROFILE,
+            jobMeta.jobTitle || '',
+            jobMeta.company || '',
+            pageText,
+            lastWidgetFields,
+            lastWidgetMonogram,
+            lastWidgetLogo,
+            allProfiles,
+            activeId,
+            setupIds,
+            scores,
+          );
         } catch (_) { /* non-critical */ }
       })();
 
@@ -478,7 +545,7 @@ async function tryAutoFill(schema: ReturnType<typeof extractFormSchema>): Promis
     const profile = await getUserProfile();
     if (!profile) {
       warn('⚠️ No user profile found. Please set up your profile first.');
-      showNotification('No profile found', 'Please set up your profile in the extension popup.', 'warning');
+      showNotification('Profile not set up', 'Complete onboarding to fill in your details automatically.', 'warning');
       return;
     }
     
@@ -1233,6 +1300,39 @@ window.addEventListener('offlyn-manual-autofill', async () => {
       }
     }
   }
+});
+
+/**
+ * Profile switching from the in-page widget
+ */
+window.addEventListener('offlyn-switch-profile', async (e) => {
+  const profileId = (e as CustomEvent).detail?.profileId as string | undefined;
+  if (!profileId) return;
+  profileSwitchInProgress = true;
+  try {
+    await setActiveProfile(profileId);
+    await browser.runtime.sendMessage({ kind: 'SWITCH_PROFILE', profileId }).catch(() => {});
+
+    const [newProfile, updatedProfiles, activeId] = await Promise.all([
+      getUserProfile(),
+      listProfiles(),
+      getActiveProfileId(),
+    ]);
+    const setupIds = await computeSetupProfileIds(updatedProfiles);
+    const pageText = document.body.innerText || '';
+    const scores = await computeProfileScores(updatedProfiles, setupIds, pageText);
+
+    updateWidgetProfile(activeId, updatedProfiles, setupIds, scores);
+  } finally {
+    profileSwitchInProgress = false;
+  }
+});
+
+/**
+ * Open profiles management page from the in-page widget
+ */
+window.addEventListener('offlyn-open-profiles', () => {
+  browser.runtime.sendMessage({ kind: 'OPEN_PROFILES_PAGE' }).catch(() => {});
 });
 
 /**

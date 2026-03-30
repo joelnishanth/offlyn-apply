@@ -11,7 +11,7 @@
 
 import { setHTML, appendHTML } from '../shared/html';
 
-import type { UserProfile } from '../shared/profile';
+import type { UserProfile, ProfileMeta } from '../shared/profile';
 import type { FieldSchema }  from '../shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,13 +32,17 @@ interface CompatData {
 // State
 // ─────────────────────────────────────────────────────────────────────────────
 
-let host:          HTMLElement | null = null;
-let shadow:        ShadowRoot  | null = null;
-let fields:        FieldSchema[]      = [];
-let logoUrl:       string             = '';
-let headerLogoUrl: string             = '';
-let panelOpen   = false;
-let compatOpen  = false;
+let host:              HTMLElement | null = null;
+let shadow:            ShadowRoot  | null = null;
+let fields:            FieldSchema[]      = [];
+let logoUrl:           string             = '';
+let headerLogoUrl:     string             = '';
+let panelOpen       = false;
+let compatOpen      = false;
+let currentProfiles:   ProfileMeta[]      = [];
+let currentActiveId:   string             = '';
+let currentSetupIds:   Set<string>        = new Set();
+let currentProfileScores: Map<string, number> = new Map();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API
@@ -51,13 +55,22 @@ export function showCompatibilityWidget(
   pageText:  string,
   jobFields: FieldSchema[] = [],
   monogramUrl: string = '',
-  primaryLogoUrl: string = ''
+  primaryLogoUrl: string = '',
+  profiles: ProfileMeta[] = [],
+  activeProfileId: string = '',
+  setupProfileIds: Set<string> = new Set(),
+  profileScores: Map<string, number> = new Map(),
 ): void {
+  const wasPanelOpen = panelOpen;
   removeCompatibilityWidget();
-  fields        = jobFields;
-  logoUrl       = monogramUrl;
-  headerLogoUrl = primaryLogoUrl;
-  panelOpen  = false;
+  fields           = jobFields;
+  logoUrl          = monogramUrl;
+  headerLogoUrl    = primaryLogoUrl;
+  currentProfiles  = profiles;
+  currentActiveId  = activeProfileId;
+  currentSetupIds  = setupProfileIds;
+  currentProfileScores = profileScores;
+  panelOpen  = wasPanelOpen;
   compatOpen = false;
 
   const data = computeCompatibility(profile, pageText);
@@ -74,6 +87,7 @@ export function showCompatibilityWidget(
     alignItems:    'flex-end',
     gap:           '10px',
   });
+  host.style.setProperty('line-height', 'normal', 'important');
   document.body.appendChild(host);
 
   shadow = host.attachShadow({ mode: 'open' });
@@ -94,7 +108,28 @@ export function removeCompatibilityWidget(): void {
   host?.remove();
   host = shadow = null;
   fields = [];
+  currentProfiles = [];
+  currentActiveId = '';
+  currentSetupIds = new Set();
+  currentProfileScores = new Map();
   panelOpen = compatOpen = false;
+}
+
+export function updateWidgetProfile(
+  newActiveId: string,
+  newProfiles: ProfileMeta[],
+  newSetupIds?: Set<string>,
+  newScores?: Map<string, number>,
+): void {
+  currentActiveId = newActiveId;
+  currentProfiles = newProfiles;
+  if (newSetupIds) currentSetupIds = newSetupIds;
+  if (newScores) currentProfileScores = newScores;
+  if (!shadow) return;
+  const existing = shadow.getElementById('ow-profile-section');
+  if (!existing) return;
+  const fresh = buildProfileSection();
+  existing.replaceWith(fresh);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -117,12 +152,10 @@ function mount(sr: ShadowRoot, data: CompatData): void {
   const pill = buildPill(data);
   root.appendChild(pill);
 
-  // ── panel (hidden initially, opens below pill) ──
   const panel = buildPanel(sr, data);
-  panel.style.display = 'none';
+  panel.style.display = panelOpen ? 'block' : 'none';
   root.appendChild(panel);
 
-  // wire pill click
   pill.addEventListener('click', () => {
     panelOpen = !panelOpen;
     panel.style.display = panelOpen ? 'block' : 'none';
@@ -316,6 +349,9 @@ function buildPanel(sr: ShadowRoot, data: CompatData): HTMLElement {
   // Actions section
   body.appendChild(buildActionsSection(sr, req));
 
+  // Profile section
+  body.appendChild(buildProfileSection());
+
   // Compat toggle row
   const compatToggle = buildCompatToggle(data);
   body.appendChild(compatToggle.row);
@@ -397,6 +433,203 @@ function buildActionsSection(sr: ShadowRoot, req: number): HTMLElement {
       .then(() => setStatus(statusEl, 'Field details copied!', '#16a34a'))
       .catch(() => setStatus(statusEl, 'Copy failed', '#dc2626'));
   });
+
+  return wrap;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Profile section
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildProfileSection(): HTMLElement {
+  const wrap = el('div');
+  wrap.id = 'ow-profile-section';
+  setStyles(wrap, {
+    padding:       '8px 14px',
+    borderBottom:  '1px solid #f1f5f9',
+    display:       'flex',
+    flexDirection: 'column',
+    gap:           '0',
+  });
+
+  const active = currentProfiles.find(p => p.id === currentActiveId) ?? currentProfiles[0];
+  const profileColor = active?.color ?? '#7c3aed';
+  const profileName  = active?.name || 'My Profile';
+  const isSetUp      = active ? currentSetupIds.has(active.id) : false;
+
+  // Single compact row: [dot] [name · role] [arrow?] [manage]
+  const headerRow = el('div');
+  setStyles(headerRow, {
+    display:     'flex',
+    flexDirection: 'row',
+    alignItems:  'center',
+    gap:         '6px',
+    padding:     '4px 0',
+  });
+
+  const dot = el('div');
+  setStyles(dot, {
+    width: '8px', height: '8px', borderRadius: '50%',
+    background: profileColor, flexShrink: '0',
+  });
+  headerRow.appendChild(dot);
+
+  const nameLabel = el('span');
+  setStyles(nameLabel, {
+    fontSize: '12px', fontWeight: '600', color: '#1e293b',
+    lineHeight: '16px',
+    flex: '1', minWidth: '0', overflow: 'hidden',
+    textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  });
+  nameLabel.textContent = profileName;
+  if (!isSetUp) {
+    const badge = el('span');
+    setStyles(badge, { fontSize: '9px', color: '#94a3b8', fontWeight: '400', marginLeft: '4px' });
+    badge.textContent = '(needs setup)';
+    nameLabel.appendChild(badge);
+  }
+  headerRow.appendChild(nameLabel);
+
+  let dropdownEl: HTMLElement | null = null;
+  let arrow: HTMLElement | null = null;
+  if (currentProfiles.length > 1) {
+    arrow = el('span');
+    setStyles(arrow, { color: '#94a3b8', display: 'inline-flex', flexShrink: '0', cursor: 'pointer', transition: 'transform 0.2s' });
+    setHTML(arrow, `<svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 5 7 9 11 5"/></svg>`);
+    headerRow.appendChild(arrow);
+  }
+
+  const manageBtn = el('button');
+  setStyles(manageBtn, {
+    fontSize: '10px', color: '#7c3aed', background: 'none', border: 'none',
+    cursor: 'pointer', padding: '0', fontFamily: 'inherit', flexShrink: '0',
+    textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: '2px',
+    whiteSpace: 'nowrap',
+  });
+  manageBtn.textContent = 'Manage';
+  manageBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent('offlyn-open-profiles'));
+  });
+  headerRow.appendChild(manageBtn);
+
+  wrap.appendChild(headerRow);
+
+  // Dropdown (if >1 profile)
+  if (currentProfiles.length > 1 && arrow) {
+    dropdownEl = el('div');
+    setStyles(dropdownEl, {
+      display: 'none', flexDirection: 'column', gap: '1px',
+      marginTop: '4px', background: '#f8fafc', borderRadius: '6px',
+      padding: '3px', border: '1px solid #e2e8f0',
+    });
+
+    let dropOpen = false;
+    const toggleDrop = () => {
+      dropOpen = !dropOpen;
+      dropdownEl!.style.display = dropOpen ? 'flex' : 'none';
+      arrow!.style.transform = dropOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+    };
+    arrow.addEventListener('click', (e) => { e.stopPropagation(); toggleDrop(); });
+    nameLabel.style.cursor = 'pointer';
+    nameLabel.addEventListener('click', (e) => { e.stopPropagation(); toggleDrop(); });
+
+    let bestFitId = '';
+    let bestFitScore = -1;
+    currentProfileScores.forEach((score, id) => {
+      if (score > bestFitScore) { bestFitScore = score; bestFitId = id; }
+    });
+
+    currentProfiles.forEach(p => {
+      const isActive = p.id === currentActiveId;
+      const hasData = currentSetupIds.has(p.id);
+      const score = currentProfileScores.get(p.id);
+      const isBestFit = p.id === bestFitId && currentProfileScores.size > 1;
+      const item = el('button');
+      setStyles(item, {
+        display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '6px',
+        padding: '5px 6px', borderRadius: '4px', border: 'none',
+        background: isActive ? '#e0e7ff' : isBestFit ? '#f0fdf4' : 'transparent',
+        cursor: isActive ? 'default' : 'pointer',
+        textAlign: 'left', fontFamily: 'inherit', width: '100%',
+        opacity: hasData || isActive ? '1' : '0.7',
+      });
+      const itemDot = el('div');
+      setStyles(itemDot, { width: '7px', height: '7px', borderRadius: '50%', background: p.color, flexShrink: '0' });
+      item.appendChild(itemDot);
+
+      const itemLabel = el('span');
+      setStyles(itemLabel, {
+        fontSize: '11px', fontWeight: isActive ? '600' : '400',
+        color: isActive ? '#4338ca' : '#334155', flex: '1',
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      });
+      itemLabel.textContent = (p.name || 'Unnamed Profile') + (p.targetRole ? ` · ${p.targetRole}` : '');
+      item.appendChild(itemLabel);
+
+      if (score !== undefined) {
+        const scorePill = el('span');
+        const pillColor = isBestFit ? '#16a34a' : '#64748b';
+        setStyles(scorePill, {
+          fontSize: '9px', fontWeight: '600', color: pillColor,
+          background: isBestFit ? '#dcfce7' : '#f1f5f9',
+          padding: '1px 5px', borderRadius: '8px', flexShrink: '0',
+          lineHeight: '1.4',
+        });
+        scorePill.textContent = `${score}%`;
+        item.appendChild(scorePill);
+      }
+
+      if (isBestFit) {
+        const bestTag = el('span');
+        setStyles(bestTag, {
+          fontSize: '8px', fontWeight: '600', color: '#16a34a',
+          flexShrink: '0', letterSpacing: '0.02em',
+        });
+        bestTag.textContent = 'Best fit';
+        item.appendChild(bestTag);
+      } else if (!hasData && !isActive) {
+        const setupTag = el('span');
+        setStyles(setupTag, { fontSize: '9px', color: '#94a3b8', flexShrink: '0' });
+        setupTag.textContent = 'Set up';
+        item.appendChild(setupTag);
+      }
+      if (isActive) {
+        const check = el('span');
+        setStyles(check, { color: '#4338ca', flexShrink: '0', fontSize: '10px' });
+        check.textContent = '✓';
+        item.appendChild(check);
+      }
+
+      if (!isActive) {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.dispatchEvent(new CustomEvent('offlyn-switch-profile', { detail: { profileId: p.id } }));
+          dropdownEl!.style.display = 'none';
+          dropOpen = false;
+          arrow!.style.transform = 'rotate(0deg)';
+        });
+      }
+      dropdownEl!.appendChild(item);
+    });
+
+    // "+ Set up new profile" link at bottom
+    const newProfileBtn = el('button');
+    setStyles(newProfileBtn, {
+      display: 'flex', alignItems: 'center', gap: '4px',
+      padding: '5px 6px', borderRadius: '4px', border: 'none', background: 'transparent',
+      cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%',
+      fontSize: '10px', color: '#7c3aed', borderTop: '1px solid #e2e8f0', marginTop: '2px',
+    });
+    newProfileBtn.textContent = '+ New profile';
+    newProfileBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.dispatchEvent(new CustomEvent('offlyn-open-profiles'));
+    });
+    dropdownEl.appendChild(newProfileBtn);
+
+    wrap.appendChild(dropdownEl);
+  }
 
   return wrap;
 }
@@ -719,7 +952,7 @@ function setStatus(el: HTMLElement, msg: string, color: string): void {
 // Score computation
 // ─────────────────────────────────────────────────────────────────────────────
 
-function computeCompatibility(profile: UserProfile, pageText: string): CompatData {
+export function computeCompatibility(profile: UserProfile, pageText: string): CompatData {
   const text = pageText.toLowerCase();
 
   const userSkills = (profile.skills || []).map(s => s.toLowerCase().trim());
@@ -822,7 +1055,7 @@ function injectBaseCSS(sr: ShadowRoot): void {
   const s = document.createElement('style');
   s.textContent = `
     :host { all: initial; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.4; }
-    * { box-sizing: border-box; font-family: inherit; }
+    * { box-sizing: border-box; font-family: inherit; line-height: normal; }
     .ow-scrollbody::-webkit-scrollbar { width: 3px; }
     .ow-scrollbody::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 2px; }
     button { font-family: inherit; }
