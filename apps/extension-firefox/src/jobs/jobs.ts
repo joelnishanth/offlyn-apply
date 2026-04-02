@@ -18,6 +18,76 @@ let currentResults: JobListing[] = [];
 let savedJobIds = new Set<string>();
 let activeTab: 'results' | 'saved' = 'results';
 
+/* ------------------------------------------------------------------ */
+/*  Autocomplete data                                                  */
+/* ------------------------------------------------------------------ */
+
+const JOB_TITLES: string[] = [
+  'Software Engineer', 'Senior Software Engineer', 'Staff Software Engineer',
+  'Frontend Developer', 'Backend Developer', 'Full Stack Developer',
+  'DevOps Engineer', 'Site Reliability Engineer', 'Cloud Engineer',
+  'Data Scientist', 'Data Engineer', 'Data Analyst',
+  'Machine Learning Engineer', 'AI Engineer', 'ML Ops Engineer',
+  'Product Manager', 'Technical Product Manager', 'Program Manager',
+  'Project Manager', 'Scrum Master', 'Agile Coach',
+  'UX Designer', 'UI Designer', 'Product Designer', 'Graphic Designer',
+  'QA Engineer', 'Test Engineer', 'SDET',
+  'Security Engineer', 'Cybersecurity Analyst', 'Penetration Tester',
+  'Solutions Architect', 'Cloud Architect', 'Enterprise Architect',
+  'Database Administrator', 'System Administrator', 'Network Engineer',
+  'Technical Writer', 'Content Strategist',
+  'Mobile Developer', 'iOS Developer', 'Android Developer',
+  'React Developer', 'Angular Developer', 'Vue Developer',
+  'Python Developer', 'Java Developer', 'Go Developer', 'Rust Developer',
+  'Kubernetes Engineer', 'Platform Engineer', 'Infrastructure Engineer',
+  'Business Analyst', 'Systems Analyst', 'Business Intelligence Analyst',
+  'Sales Engineer', 'Customer Success Manager', 'Account Executive',
+  'Marketing Manager', 'Growth Engineer', 'SEO Specialist',
+  'Engineering Manager', 'VP of Engineering', 'CTO',
+  'IT Manager', 'IT Support Specialist', 'Help Desk Technician',
+  'Blockchain Developer', 'Web3 Engineer',
+  'Embedded Systems Engineer', 'Firmware Engineer', 'Hardware Engineer',
+  'Operations Manager', 'Supply Chain Analyst', 'Logistics Coordinator',
+  'Financial Analyst', 'Accountant', 'Controller',
+  'Human Resources Manager', 'Recruiter', 'Talent Acquisition',
+  'Legal Counsel', 'Compliance Officer', 'Paralegal',
+  'Nurse', 'Physician', 'Pharmacist', 'Medical Assistant',
+  'Teacher', 'Professor', 'Instructional Designer',
+  'Mechanical Engineer', 'Electrical Engineer', 'Civil Engineer', 'Chemical Engineer',
+  'Research Scientist', 'Lab Technician',
+  'Warehouse Associate', 'Delivery Driver', 'Forklift Operator',
+];
+
+const US_LOCATIONS: string[] = [
+  'Remote',
+  'New York, NY', 'Los Angeles, CA', 'Chicago, IL', 'Houston, TX',
+  'Phoenix, AZ', 'Philadelphia, PA', 'San Antonio, TX', 'San Diego, CA',
+  'Dallas, TX', 'San Jose, CA', 'Austin, TX', 'Jacksonville, FL',
+  'Fort Worth, TX', 'Columbus, OH', 'Charlotte, NC', 'Indianapolis, IN',
+  'San Francisco, CA', 'Seattle, WA', 'Denver, CO', 'Nashville, TN',
+  'Washington, DC', 'Oklahoma City, OK', 'El Paso, TX', 'Boston, MA',
+  'Portland, OR', 'Las Vegas, NV', 'Memphis, TN', 'Louisville, KY',
+  'Baltimore, MD', 'Milwaukee, WI', 'Albuquerque, NM', 'Tucson, AZ',
+  'Fresno, CA', 'Mesa, AZ', 'Sacramento, CA', 'Atlanta, GA',
+  'Kansas City, MO', 'Colorado Springs, CO', 'Omaha, NE', 'Raleigh, NC',
+  'Miami, FL', 'Minneapolis, MN', 'Tampa, FL', 'New Orleans, LA',
+  'Cleveland, OH', 'Pittsburgh, PA', 'Cincinnati, OH', 'St. Louis, MO',
+  'Orlando, FL', 'Salt Lake City, UT', 'Detroit, MI', 'Honolulu, HI',
+  'Palo Alto, CA', 'Mountain View, CA', 'Sunnyvale, CA', 'Cupertino, CA',
+  'Redmond, WA', 'Bellevue, WA', 'Irvine, CA', 'Santa Monica, CA',
+  'Boulder, CO', 'Ann Arbor, MI', 'Madison, WI', 'Durham, NC',
+  'Cambridge, MA', 'Scottsdale, AZ', 'Plano, TX', 'Irving, TX',
+  'Arlington, VA', 'Tysons, VA', 'Herndon, VA', 'Bethesda, MD',
+  'Silicon Valley, CA', 'Bay Area, CA', 'Research Triangle, NC',
+  'California', 'Texas', 'New York', 'Florida', 'Washington',
+  'Massachusetts', 'Colorado', 'Illinois', 'Georgia', 'Virginia',
+  'North Carolina', 'Pennsylvania', 'Ohio', 'Oregon', 'Arizona',
+];
+
+/* ------------------------------------------------------------------ */
+/*  Utility helpers                                                    */
+/* ------------------------------------------------------------------ */
+
 function escapeHtml(s: string): string {
   const d = document.createElement('div');
   d.textContent = s;
@@ -46,6 +116,133 @@ function relativeDate(iso: string): string {
   return `${Math.floor(days / 30)} months ago`;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Autocomplete engine                                                */
+/* ------------------------------------------------------------------ */
+
+function setupAutocomplete(
+  inputId: string,
+  dropdownId: string,
+  items: string[],
+): void {
+  const input = document.getElementById(inputId) as HTMLInputElement;
+  const dropdown = document.getElementById(dropdownId) as HTMLElement;
+  if (!input || !dropdown) return;
+
+  let highlighted = -1;
+  let filtered: string[] = [];
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function highlightMatch(text: string, query: string): string {
+    if (!query) return escapeHtml(text);
+    const idx = text.toLowerCase().indexOf(query.toLowerCase());
+    if (idx === -1) return escapeHtml(text);
+    const before = escapeHtml(text.slice(0, idx));
+    const match = escapeHtml(text.slice(idx, idx + query.length));
+    const after = escapeHtml(text.slice(idx + query.length));
+    return `${before}<mark>${match}</mark>${after}`;
+  }
+
+  function render(query: string): void {
+    const q = query.trim().toLowerCase();
+    if (!q) { close(); return; }
+
+    filtered = items.filter(item => item.toLowerCase().includes(q)).slice(0, 8);
+    if (filtered.length === 0) { close(); return; }
+
+    const exactMatch = filtered.length === 1 && filtered[0].toLowerCase() === q;
+    if (exactMatch) { close(); return; }
+
+    highlighted = -1;
+    dropdown.innerHTML = filtered.map((item, i) =>
+      `<div class="ac-option" data-index="${i}">${highlightMatch(item, query.trim())}</div>`
+    ).join('');
+    dropdown.classList.add('open');
+  }
+
+  function close(): void {
+    dropdown.classList.remove('open');
+    highlighted = -1;
+    filtered = [];
+  }
+
+  function select(value: string): void {
+    input.value = value;
+    close();
+    input.focus();
+  }
+
+  input.addEventListener('input', () => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => render(input.value), 80);
+  });
+
+  input.addEventListener('focus', () => {
+    if (input.value.trim()) render(input.value);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (!dropdown.classList.contains('open')) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      highlighted = Math.min(highlighted + 1, filtered.length - 1);
+      updateHighlight();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      highlighted = Math.max(highlighted - 1, 0);
+      updateHighlight();
+    } else if (e.key === 'Enter' && highlighted >= 0) {
+      e.preventDefault();
+      select(filtered[highlighted]);
+    } else if (e.key === 'Escape') {
+      close();
+    } else if (e.key === 'Tab') {
+      close();
+    }
+  });
+
+  function updateHighlight(): void {
+    dropdown.querySelectorAll('.ac-option').forEach((el, i) => {
+      el.classList.toggle('highlighted', i === highlighted);
+    });
+    const active = dropdown.querySelector('.highlighted');
+    if (active) active.scrollIntoView({ block: 'nearest' });
+  }
+
+  dropdown.addEventListener('mousedown', (e) => {
+    e.preventDefault(); // keep focus on input
+    const target = (e.target as HTMLElement).closest('.ac-option') as HTMLElement;
+    if (!target) return;
+    const idx = parseInt(target.dataset.index ?? '-1', 10);
+    if (idx >= 0 && idx < filtered.length) select(filtered[idx]);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!input.contains(e.target as Node) && !dropdown.contains(e.target as Node)) {
+      close();
+    }
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Filter pill toggle behavior                                        */
+/* ------------------------------------------------------------------ */
+
+function setupFilterPills(): void {
+  document.querySelectorAll<HTMLLabelElement>('.filter-pill').forEach(pill => {
+    const cb = pill.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    if (!cb) return;
+    cb.addEventListener('change', () => {
+      pill.classList.toggle('active', cb.checked);
+    });
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Saved jobs                                                         */
+/* ------------------------------------------------------------------ */
+
 async function getSavedJobs(): Promise<SavedJob[]> {
   try {
     const result = await browser.storage.local.get(SAVED_JOBS_KEY);
@@ -72,6 +269,10 @@ async function loadSavedIds(): Promise<void> {
   const saved = await getSavedJobs();
   savedJobIds = new Set(saved.map(j => j.id));
 }
+
+/* ------------------------------------------------------------------ */
+/*  Job card rendering                                                 */
+/* ------------------------------------------------------------------ */
 
 function companyNameToDomain(name: string): string {
   const cleaned = name
@@ -180,8 +381,6 @@ function bindLogoFallbacks(container: HTMLElement): void {
       if (fallback) fallback.style.display = 'flex';
     };
     img.addEventListener('error', showMonogram);
-    // Google's Favicon API returns a 16×16 generic globe for unknown domains
-    // even when sz=64 is requested. naturalWidth <= 16 → globe → use monogram.
     if (img.complete) {
       if (img.naturalWidth === 0 || img.naturalWidth <= 16) showMonogram();
     } else {
@@ -199,6 +398,28 @@ function bindApplyButtons(container: HTMLElement): void {
       if (!rawUrl || rawUrl === '#') return;
       btn.disabled = true;
       btn.textContent = 'Opening…';
+
+      // Record apply action for preference learning
+      const card = btn.closest('.job-card');
+      if (card) {
+        const jobId = card.getAttribute('data-job-id') ?? '';
+        const job = currentResults.find(j => j.id === jobId);
+        if (job) {
+          browser.runtime.sendMessage({
+            kind: 'RECORD_APPLY_ACTION',
+            action: {
+              jobTitle: job.title,
+              company: job.company,
+              location: job.location,
+              category: job.category,
+              salaryMin: job.salaryMin,
+              salaryMax: job.salaryMax,
+              timestamp: Date.now(),
+            },
+          }).catch(() => {});
+        }
+      }
+
       try {
         let finalUrl = rawUrl;
         if (rawUrl.includes('adzuna.com')) {
@@ -231,11 +452,26 @@ function bindSaveButtons(container: HTMLElement): void {
   });
 }
 
-async function doSearch(): Promise<void> {
+/* ------------------------------------------------------------------ */
+/*  Search                                                             */
+/* ------------------------------------------------------------------ */
+
+function gatherFilters() {
   const keywords = (document.getElementById('search-keywords') as HTMLInputElement).value.trim();
   const location = (document.getElementById('search-location') as HTMLInputElement).value.trim();
   const daysStr = (document.getElementById('search-days') as HTMLSelectElement).value;
   const remote = (document.getElementById('search-remote') as HTMLInputElement).checked;
+  const sortBy = (document.getElementById('search-sort') as HTMLSelectElement).value;
+  const salaryMinStr = (document.getElementById('salary-min') as HTMLInputElement).value.trim();
+  const salaryMaxStr = (document.getElementById('salary-max') as HTMLInputElement).value.trim();
+  const fullTime = (document.getElementById('search-fulltime') as HTMLInputElement).checked;
+  const contract = (document.getElementById('search-contract') as HTMLInputElement).checked;
+
+  return { keywords, location, daysStr, remote, sortBy, salaryMinStr, salaryMaxStr, fullTime, contract };
+}
+
+async function doSearch(): Promise<void> {
+  const { keywords, location, daysStr, remote, sortBy, salaryMinStr, salaryMaxStr, fullTime, contract } = gatherFilters();
 
   if (!keywords) return;
 
@@ -249,14 +485,22 @@ async function doSearch(): Promise<void> {
   loading.style.display = '';
 
   try {
+    const filters: Record<string, any> = {
+      keywords: remote ? `${keywords} remote` : keywords,
+      location: location || undefined,
+      daysPosted: daysStr ? parseInt(daysStr, 10) : undefined,
+      resultsPerPage: 20,
+    };
+
+    if (sortBy && sortBy !== 'default') filters.sortBy = sortBy;
+    if (salaryMinStr) filters.salaryMin = parseInt(salaryMinStr, 10);
+    if (salaryMaxStr) filters.salaryMax = parseInt(salaryMaxStr, 10);
+    if (fullTime) filters.fullTime = true;
+    if (contract) filters.contract = true;
+
     const response = await browser.runtime.sendMessage({
       kind: 'SEARCH_JOBS',
-      filters: {
-        keywords: remote ? `${keywords} remote` : keywords,
-        location: location || undefined,
-        daysPosted: daysStr ? parseInt(daysStr, 10) : undefined,
-        resultsPerPage: 20,
-      },
+      filters,
     });
 
     if (response?.kind === 'SEARCH_JOBS_RESULT' && response.result) {
@@ -270,6 +514,21 @@ async function doSearch(): Promise<void> {
       activeTab = 'results';
       updateTabButtons();
       await renderResults();
+
+      // Record search action for preference learning
+      browser.runtime.sendMessage({
+        kind: 'RECORD_SEARCH_ACTION',
+        action: {
+          keywords,
+          location: location || undefined,
+          remote,
+          fullTime,
+          contract,
+          salaryMin: salaryMinStr ? parseInt(salaryMinStr, 10) : undefined,
+          salaryMax: salaryMaxStr ? parseInt(salaryMaxStr, 10) : undefined,
+          timestamp: Date.now(),
+        },
+      }).catch(() => {});
     } else {
       currentResults = [];
       setHTML(grid, '<div class="empty-state"><h3>Search failed</h3><p>Could not fetch results. Try again.</p></div>');
@@ -291,9 +550,21 @@ function updateTabButtons(): void {
   });
 }
 
+/* ------------------------------------------------------------------ */
+/*  Event bindings                                                     */
+/* ------------------------------------------------------------------ */
+
 document.getElementById('btn-search')?.addEventListener('click', doSearch);
 
 document.getElementById('search-keywords')?.addEventListener('keydown', (e) => {
+  const dropdown = document.getElementById('ac-keywords-dropdown');
+  if (dropdown?.classList.contains('open')) return;
+  if (e.key === 'Enter') doSearch();
+});
+
+document.getElementById('search-location')?.addEventListener('keydown', (e) => {
+  const dropdown = document.getElementById('ac-location-dropdown');
+  if (dropdown?.classList.contains('open')) return;
   if (e.key === 'Enter') doSearch();
 });
 
@@ -304,6 +575,10 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     renderResults();
   });
 });
+
+/* ------------------------------------------------------------------ */
+/*  Profile auto-populate                                              */
+/* ------------------------------------------------------------------ */
 
 async function autoPopulateFromProfile(): Promise<void> {
   const profile = await getUserProfile();
@@ -334,4 +609,58 @@ async function autoPopulateFromProfile(): Promise<void> {
   }
 }
 
-loadSavedIds().then(() => autoPopulateFromProfile());
+/* ------------------------------------------------------------------ */
+/*  Scheduled results banner                                           */
+/* ------------------------------------------------------------------ */
+
+async function checkScheduledResults(): Promise<void> {
+  try {
+    const response = await browser.runtime.sendMessage({ kind: 'GET_SCHEDULED_RESULTS' });
+    if (response?.kind !== 'SCHEDULED_RESULTS') return;
+    const jobs = response.jobs ?? [];
+    if (jobs.length === 0) return;
+
+    const banner = document.getElementById('scheduled-banner');
+    const countEl = document.getElementById('scheduled-count');
+    if (banner && countEl) {
+      countEl.textContent = String(jobs.length);
+      banner.style.display = '';
+    }
+
+    document.getElementById('scheduled-view-btn')?.addEventListener('click', async () => {
+      currentResults = jobs;
+      const resultsInfo = document.getElementById('results-info')!;
+      const emptyState = document.getElementById('empty-state')!;
+
+      resultsInfo.style.display = '';
+      (document.getElementById('results-count') as HTMLElement).textContent =
+        `${jobs.length} jobs found from background search`;
+      emptyState.style.display = 'none';
+
+      activeTab = 'results';
+      updateTabButtons();
+      await renderResults();
+
+      if (banner) banner.style.display = 'none';
+      browser.runtime.sendMessage({ kind: 'CLEAR_SCHEDULED_RESULTS' }).catch(() => {});
+    });
+
+    document.getElementById('scheduled-dismiss-btn')?.addEventListener('click', () => {
+      if (banner) banner.style.display = 'none';
+      browser.runtime.sendMessage({ kind: 'CLEAR_SCHEDULED_RESULTS' }).catch(() => {});
+    });
+  } catch {}
+}
+
+/* ------------------------------------------------------------------ */
+/*  Init                                                               */
+/* ------------------------------------------------------------------ */
+
+setupAutocomplete('search-keywords', 'ac-keywords-dropdown', JOB_TITLES);
+setupAutocomplete('search-location', 'ac-location-dropdown', US_LOCATIONS);
+setupFilterPills();
+
+loadSavedIds().then(() => {
+  autoPopulateFromProfile();
+  checkScheduledResults();
+});

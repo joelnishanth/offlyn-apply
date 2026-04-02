@@ -855,8 +855,22 @@
       height: 100%;
       background: linear-gradient(90deg, #16a34a, #22c55e);
       border-radius: 4px;
-      transition: width 0.3s ease;
+      transition: width 0.5s ease;
       width: 0%;
+      position: relative;
+    }
+    .progress-fill::after {
+      content: '';
+      position: absolute;
+      top: 0; right: 0; bottom: 0;
+      width: 40px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4));
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+    @keyframes shimmer {
+      0% { opacity: 0; }
+      50% { opacity: 1; }
+      100% { opacity: 0; }
     }
     
     .progress-text {
@@ -865,22 +879,12 @@
       text-align: center;
     }
 
-    .live-parse-feed {
-      display: none !important;
-      margin-top: 16px;
-      background: #0f172a;
-      border-radius: 10px;
-      padding: 14px 16px;
-      max-height: 180px;
-      overflow-y: auto;
-      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    .progress-time-hint {
+      text-align: center;
       font-size: 12px;
-      line-height: 1.7;
       color: #94a3b8;
-      scroll-behavior: smooth;
-      border: 1px solid #1e293b;
+      margin: 4px 0 0;
     }
-    .live-parse-feed.visible { display: none !important; }
 
     .parse-status-label {
       text-align: center;
@@ -891,53 +895,62 @@
       transition: opacity 0.3s ease;
     }
 
-    .live-parse-feed::-webkit-scrollbar { width: 5px; }
-    .live-parse-feed::-webkit-scrollbar-track { background: transparent; }
-    .live-parse-feed::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-
-    .feed-line {
-      white-space: pre-wrap;
-      word-break: break-word;
-      opacity: 0;
-      animation: feedLineIn 0.2s ease forwards;
-    }
-    .feed-line.stage-label {
-      color: #22c55e;
-      font-weight: 600;
-      margin-top: 6px;
-    }
-    .feed-line.text-chunk {
-      color: #64748b;
-    }
-    .feed-line.extracted {
-      color: #38bdf8;
-    }
-    .feed-line.highlight {
-      color: #fbbf24;
-    }
-    .feed-line.done-line {
-      color: #4ade80;
-      font-weight: 600;
-    }
-    @keyframes feedLineIn {
-      from { opacity: 0; transform: translateY(4px); }
-      to { opacity: 1; transform: translateY(0); }
+    .parse-detail-label {
+      text-align: center;
+      font-size: 12px;
+      color: #94a3b8;
+      margin: 4px 0 0;
+      min-height: 18px;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      transition: opacity 0.3s ease;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    .feed-cursor {
-      display: inline-block;
-      width: 7px;
-      height: 14px;
-      background: #22c55e;
-      margin-left: 2px;
-      vertical-align: text-bottom;
-      animation: cursorBlink 0.8s step-end infinite;
+    .tip-carousel {
+      margin: 20px auto 0;
+      padding: 16px 20px;
+      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f0f9ff 100%);
+      border-radius: 12px;
+      border: 1px solid #d1fae5;
+      max-width: 480px;
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
     }
-    @keyframes cursorBlink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0; }
+    .tip-carousel-icon {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: #dcfce7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #16a34a;
     }
-    
+    .tip-carousel-icon svg {
+      width: 20px;
+      height: 20px;
+    }
+    .tip-carousel-text {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #334155;
+      opacity: 1;
+      transition: opacity 0.4s ease;
+    }
+    .tip-carousel-text.fading { opacity: 0; }
+    html.dark .tip-carousel {
+      background: linear-gradient(135deg, #0f2918 0%, #0c1f17 50%, #0f1729 100%);
+      border-color: #1a3a2a;
+    }
+    html.dark .tip-carousel-icon { background: #1a3a2a; }
+    html.dark .tip-carousel-text { color: #94a3b8; }
+
     .progress-stages {
       display: flex;
       justify-content: space-between;
@@ -972,16 +985,23 @@
       align-items: center;
       justify-content: center;
       font-size: 16px;
+      transition: all 0.3s ease;
     }
     
     .progress-stage.active .stage-icon {
-      background: #e3f2fd;
-      color: #1e2a3a;
+      background: #dcfce7;
+      color: #16a34a;
+      box-shadow: 0 0 0 3px rgba(22,163,74,0.15);
+      animation: stagePulse 2s ease-in-out infinite;
+    }
+    @keyframes stagePulse {
+      0%, 100% { box-shadow: 0 0 0 3px rgba(22,163,74,0.15); }
+      50% { box-shadow: 0 0 0 6px rgba(22,163,74,0.08); }
     }
     
     .progress-stage.completed .stage-icon {
-      background: #e8f5e9;
-      color: #4caf50;
+      background: #dcfce7;
+      color: #16a34a;
     }
     
     .raw-data-section {
@@ -1924,9 +1944,9 @@
               <div class="progress-fill" id="progressFill"></div>
             </div>
             <div class="progress-text" id="progressText">Preparing...</div>
+            <p class="progress-time-hint" id="progressTimeHint"></p>
             <p class="parse-status-label" id="parseFriendlyStatus"></p>
-
-            <div class="live-parse-feed" id="liveParseFeed"></div>
+            <p class="parse-detail-label" id="parseDetailLabel"></p>
             
             <div class="progress-stages">
               <div class="progress-stage" id="stage-read">
@@ -1945,6 +1965,13 @@
                 <div class="stage-icon">4</div>
                 <span>Complete</span>
               </div>
+            </div>
+
+            <div class="tip-carousel" id="tipCarousel">
+              <div class="tip-carousel-icon" id="tipCarouselIcon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <div class="tip-carousel-text" id="tipCarouselText">Your data never leaves your device &mdash; all AI processing happens locally.</div>
             </div>
           </div>
           

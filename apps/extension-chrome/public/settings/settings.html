@@ -445,6 +445,58 @@
       </div>
     </div>
 
+    <!-- Job Discovery -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Job Discovery</div>
+        <div class="section-desc">Automatic job searches and preference learning</div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Scheduled Search</div>
+          <div class="setting-hint">Automatically search for jobs in the background</div>
+        </div>
+        <div class="toggle active" id="toggle-scheduled-search" role="switch" aria-checked="true" aria-label="Toggle scheduled search" tabindex="0"></div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Search Frequency</div>
+          <div class="setting-hint">How often to search for new jobs</div>
+        </div>
+        <select class="setting-input" id="select-search-interval" style="width:auto;padding:8px 12px;">
+          <option value="1">Every hour</option>
+          <option value="4">Every 4 hours</option>
+          <option value="8" selected>Every 8 hours</option>
+          <option value="12">Every 12 hours</option>
+          <option value="24">Once a day</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Browser Notifications</div>
+          <div class="setting-hint">Get notified when new matching jobs are found</div>
+        </div>
+        <div class="toggle active" id="toggle-notifications" role="switch" aria-checked="true" aria-label="Toggle notifications" tabindex="0"></div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Learn Preferences</div>
+          <div class="setting-hint">Improve recommendations based on your searches and applications</div>
+        </div>
+        <div class="toggle active" id="toggle-pref-learn" role="switch" aria-checked="true" aria-label="Toggle preference learning" tabindex="0"></div>
+      </div>
+      <div class="action-row">
+        <button class="action-btn" id="btn-clear-prefs">Clear Learned Preferences</button>
+        <span class="action-feedback" id="feedback-clear-prefs">Cleared</span>
+      </div>
+      <div class="setting-row" style="border-top:1px solid #f0f0f0;">
+        <div class="setting-info">
+          <div class="setting-label" style="font-size:12px;color:#94a3b8;">Last background search</div>
+        </div>
+        <span style="font-size:12px;color:#94a3b8;" id="last-search-time">Never</span>
+      </div>
+    </div>
+
     <!-- Notifications -->
     <div class="section">
       <div class="section-header">

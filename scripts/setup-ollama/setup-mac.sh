@@ -44,8 +44,19 @@ else
        -o "$TMP_TGZ" --no-progress-meter
 
   echo "→ Installing Ollama to ~/.offlyn/..."
-  mkdir -p "$HOME/.offlyn"
-  tar -xzf "$TMP_TGZ" -C "$HOME/.offlyn/" ollama 2>/dev/null || tar -xzf "$TMP_TGZ" -C "$HOME/.offlyn/"
+  mkdir -p "$HOME/.offlyn" 2>/dev/null || true
+  if [ ! -w "$HOME/.offlyn" ]; then
+    echo "→ ~/.offlyn not writable, requesting permission fix..."
+    osascript -e "do shell script \"chown -R $(whoami):staff $HOME/.offlyn\" with administrator privileges" 2>/dev/null || true
+  fi
+  if [ ! -w "$HOME/.offlyn" ]; then
+    echo "→ Cannot write to ~/.offlyn, using alternate location..."
+    mkdir -p "$HOME/.offlyn-data"
+    OFFLYN_BIN="$HOME/.offlyn-data/ollama"
+    tar -xzf "$TMP_TGZ" -C "$HOME/.offlyn-data/" ollama 2>/dev/null || tar -xzf "$TMP_TGZ" -C "$HOME/.offlyn-data/"
+  else
+    tar -xzf "$TMP_TGZ" -C "$HOME/.offlyn/" ollama 2>/dev/null || tar -xzf "$TMP_TGZ" -C "$HOME/.offlyn/"
+  fi
   rm -f "$TMP_TGZ"
   chmod +x "$OFFLYN_BIN"
   xattr -dr com.apple.quarantine "$OFFLYN_BIN" 2>/dev/null || true
@@ -84,6 +95,7 @@ PLISTEOF
 launchctl unload "$PLIST" 2>/dev/null || true
 launchctl load "$PLIST"
 launchctl setenv OLLAMA_ORIGINS "$ORIGINS"
+export OLLAMA_ORIGINS="$ORIGINS"
 echo "✓ CORS configured (persists across reboots)"
 
 # ── Step 3: Start Ollama ───────────────────────────────────────────────────
@@ -91,8 +103,11 @@ echo "→ Starting Ollama..."
 if [ -z "$_OLLAMA" ] || [ ! -x "$_OLLAMA" ]; then
   echo "✗ Cannot start Ollama: no binary found." && exit 1
 fi
+# Kill any existing Ollama so the new one picks up OLLAMA_ORIGINS
+pkill -f "ollama serve" 2>/dev/null || true
+sleep 1
 # Redirect stdin to /dev/null so the process doesn't inherit the native messaging socket.
-nohup "$_OLLAMA" serve </dev/null &>/dev/null &
+OLLAMA_ORIGINS="$ORIGINS" nohup "$_OLLAMA" serve </dev/null &>/dev/null &
 
 echo "→ Waiting for Ollama to be ready (up to 30s)..."
 for i in $(seq 1 30); do

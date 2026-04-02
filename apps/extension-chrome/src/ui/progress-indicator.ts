@@ -1,17 +1,33 @@
 /**
- * Progress indicator - shows a branded slide-in card during autofill
+ * Progress indicator — delegates to the widget's minimized ring when it
+ * is mounted; falls back to a standalone slide-in card otherwise.
  * Brand: navy #1e293b + green #16a34a
  */
 
 import { setHTML } from '../shared/html';
+import {
+  isWidgetMounted,
+  enterFillMode,
+  updateFillProgress,
+  exitFillMode,
+} from './compatibility-widget';
 
 let progressElement: HTMLElement | null = null;
+let usingWidgetRing = false;
 
 /**
  * Show progress indicator
  */
 export function showProgress(total: number): void {
   hideProgress(0);
+
+  if (isWidgetMounted()) {
+    usingWidgetRing = true;
+    enterFillMode(total);
+    return;
+  }
+
+  usingWidgetRing = false;
   ensureProgressStyles();
 
   const container = document.createElement('div');
@@ -72,6 +88,11 @@ export function showProgress(total: number): void {
  * Update fill progress
  */
 export function updateProgress(current: number, total: number, fieldName?: string): void {
+  if (usingWidgetRing) {
+    updateFillProgress(current, total, fieldName);
+    return;
+  }
+
   if (!progressElement) return;
 
   const bar = progressElement.querySelector('#offlyn-progress-bar') as HTMLElement;
@@ -87,6 +108,11 @@ export function updateProgress(current: number, total: number, fieldName?: strin
  * Hide progress indicator (with optional delay)
  */
 export function hideProgress(delay: number = 1000): void {
+  if (usingWidgetRing) {
+    usingWidgetRing = false;
+    return;
+  }
+
   if (!progressElement) return;
   const el = progressElement;
   setTimeout(() => {
@@ -100,6 +126,12 @@ export function hideProgress(delay: number = 1000): void {
  * Show completion state then auto-hide
  */
 export function showProgressComplete(success: boolean, filled: number, total: number): void {
+  if (usingWidgetRing) {
+    exitFillMode(success, filled, total);
+    usingWidgetRing = false;
+    return;
+  }
+
   if (!progressElement) return;
 
   const spinner = progressElement.querySelector('.offlyn-spinner') as HTMLElement;
@@ -128,8 +160,7 @@ export function showProgressComplete(success: boolean, filled: number, total: nu
       : 'linear-gradient(90deg,#f59e0b,#fbbf24)';
   }
 
-  // Re-assign so hideProgress works
-  progressElement = progressElement; // keep reference
+  progressElement = progressElement;
   hideProgress(2000);
 }
 

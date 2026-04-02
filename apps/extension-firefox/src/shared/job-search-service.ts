@@ -29,6 +29,11 @@ export interface JobSearchFilters {
   page?: number;
   resultsPerPage?: number;
   country?: string;
+  sortBy?: 'default' | 'date' | 'salary' | 'relevance' | 'hybrid';
+  fullTime?: boolean;
+  partTime?: boolean;
+  permanent?: boolean;
+  contract?: boolean;
 }
 
 export interface JobSearchResult {
@@ -58,6 +63,11 @@ function buildAdzunaUrl(filters: JobSearchFilters): string {
   if (filters.salaryMax) params.set('salary_max', String(filters.salaryMax));
   if (filters.daysPosted) params.set('max_days_old', String(filters.daysPosted));
   if (filters.resultsPerPage) params.set('results_per_page', String(filters.resultsPerPage));
+  if (filters.sortBy && filters.sortBy !== 'default') params.set('sort_by', filters.sortBy);
+  if (filters.fullTime) params.set('full_time', '1');
+  if (filters.partTime) params.set('part_time', '1');
+  if (filters.permanent) params.set('permanent', '1');
+  if (filters.contract) params.set('contract', '1');
   params.set('content-type', 'application/json');
 
   return `${base}?${params.toString()}`;

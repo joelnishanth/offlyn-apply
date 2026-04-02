@@ -44,6 +44,22 @@ let currentActiveId:   string             = '';
 let currentSetupIds:   Set<string>        = new Set();
 let currentProfileScores: Map<string, number> = new Map();
 
+// Fill-mode state (minimized progress ring)
+let fillModeActive     = false;
+let fillRingSvg:       SVGSVGElement | null = null;
+let fillRingCircle:    SVGCircleElement | null = null;
+let fillLabelEl:       HTMLElement | null = null;
+let fillPanelRef:      HTMLElement | null = null;
+let fillPillRef:       HTMLElement | null = null;
+
+// Drag state
+let isDragging       = false;
+let dragStartX       = 0;
+let dragStartY       = 0;
+let dragHostStartX   = 0;
+let dragHostStartY   = 0;
+let dragMoved        = false;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API
 // ─────────────────────────────────────────────────────────────────────────────
@@ -82,10 +98,6 @@ export function showCompatibilityWidget(
     top:      '24px',
     right:    '24px',
     zIndex:   '2147483647',
-    display:  'flex',
-    flexDirection: 'column',
-    alignItems:    'flex-end',
-    gap:           '10px',
   });
   host.style.setProperty('line-height', 'normal', 'important');
   document.body.appendChild(host);
@@ -105,6 +117,8 @@ export function updateCompatibilityFields(newFields: FieldSchema[]): void {
 }
 
 export function removeCompatibilityWidget(): void {
+  document.removeEventListener('pointermove', onDragMove);
+  document.removeEventListener('pointerup', onDragEnd);
   host?.remove();
   host = shadow = null;
   fields = [];
@@ -113,6 +127,10 @@ export function removeCompatibilityWidget(): void {
   currentSetupIds = new Set();
   currentProfileScores = new Map();
   panelOpen = compatOpen = false;
+  fillModeActive = false;
+  fillRingSvg = fillRingCircle = null;
+  fillLabelEl = fillPanelRef = fillPillRef = null;
+  isDragging = dragMoved = false;
 }
 
 export function updateWidgetProfile(
@@ -133,6 +151,141 @@ export function updateWidgetProfile(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Fill-mode API (minimized circular progress ring)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const RING_RADIUS = 34;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+export function isWidgetMounted(): boolean {
+  return host !== null && shadow !== null;
+}
+
+export function enterFillMode(total: number): void {
+  if (!shadow || !host) return;
+  fillModeActive = true;
+
+  // Close panel
+  if (fillPanelRef) fillPanelRef.style.display = 'none';
+  panelOpen = false;
+
+  // Create SVG ring around pill
+  if (!fillRingSvg && fillPillRef) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '76');
+    svg.setAttribute('height', '76');
+    svg.setAttribute('viewBox', '0 0 76 76');
+    svg.style.cssText = 'position:absolute;top:-8px;right:-8px;pointer-events:none;z-index:1;';
+
+    // Track circle (gray)
+    const track = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    track.setAttribute('cx', '38');
+    track.setAttribute('cy', '38');
+    track.setAttribute('r', String(RING_RADIUS));
+    track.setAttribute('fill', 'none');
+    track.setAttribute('stroke', '#e2e8f0');
+    track.setAttribute('stroke-width', '3.5');
+    svg.appendChild(track);
+
+    // Progress circle (green)
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', '38');
+    circle.setAttribute('cy', '38');
+    circle.setAttribute('r', String(RING_RADIUS));
+    circle.setAttribute('fill', 'none');
+    circle.setAttribute('stroke', '#16a34a');
+    circle.setAttribute('stroke-width', '3.5');
+    circle.setAttribute('stroke-linecap', 'round');
+    circle.style.cssText = `
+      stroke-dasharray: ${RING_CIRCUMFERENCE};
+      stroke-dashoffset: ${RING_CIRCUMFERENCE};
+      transform: rotate(-90deg);
+      transform-origin: 38px 38px;
+      transition: stroke-dashoffset 0.3s ease;
+    `;
+    svg.appendChild(circle);
+
+    fillRingSvg = svg;
+    fillRingCircle = circle;
+
+    // Attach to pill's parent (relative container)
+    fillPillRef.style.position = 'relative';
+    const pillWrap = fillPillRef.parentElement;
+    if (pillWrap) {
+      pillWrap.style.position = 'relative';
+      pillWrap.appendChild(svg as unknown as HTMLElement);
+    }
+  }
+
+  // Create progress label below pill
+  if (!fillLabelEl) {
+    const label = el('div');
+    label.id = 'ow-fill-label';
+    setStyles(label, {
+      textAlign: 'center',
+      fontSize: '10px',
+      fontWeight: '600',
+      color: '#16a34a',
+      marginTop: '-4px',
+      whiteSpace: 'nowrap',
+      opacity: '0.9',
+    });
+    label.textContent = `0 / ${total}`;
+
+    const root = shadow.querySelector('.ow-root');
+    if (root && fillPillRef) {
+      // Insert label after pill
+      const nextSib = fillPillRef.nextSibling;
+      if (nextSib) root.insertBefore(label, nextSib);
+      else root.appendChild(label);
+    }
+    fillLabelEl = label;
+  }
+
+  updateFillProgress(0, total);
+}
+
+export function updateFillProgress(current: number, total: number, fieldName?: string): void {
+  if (!fillModeActive) return;
+
+  const pct = total > 0 ? current / total : 0;
+  if (fillRingCircle) {
+    fillRingCircle.style.strokeDashoffset = String(RING_CIRCUMFERENCE * (1 - pct));
+  }
+
+  if (fillLabelEl) {
+    fillLabelEl.textContent = fieldName
+      ? `${current}/${total}`
+      : `${current}/${total}`;
+  }
+}
+
+export function exitFillMode(success: boolean, filled: number, total: number): void {
+  if (!fillModeActive) return;
+
+  // Show completion state on ring
+  if (fillRingCircle) {
+    fillRingCircle.style.strokeDashoffset = '0';
+    fillRingCircle.setAttribute('stroke', success ? '#16a34a' : '#f59e0b');
+  }
+
+  if (fillLabelEl) {
+    fillLabelEl.textContent = success ? `${filled} filled` : `${filled}/${total}`;
+    fillLabelEl.style.color = success ? '#16a34a' : '#f59e0b';
+  }
+
+  // After 2.5s, clean up ring and restore normal state
+  setTimeout(() => {
+    fillRingSvg?.remove();
+    fillRingSvg = null;
+    fillRingCircle = null;
+    fillLabelEl?.remove();
+    fillLabelEl = null;
+    fillModeActive = false;
+  }, 2500);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Mount / render
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -142,10 +295,10 @@ function mount(sr: ShadowRoot, data: CompatData): void {
   const root = el('div');
   root.className = 'ow-root';
   setStyles(root, {
-    display:       'flex',
+    position:      'relative',
+    display:       'inline-flex',
     flexDirection: 'column',
     alignItems:    'flex-end',
-    gap:           '10px',
   });
 
   // ── monogram pill (always visible, at top) ──
@@ -153,15 +306,123 @@ function mount(sr: ShadowRoot, data: CompatData): void {
   root.appendChild(pill);
 
   const panel = buildPanel(sr, data);
+  setStyles(panel, {
+    position: 'absolute',
+    top:      '70px',
+    width:    '380px',
+    maxWidth: `${Math.min(380, window.innerWidth - 20)}px`,
+  });
   panel.style.display = panelOpen ? 'block' : 'none';
   root.appendChild(panel);
 
-  pill.addEventListener('click', () => {
+  fillPanelRef = panel;
+  fillPillRef = pill;
+
+  // Click to toggle panel (only if not dragging)
+  pill.addEventListener('click', (e) => {
+    if (dragMoved || fillModeActive) return;
+    e.stopPropagation();
     panelOpen = !panelOpen;
     panel.style.display = panelOpen ? 'block' : 'none';
+    if (panelOpen) repositionPanel();
   });
 
+  if (panelOpen) repositionPanel();
+
+  // ── Drag support on pill ──
+  pill.addEventListener('pointerdown', onDragStart);
+
   sr.appendChild(root);
+}
+
+/**
+ * Position the absolutely-placed panel left or right of the pill
+ * so it never clips off the viewport edge.
+ */
+function repositionPanel(): void {
+  if (!host || !shadow) return;
+  const root = shadow.querySelector('.ow-root') as HTMLElement;
+  if (!root) return;
+  const panel = root.querySelector('div:nth-child(2)') as HTMLElement;
+  if (!panel) return;
+
+  const pillRect = host.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const panelW = 380;
+
+  const spaceRight = vw - pillRect.left;
+  const spaceLeft = pillRect.right;
+
+  if (spaceRight >= panelW + 10) {
+    panel.style.left = '0';
+    panel.style.right = 'auto';
+  } else if (spaceLeft >= panelW + 10) {
+    panel.style.right = '0';
+    panel.style.left = 'auto';
+  } else {
+    if (spaceRight >= spaceLeft) {
+      panel.style.left = '0';
+      panel.style.right = 'auto';
+    } else {
+      panel.style.right = '0';
+      panel.style.left = 'auto';
+    }
+  }
+
+  panel.style.maxWidth = `${Math.min(panelW, vw - 20)}px`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Drag handling
+// ─────────────────────────────────────────────────────────────────────────────
+
+function onDragStart(e: PointerEvent): void {
+  if (!host) return;
+  isDragging = true;
+  dragMoved = false;
+  dragStartX = e.clientX;
+  dragStartY = e.clientY;
+
+  const rect = host.getBoundingClientRect();
+  dragHostStartX = rect.left;
+  dragHostStartY = rect.top;
+
+  // Switch from right-based to left-based positioning for dragging
+  host.style.right = 'auto';
+  host.style.left = `${dragHostStartX}px`;
+  host.style.top = `${dragHostStartY}px`;
+  host.style.cursor = 'grabbing';
+
+  document.addEventListener('pointermove', onDragMove);
+  document.addEventListener('pointerup', onDragEnd);
+  e.preventDefault();
+}
+
+function onDragMove(e: PointerEvent): void {
+  if (!isDragging || !host) return;
+  const dx = e.clientX - dragStartX;
+  const dy = e.clientY - dragStartY;
+
+  if (!dragMoved && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+  dragMoved = true;
+
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const newX = Math.max(0, Math.min(vw - 80, dragHostStartX + dx));
+  const newY = Math.max(0, Math.min(vh - 80, dragHostStartY + dy));
+
+  host.style.left = `${newX}px`;
+  host.style.top = `${newY}px`;
+}
+
+function onDragEnd(): void {
+  if (!host) return;
+  isDragging = false;
+  host.style.cursor = '';
+  document.removeEventListener('pointermove', onDragMove);
+  document.removeEventListener('pointerup', onDragEnd);
+
+  if (dragMoved) repositionPanel();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -189,6 +450,7 @@ function buildPill(data: CompatData): HTMLElement {
     transition:     'transform 0.18s, box-shadow 0.18s',
     flexShrink:     '0',
     outline:        'none',
+    touchAction:    'none',
   });
 
   if (logoUrl) {
@@ -389,11 +651,17 @@ function buildActionsSection(sr: ShadowRoot, req: number): HTMLElement {
   }
   wrap.appendChild(chipsRow);
 
+  // SVG icons (matching the extension popup icon set)
+  const ICON_SPARKLE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M19 13l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z"/></svg>';
+  const ICON_DOC = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+  const ICON_SEARCH = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+  const ICON_TAILOR = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M19 13l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z"/></svg>';
+
   // primary actions row
   const row1 = el('div');
   setStyles(row1, { display: 'flex', flexDirection: 'row', gap: '8px' });
-  const fillBtn   = actionBtn('⚡ Auto-Fill Form',  '#1e293b', '#fff');
-  const coverBtn  = actionBtn('📄 Cover Letter',     '#16a34a', '#fff');
+  const fillBtn   = actionBtn(ICON_SPARKLE, 'Auto-Fill Form',  '#1e293b', '#fff');
+  const coverBtn  = actionBtn(ICON_DOC,     'Cover Letter',     '#16a34a', '#fff');
   row1.appendChild(fillBtn);
   row1.appendChild(coverBtn);
   wrap.appendChild(row1);
@@ -401,10 +669,10 @@ function buildActionsSection(sr: ShadowRoot, req: number): HTMLElement {
   // secondary actions row
   const row2 = el('div');
   setStyles(row2, { display: 'flex', flexDirection: 'row', gap: '8px' });
-  const refBtn  = smallBtn('⟳ Refresh');
-  const detBtn  = smallBtn('📋 Details');
-  row2.appendChild(refBtn);
-  row2.appendChild(detBtn);
+  const jobsBtn   = smallBtn(ICON_SEARCH, 'Find Jobs');
+  const tailorBtn = smallBtn(ICON_TAILOR, 'Tailor Resume', '(beta)');
+  row2.appendChild(jobsBtn);
+  row2.appendChild(tailorBtn);
   wrap.appendChild(row2);
 
   // status
@@ -422,16 +690,11 @@ function buildActionsSection(sr: ShadowRoot, req: number): HTMLElement {
     setStatus(statusEl, 'Generating cover letter…', '#7c3aed');
     window.dispatchEvent(new CustomEvent('offlyn-generate-cover-letter'));
   });
-  refBtn.addEventListener('click', () => {
-    refBtn.textContent = '⟳ Scanning…';
-    (refBtn as HTMLButtonElement).disabled = true;
-    setTimeout(() => { refBtn.textContent = '⟳ Refresh'; (refBtn as HTMLButtonElement).disabled = false; }, 2500);
-    window.dispatchEvent(new CustomEvent('offlyn-refresh-scan'));
+  jobsBtn.addEventListener('click', () => {
+    window.dispatchEvent(new CustomEvent('offlyn-open-jobs'));
   });
-  detBtn.addEventListener('click', () => {
-    navigator.clipboard.writeText(JSON.stringify(fields, null, 2))
-      .then(() => setStatus(statusEl, 'Field details copied!', '#16a34a'))
-      .catch(() => setStatus(statusEl, 'Copy failed', '#dc2626'));
+  tailorBtn.addEventListener('click', () => {
+    window.dispatchEvent(new CustomEvent('offlyn-tailor-resume'));
   });
 
   return wrap;
@@ -926,17 +1189,18 @@ function chip(parent: HTMLElement, html: string, bg: string, color: string): voi
   parent.appendChild(c);
 }
 
-function actionBtn(label: string, bg: string, color: string): HTMLElement {
+function actionBtn(svgHtml: string, label: string, bg: string, color: string): HTMLElement {
   const b = el('button');
-  setStyles(b, { flex: '1', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: '9px 10px', borderRadius: '8px', border: 'none', background: bg, color, fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' });
-  b.textContent = label;
+  setStyles(b, { flex: '1', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '5px', padding: '9px 10px', borderRadius: '8px', border: 'none', background: bg, color, fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' });
+  setHTML(b, svgHtml + escHtml(label));
   return b;
 }
 
-function smallBtn(label: string): HTMLElement {
+function smallBtn(svgHtml: string, label: string, suffix?: string): HTMLElement {
   const b = el('button');
-  setStyles(b, { flex: '1', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: '11px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' });
-  b.textContent = label;
+  setStyles(b, { flex: '1', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '4px', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: '11px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' });
+  const html = svgHtml + escHtml(label) + (suffix ? ` <span style="font-size:9px;color:#94a3b8;font-weight:400">${escHtml(suffix)}</span>` : '');
+  setHTML(b, html);
   return b;
 }
 
@@ -1058,7 +1322,7 @@ function injectBaseCSS(sr: ShadowRoot): void {
     * { box-sizing: border-box; font-family: inherit; line-height: normal; }
     .ow-scrollbody::-webkit-scrollbar { width: 3px; }
     .ow-scrollbody::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 2px; }
-    button { font-family: inherit; }
+    button { font-family: inherit; cursor: pointer; }
     p { margin: 0; }
   `;
   sr.appendChild(s);

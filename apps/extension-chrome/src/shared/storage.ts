@@ -8,7 +8,11 @@ import type { ExtensionSettings, TabJobInfo, JobApplication, DailySummary } from
 const DEFAULT_SETTINGS: ExtensionSettings = {
   enabled: true,
   dryRun: false,
-  whatsappTarget: undefined, // User must set their WhatsApp number
+  whatsappTarget: undefined,
+  scheduledSearchEnabled: true,
+  scheduledSearchIntervalHours: 8,
+  notificationsEnabled: true,
+  preferenceLearnEnabled: true,
 };
 
 export async function getSettings(): Promise<ExtensionSettings> {
@@ -461,28 +465,3 @@ export async function getApplicationTrends(): Promise<DailyTrend[]> {
   }
 }
 
-// ── LinkedIn applied jobs dedup ─────────────────────────────────────────────
-
-const LINKEDIN_APPLIED_KEY = 'linkedinAppliedJobs';
-
-export async function getLinkedInAppliedIds(): Promise<string[]> {
-  try {
-    const result = await browser.storage.local.get(LINKEDIN_APPLIED_KEY) as Record<string, unknown>;
-    return (result[LINKEDIN_APPLIED_KEY] as string[] | undefined) ?? [];
-  } catch {
-    return [];
-  }
-}
-
-export async function addLinkedInAppliedId(jobId: string): Promise<void> {
-  const ids = await getLinkedInAppliedIds();
-  if (!ids.includes(jobId)) {
-    ids.push(jobId);
-    await browser.storage.local.set({ [LINKEDIN_APPLIED_KEY]: ids });
-  }
-}
-
-export async function isLinkedInJobApplied(jobId: string): Promise<boolean> {
-  const ids = await getLinkedInAppliedIds();
-  return ids.includes(jobId);
-}

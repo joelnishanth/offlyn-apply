@@ -402,28 +402,52 @@ Return JSON array: ["skill1","skill2","tool1","language1"]`,
 
     // 4. Extract work experience
     onProgress?.('Extracting work experience...', 84, 'Analyzing employment history, roles, and achievements');
+
+    const expSectionMatch = this.context!.fullText.match(
+      /\b(Professional Experience|EXPERIENCE|EMPLOYMENT|WORK HISTORY|WORK EXPERIENCE|CAREER HISTORY)\b[\s\S]{0,3000}/i
+    );
+    const expSectionText = expSectionMatch ? expSectionMatch[0].substring(0, 3000) : '';
+
     const workQuery = 'work experience employment job history positions roles career history professional background responsibilities achievements company employer';
     const workData = await this.extractWithRAG(
       workQuery,
-      `Extract TOP-LEVEL job positions from the resume work experience section.
+      `Extract TOP-LEVEL job positions from the resume work/experience section.
+${expSectionText ? `\nEXPERIENCE SECTION (verbatim from resume — use this to identify companies and titles):\n${expSectionText}\n` : ''}
 
-Rules:
-- Only include entries that represent an actual employed position with a real employer.
-- Every entry MUST have a startDate. Acceptable formats: "YYYY-MM", "Month YYYY", "YYYY". If no date at all, skip that entry.
-- Do NOT extract sub-responsibilities, project names, initiative names, or bullet points as separate job entries.
-- Do NOT include education entries (degrees, courses) as work entries.
-- Do NOT include the person's own name as a company name.
-- Deduplicate: if the same company+title appears more than once, include it only once.
-- description: combine ALL bullet points and achievements for that role into one string.
+CRITICAL FORMAT RULES:
+- Resumes often use this format: "Company, Location - Job Title  Dates"
+  Example: "Amazon Web Services, Palo Alto, CA - Senior Solution Architect  November 2020 - Jan 2026"
+  → company: "Amazon Web Services", title: "Senior Solution Architect", startDate: "November 2020", endDate: "Jan 2026"
+- The company name is the text BEFORE the dash (-) that precedes the job title.
+- The job title is the text AFTER that dash, before the dates.
+- Sometimes format is: "Company - Title (sub-info) Dates"
+- "Present" or "Current" means they still work there → current: true, endDate: null.
 
-Return JSON array: [{"company":"","title":"","startDate":"YYYY-MM or Month YYYY","endDate":"YYYY-MM or null","current":false,"description":""}]
+WHAT TO EXTRACT:
+- Only include entries that represent an actual employed position at a real employer/company.
+- Every entry MUST have a real date as startDate. Formats: "Month YYYY", "YYYY-MM", "YYYY".
+- Phone numbers (e.g. 203-430-9871) are NOT dates — skip any entry whose date looks like a phone number.
+- description: combine ALL bullet points and achievements under that role into one string.
+
+WHAT TO SKIP:
+- Do NOT extract sub-project headings (e.g. "Terraform Enterprise & AI Platform Governance") as separate jobs — those are projects under a parent employer.
+- Do NOT include education, awards, certifications, or volunteer work as jobs.
+- Do NOT include the person's own name or personal info as a company name.
+- Deduplicate: if the same company+title appears twice, include it only once.
+
+Resume header (for context — do NOT extract personal info as work):
+${resumeHeader}
+
+Return JSON array: [{"company":"Full company name","title":"Job title only","startDate":"Month YYYY","endDate":"Month YYYY or null","current":false,"description":"Combined bullet points"}]
 If no valid dated work experience found, return [].`,
       9
     );
     if (workData && Array.isArray(workData)) {
-      // Require at least a title and a startDate — company may be blank if the model missed it
+      const phonePattern = /^\d{3}[- ]\d{3}[- ]\d{4}$/;
       const validWork = workData.filter((j: any) =>
-        j.title && String(j.title).trim() && j.startDate && String(j.startDate).trim()
+        j.title && String(j.title).trim() &&
+        j.startDate && String(j.startDate).trim() &&
+        !phonePattern.test(String(j.startDate).trim())
       );
       const seen = new Set<string>();
       profile.work = validWork.filter((j: any) => {
@@ -442,17 +466,53 @@ If no valid dated work experience found, return [].`,
 
     // 5. Extract education
     onProgress?.('Extracting education...', 88, 'Looking for degrees, schools, and graduation dates');
+
+    const eduSectionMatch = this.context!.fullText.match(
+      /\b(EDUCATION|ACADEMIC BACKGROUND|EDUCATIONAL BACKGROUND|QUALIFICATIONS)\b[\s\S]{0,1500}/i
+    );
+    const eduSectionText = eduSectionMatch ? eduSectionMatch[0].substring(0, 1500) : '';
+
     const educationQuery = 'education academic background degrees university college school graduation bachelor master phd diploma';
     const educationData = await this.extractWithRAG(
       educationQuery,
-      `Extract ALL education entries.
-Return JSON array: [{"school":"","degree":"","field":"","graduationYear":""}]`,
+      `Extract ONLY formal education entries (degrees earned from accredited institutions).
+
+WHAT TO EXTRACT:
+- Formal degrees: Bachelor, Master, MBA, PhD, Associate, Diploma, etc.
+- The school/university name — use the EXACT name from the EDUCATION section below
+- The field of study (e.g. "Computer Science", "Business Administration")
+- Graduation year if available
+
+Common resume format: "University Name - Degree of Field" or "Degree in Field, University Name"
+Example: "Colorado University, Colorado - Master of Computer Science"
+  → school: "Colorado University", degree: "Master", field: "Computer Science"
+
+CRITICAL: The EDUCATION section from the resume is provided below. Extract university names EXACTLY as written there. Do NOT substitute similar-sounding university names from other parts of the resume.
+${eduSectionText ? `\nEDUCATION SECTION (verbatim from resume):\n${eduSectionText}\n` : ''}
+WHAT TO SKIP — these are NOT education entries:
+- Awards and recognitions (e.g. "Cloud Security Excellence Recognition", "Innovation Award")
+- Certifications (e.g. "AWS Certified Developer", "PMP")
+- Guest lectures, speaking engagements, or teaching roles
+- Job titles that happen to be near the education section
+- Workshop names or course names without a degree
+
+Return JSON array: [{"school":"University name","degree":"Bachelor/Master/PhD/etc","field":"Field of study","graduationYear":"YYYY or empty"}]
+If no formal education found, return [].`,
       5
     );
     if (educationData && Array.isArray(educationData)) {
-      profile.education = educationData;
-      const edu = educationData.map((e: any) => `${e.degree} - ${e.school}`).slice(0, 2);
-      onProgress?.(`Found ${educationData.length} entries`, 90, edu.join(' | '));
+      const degreeKeywords = /bachelor|master|mba|phd|doctorate|associate|diploma|b\.?s\.?|m\.?s\.?|b\.?a\.?|m\.?a\.?|b\.?eng|m\.?eng/i;
+      const awardKeywords = /award|recognition|excellence|champion|leader|visionary|innovation/i;
+      profile.education = educationData.filter((e: any) => {
+        const degree = String(e.degree || '').trim();
+        const school = String(e.school || '').trim();
+        if (!school) return false;
+        if (awardKeywords.test(degree) || awardKeywords.test(school)) return false;
+        if (degree && !degreeKeywords.test(degree)) return false;
+        return true;
+      });
+      const edu = profile.education.map((e: any) => `${e.degree} - ${e.school}`).slice(0, 2);
+      onProgress?.(`Found ${profile.education.length} entries`, 90, edu.join(' | '));
     }
 
     // 6. Extract certifications

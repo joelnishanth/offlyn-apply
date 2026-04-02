@@ -12,6 +12,7 @@ dist/
 build/
 .output/
 .wxt/
+releases/
 *.zip
 *.pkg
 
@@ -69,3 +70,4 @@ mastra/
 /debug-logs
 /test-screenshots
 /.screenshots
+/test-results

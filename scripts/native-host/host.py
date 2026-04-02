@@ -15,6 +15,7 @@ import json
 import subprocess
 import platform
 import os
+from typing import Optional
 
 SCRIPT_BASE = (
     "https://raw.githubusercontent.com/joelnishanth/offlyn-apply/main"
@@ -30,7 +31,7 @@ def send(obj: dict) -> None:
     sys.stdout.buffer.flush()
 
 
-def recv() -> dict | None:
+def recv() -> Optional[dict]:
     raw = sys.stdin.buffer.read(4)
     if len(raw) < 4:
         return None

@@ -50,6 +50,53 @@ async function init(): Promise<void> {
     });
   }
 
+  // --- Job Discovery settings ---
+  const scheduledToggle = document.getElementById('toggle-scheduled-search');
+  const notifToggle = document.getElementById('toggle-notifications');
+  const prefLearnToggle = document.getElementById('toggle-pref-learn');
+  const intervalSelect = document.getElementById('select-search-interval') as HTMLSelectElement | null;
+  const lastSearchEl = document.getElementById('last-search-time');
+
+  function wireToggle(el: HTMLElement | null, key: keyof typeof settings, onChange?: () => void) {
+    if (!el) return;
+    el.classList.toggle('active', !!(settings as any)[key]);
+    el.setAttribute('aria-checked', String(!!(settings as any)[key]));
+    el.addEventListener('click', async () => {
+      const next = !el.classList.contains('active');
+      el.classList.toggle('active', next);
+      el.setAttribute('aria-checked', String(next));
+      await setSettings({ [key]: next } as any);
+      onChange?.();
+    });
+  }
+
+  wireToggle(scheduledToggle, 'scheduledSearchEnabled', () => {
+    browser.runtime.sendMessage({ kind: 'UPDATE_SEARCH_SCHEDULE' }).catch(() => {});
+  });
+  wireToggle(notifToggle, 'notificationsEnabled');
+  wireToggle(prefLearnToggle, 'preferenceLearnEnabled');
+
+  if (intervalSelect) {
+    intervalSelect.value = String(settings.scheduledSearchIntervalHours ?? 8);
+    intervalSelect.addEventListener('change', async () => {
+      await setSettings({ scheduledSearchIntervalHours: parseInt(intervalSelect.value, 10) });
+      browser.runtime.sendMessage({ kind: 'UPDATE_SEARCH_SCHEDULE' }).catch(() => {});
+    });
+  }
+
+  document.getElementById('btn-clear-prefs')?.addEventListener('click', async () => {
+    await browser.runtime.sendMessage({ kind: 'CLEAR_PREFERENCES' });
+    showFeedback('feedback-clear-prefs');
+  });
+
+  try {
+    const prefResp = await browser.runtime.sendMessage({ kind: 'GET_LEARNED_PREFERENCES' });
+    if (lastSearchEl && prefResp?.lastRun) {
+      const d = new Date(prefResp.lastRun);
+      lastSearchEl.textContent = d.toLocaleString();
+    }
+  } catch {}
+
   // --- Update Resume (re-upload & re-parse) ---
   const reuploadBtn = document.getElementById('btn-reupload-resume');
   const reuploadInput = document.getElementById('reupload-resume-input') as HTMLInputElement | null;

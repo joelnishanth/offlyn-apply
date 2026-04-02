@@ -20,6 +20,12 @@ import {
 import { fieldClassifier, isTypeCompatible } from './shared/field-classifier';
 import { normalizeValue } from './shared/value-normalizer';
 import { isGenericJobEntry, isDuplicateSubmit, GENERIC_JOB_TITLES, GENERIC_COMPANY_NAMES } from './shared/job-dedup';
+import {
+  recordSearchAction, recordApplyAction, getLearnedPreferences,
+  clearPreferences, getSeenJobIds, addSeenJobIds,
+  getScheduledResults, setScheduledResults, clearScheduledResults,
+  setLastScheduledSearch, getLastScheduledSearch,
+} from './shared/job-preferences';
 
 interface ConnectionState {
   connected: boolean;
@@ -121,22 +127,31 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
 
     if ((message as any).kind === 'CHECK_NATIVE_HELPER') {
       return new Promise((resolve) => {
+        let resolved = false;
+        const done = (result: any) => { if (!resolved) { resolved = true; resolve(result); } };
+        const timeout = setTimeout(() => {
+          console.warn('[NativeMsg] CHECK_NATIVE_HELPER timed out after 5s');
+          done({ installed: false, error: 'Timeout waiting for native helper response' });
+        }, 5000);
         try {
           const port = browser.runtime.connectNative(NATIVE_HOST_ID);
           port.postMessage({ cmd: 'ping' });
           port.onMessage.addListener((res: any) => {
+            clearTimeout(timeout);
             console.log('[NativeMsg] ping response:', res);
-            resolve({ installed: true, version: res.version ?? '?' });
+            done({ installed: true, version: res.version ?? '?' });
             port.disconnect();
           });
           port.onDisconnect.addListener(() => {
+            clearTimeout(timeout);
             const errMsg = (browser.runtime.lastError as any)?.message ?? 'unknown disconnect';
             console.error('[NativeMsg] connectNative disconnected:', errMsg);
-            resolve({ installed: false, error: errMsg });
+            done({ installed: false, error: errMsg });
           });
         } catch (err) {
+          clearTimeout(timeout);
           console.error('[NativeMsg] connectNative threw:', err);
-          resolve({ installed: false, error: String(err) });
+          done({ installed: false, error: String(err) });
         }
       });
     }
@@ -622,34 +637,6 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
       }
     }
 
-    // ── LinkedIn auto-apply controls ─────────────────────────────────────────
-    if (message.kind === 'LINKEDIN_AUTO_APPLY_START') {
-      const tabId = (message as any).tabId;
-      if (tabId) {
-        try {
-          await browser.tabs.sendMessage(tabId, { kind: 'START_LINKEDIN_AUTOAPPLY', options: (message as any).options });
-        } catch (e) {
-          warn('[LinkedIn] Failed to send start message to tab:', e);
-        }
-      }
-      return { kind: 'LINKEDIN_AUTO_APPLY_START_ACK' };
-    }
-
-    if (message.kind === 'LINKEDIN_AUTO_APPLY_STOP') {
-      const tabId = (message as any).tabId;
-      if (tabId) {
-        try {
-          await browser.tabs.sendMessage(tabId, { kind: 'STOP_LINKEDIN_AUTOAPPLY' });
-        } catch (e) {
-          warn('[LinkedIn] Failed to send stop message to tab:', e);
-        }
-      }
-      return { kind: 'LINKEDIN_AUTO_APPLY_STOP_ACK' };
-    }
-
-    if (message.kind === 'LINKEDIN_AUTO_APPLY_STATUS') {
-      return { kind: 'LINKEDIN_AUTO_APPLY_STATUS_RESPONSE', status: 'idle' };
-    }
 
     // ── Multi-profile: switch active profile ──────────────────────────────────
     if (message.kind === 'SWITCH_PROFILE') {
@@ -674,6 +661,11 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
     // ── Open settings page ────────────────────────────────────────────────────
     if (message.kind === 'OPEN_SETTINGS_PAGE') {
       chrome.tabs.create({ url: chrome.runtime.getURL('settings/settings.html') });
+      return { ok: true };
+    }
+
+    if (message.kind === 'OPEN_JOBS_PAGE') {
+      chrome.tabs.create({ url: chrome.runtime.getURL('jobs/jobs.html') });
       return { ok: true };
     }
 
@@ -880,6 +872,51 @@ ${profileContext}`;
       }
     }
 
+    // ── Job preference learning ───────────────────────────────────────────────
+    if (message.kind === 'RECORD_SEARCH_ACTION') {
+      const settings = await getSettings();
+      if (settings.preferenceLearnEnabled) {
+        await recordSearchAction((message as any).action);
+      }
+      return { kind: 'ACK' };
+    }
+
+    if (message.kind === 'RECORD_APPLY_ACTION') {
+      const settings = await getSettings();
+      if (settings.preferenceLearnEnabled) {
+        await recordApplyAction((message as any).action);
+      }
+      return { kind: 'ACK' };
+    }
+
+    if (message.kind === 'GET_SCHEDULED_RESULTS') {
+      const jobs = await getScheduledResults();
+      const lastRun = await getLastScheduledSearch();
+      return { kind: 'SCHEDULED_RESULTS', jobs, lastRun };
+    }
+
+    if (message.kind === 'CLEAR_SCHEDULED_RESULTS') {
+      await clearScheduledResults();
+      try { chrome.action.setBadgeText({ text: '' }); } catch {}
+      return { kind: 'ACK' };
+    }
+
+    if (message.kind === 'UPDATE_SEARCH_SCHEDULE') {
+      await setupScheduledSearch();
+      return { kind: 'ACK' };
+    }
+
+    if (message.kind === 'CLEAR_PREFERENCES') {
+      await clearPreferences();
+      return { kind: 'ACK' };
+    }
+
+    if (message.kind === 'GET_LEARNED_PREFERENCES') {
+      const prefs = await getLearnedPreferences();
+      const lastRun = await getLastScheduledSearch();
+      return { kind: 'LEARNED_PREFERENCES', prefs, lastRun };
+    }
+
     return;
   } catch (err) {
     error('Error handling message:', err);
@@ -888,6 +925,112 @@ ${profileContext}`;
       message: err instanceof Error ? err.message : 'Unknown error',
     };
   }
+});
+
+// ── Scheduled Job Search (chrome.alarms) ────────────────────────────────────
+
+const ALARM_NAME = 'offlyn-job-search';
+
+async function setupScheduledSearch(): Promise<void> {
+  try {
+    await chrome.alarms.clear(ALARM_NAME);
+    const settings = await getSettings();
+    if (!settings.scheduledSearchEnabled) return;
+    chrome.alarms.create(ALARM_NAME, {
+      delayInMinutes: 5,
+      periodInMinutes: settings.scheduledSearchIntervalHours * 60,
+    });
+    log('[Scheduler] Alarm set: every', settings.scheduledSearchIntervalHours, 'hours');
+  } catch (e) {
+    warn('[Scheduler] Failed to setup alarm:', e);
+  }
+}
+
+async function runScheduledSearch(): Promise<void> {
+  try {
+    const settings = await getSettings();
+    if (!settings.scheduledSearchEnabled) return;
+
+    const profile = await getUserProfile();
+    const prefs = await getLearnedPreferences();
+
+    let keywords = '';
+    let location = '';
+
+    if (prefs && prefs.topKeywords.length > 0) {
+      keywords = prefs.topKeywords.slice(0, 3).join(' ');
+      location = prefs.preferredLocations[0] ?? '';
+    } else if (profile) {
+      const currentWork = (profile.work ?? []).find((w: any) => w.current);
+      keywords = currentWork?.title
+        ?? (profile.professional as any)?.currentRole
+        ?? (profile.skills ?? []).slice(0, 3).join(', ')
+        ?? '';
+      const loc = profile.personal?.location;
+      location = typeof loc === 'string' ? loc : [loc?.city, loc?.state].filter(Boolean).join(', ');
+    }
+
+    if (!keywords) {
+      log('[Scheduler] No keywords available, skipping');
+      await setLastScheduledSearch(Date.now());
+      return;
+    }
+
+    const { searchJobs } = await import('./shared/job-search-service');
+    const result = await searchJobs({
+      keywords,
+      location: location || undefined,
+      resultsPerPage: 20,
+      salaryMin: prefs?.salaryMin,
+      salaryMax: prefs?.salaryMax,
+    });
+
+    const seenIds = await getSeenJobIds();
+    const newJobs = result.jobs.filter(j => !seenIds.has(j.id));
+
+    if (newJobs.length > 0) {
+      await addSeenJobIds(newJobs.map(j => j.id));
+      const existing = await getScheduledResults();
+      await setScheduledResults([...newJobs, ...existing].slice(0, 50));
+
+      if (settings.notificationsEnabled) {
+        try {
+          chrome.notifications.create(`offlyn-jobs-${Date.now()}`, {
+            type: 'basic',
+            iconUrl: chrome.runtime.getURL('icons/toolbar-128.png'),
+            title: `${newJobs.length} new job${newJobs.length > 1 ? 's' : ''} match your profile`,
+            message: newJobs[0].title + (newJobs.length > 1 ? ` and ${newJobs.length - 1} more` : ''),
+            priority: 1,
+          });
+        } catch (e) {
+          warn('[Scheduler] Notification failed:', e);
+        }
+      }
+
+      try {
+        chrome.action.setBadgeText({ text: String(newJobs.length) });
+        chrome.action.setBadgeBackgroundColor({ color: '#7c3aed' });
+      } catch {}
+    }
+
+    await setLastScheduledSearch(Date.now());
+    log('[Scheduler] Search complete:', newJobs.length, 'new jobs');
+  } catch (e) {
+    warn('[Scheduler] Scheduled search failed:', e);
+    await setLastScheduledSearch(Date.now());
+  }
+}
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === ALARM_NAME) {
+    runScheduledSearch();
+  }
+});
+
+chrome.notifications.onClicked.addListener((_notificationId) => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('jobs/jobs.html') });
+  chrome.notifications.clear(_notificationId);
+  try { chrome.action.setBadgeText({ text: '' }); } catch {}
 });
 
 // ── Context Menus (right-click text transform) ─────────────────────────────
@@ -1255,6 +1398,9 @@ async function init(): Promise<void> {
   
   // Check Ollama connection on startup
   await checkOllamaConnection();
+
+  // Setup scheduled job search alarm
+  await setupScheduledSearch();
   
   // Periodically check Ollama connection (every 10 seconds)
   setInterval(() => {

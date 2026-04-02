@@ -105,46 +105,79 @@ function hideProgress(): void {
   if (progressContainer) {
     progressContainer.classList.remove('visible');
   }
-  hideLiveFeed();
+  stopTipCarousel();
 }
 
-// ── Live Parse Feed ──────────────────────────────────────────────────────
+// ── Tip Carousel ──────────────────────────────────────────────────────
 
-let feedWordTimer: ReturnType<typeof setTimeout> | null = null;
+const svgAttrs = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
 
-function showLiveFeed(): void {
-  const feed = document.getElementById('liveParseFeed');
-  if (feed) {
-    feed.classList.add('visible');
-    clearEl(feed);
+const TIP_MESSAGES: Array<{ svg: string; text: string }> = [
+  {
+    svg: `<svg ${svgAttrs}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+    text: 'Your data never leaves your device \u2014 all AI processing happens locally.',
+  },
+  {
+    svg: `<svg ${svgAttrs}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+    text: 'Offlyn Apply uses on-device AI so your resume stays 100% private.',
+  },
+  {
+    svg: `<svg ${svgAttrs}><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>`,
+    text: 'No cloud servers, no API keys, no data collection \u2014 just you and your AI.',
+  },
+  {
+    svg: `<svg ${svgAttrs}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
+    text: 'We\'re analyzing your work history, skills, and education right now...',
+  },
+  {
+    svg: `<svg ${svgAttrs}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
+    text: 'Powered by local AI models \u2014 no API costs, no usage limits, ever.',
+  },
+  {
+    svg: `<svg ${svgAttrs}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+    text: 'Open source and community-driven \u2014 built for job seekers, by job seekers.',
+  },
+  {
+    svg: `<svg ${svgAttrs}><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>`,
+    text: 'Your parsed profile auto-fills job applications in one click.',
+  },
+  {
+    svg: `<svg ${svgAttrs}><polyline points="20 6 9 17 4 12"/></svg>`,
+    text: 'Smart form matching maps your experience to each application accurately.',
+  },
+];
+
+let tipCarouselTimer: ReturnType<typeof setInterval> | null = null;
+let tipIndex = 0;
+
+function startTipCarousel(): void {
+  tipIndex = 0;
+  const iconEl = document.getElementById('tipCarouselIcon');
+  const textEl = document.getElementById('tipCarouselText');
+  if (iconEl && textEl) {
+    iconEl.innerHTML = TIP_MESSAGES[0].svg;
+    textEl.textContent = TIP_MESSAGES[0].text;
   }
+  if (tipCarouselTimer) clearInterval(tipCarouselTimer);
+  tipCarouselTimer = setInterval(() => {
+    tipIndex = (tipIndex + 1) % TIP_MESSAGES.length;
+    const tip = TIP_MESSAGES[tipIndex];
+    if (textEl) {
+      textEl.classList.add('fading');
+      setTimeout(() => {
+        if (iconEl) iconEl.innerHTML = tip.svg;
+        textEl.textContent = tip.text;
+        textEl.classList.remove('fading');
+      }, 400);
+    }
+  }, 5000);
 }
 
-function hideLiveFeed(): void {
-  const feed = document.getElementById('liveParseFeed');
-  if (feed) feed.classList.remove('visible');
-  if (feedWordTimer) { clearTimeout(feedWordTimer); feedWordTimer = null; }
-}
-
-function appendFeedLine(text: string, cls: string = ''): void {
-  const feed = document.getElementById('liveParseFeed');
-  if (!feed) return;
-
-  // Remove any existing cursor
-  const oldCursor = feed.querySelector('.feed-cursor');
-  if (oldCursor) oldCursor.remove();
-
-  const line = document.createElement('div');
-  line.className = `feed-line ${cls}`.trim();
-  line.textContent = text;
-  feed.appendChild(line);
-
-  // Add blinking cursor after latest line
-  const cursor = document.createElement('span');
-  cursor.className = 'feed-cursor';
-  line.appendChild(cursor);
-
-  feed.scrollTop = feed.scrollHeight;
+function stopTipCarousel(): void {
+  if (tipCarouselTimer) {
+    clearInterval(tipCarouselTimer);
+    tipCarouselTimer = null;
+  }
 }
 
 /**
@@ -155,19 +188,28 @@ function setFriendlyStatus(msg: string): void {
   if (el) el.textContent = msg;
 }
 
+function setDetailLabel(detail: string): void {
+  const el = document.getElementById('parseDetailLabel');
+  if (el) el.textContent = detail;
+}
+
 /**
  * Map a raw stage name from the background to a user-friendly message.
  */
 function friendlyStageMessage(stage: string, percent: number): string {
   const s = stage.toLowerCase();
-  if (percent >= 85) return 'Almost there — putting on the final touches...';
-  if (s.includes('skill')) return 'Identifying your skills...';
+  if (percent >= 97) return 'Wrapping up \u2014 your profile is almost ready!';
+  if (percent >= 85) return 'Almost there \u2014 putting on the final touches...';
+  if (s.includes('skill')) return 'Identifying your skills and expertise...';
   if (s.includes('work') || s.includes('experience') || s.includes('job')) return 'Analyzing your work experience...';
   if (s.includes('education') || s.includes('school') || s.includes('degree')) return 'Reading your education history...';
   if (s.includes('personal') || s.includes('contact') || s.includes('name') || s.includes('email')) return 'Extracting your personal details...';
   if (s.includes('summar')) return 'Crafting your professional summary...';
+  if (s.includes('certif') || s.includes('licens')) return 'Scanning for certifications...';
+  if (s.includes('project')) return 'Finding your notable projects...';
+  if (s.includes('link') || s.includes('linkedin') || s.includes('github')) return 'Locating your professional links...';
   if (s.includes('embed') || s.includes('chunk') || s.includes('rag') || s.includes('index')) return 'Analyzing your resume content...';
-  if (s.includes('merge') || s.includes('valid') || s.includes('final')) return 'Almost there — putting on the final touches...';
+  if (s.includes('merge') || s.includes('valid') || s.includes('final')) return 'Almost there \u2014 putting on the final touches...';
   if (s.includes('send') || s.includes('ai') || s.includes('ollama') || s.includes('parse')) return 'AI is reading your resume...';
   return 'Processing your resume...';
 }
@@ -189,18 +231,24 @@ let progressListener: ((msg: any) => void) | null = null;
 function startProgressListener(): void {
   if (progressListener) return;
 
+  const timeHint = document.getElementById('progressTimeHint');
+  if (timeHint) timeHint.textContent = 'This usually takes 1\u20132 minutes depending on your device';
+
+  startTipCarousel();
+
   progressListener = (message: any) => {
     if (typeof message !== 'object' || message === null) return;
     if (message.kind !== 'PARSE_PROGRESS') return;
 
-    const { stage, percent } = message as { stage: string; percent: number; detail?: string };
+    const { stage, percent, detail } = message as { stage: string; percent: number; detail?: string };
 
     const progressFill = document.getElementById('progressFill');
     const progressText = document.getElementById('progressText');
     if (progressFill) progressFill.style.width = `${Math.min(percent, 99)}%`;
-    if (progressText) progressText.textContent = '';
+    if (progressText) progressText.textContent = percent >= 90 ? `${Math.round(percent)}%` : '';
 
     setFriendlyStatus(friendlyStageMessage(stage, percent));
+    setDetailLabel(percent >= 95 ? 'Finalizing \u2014 just a few more seconds...' : (detail || ''));
   };
 
   browser.runtime.onMessage.addListener(progressListener);
@@ -211,6 +259,7 @@ function stopProgressListener(): void {
     browser.runtime.onMessage.removeListener(progressListener);
     progressListener = null;
   }
+  stopTipCarousel();
 }
 
 /**
@@ -432,9 +481,9 @@ async function checkOllamaConnection(): Promise<void> {
 const HELPER_INSTALL_BASE =
   'https://raw.githubusercontent.com/joelnishanth/offlyn-apply/main/scripts/native-host';
 const HELPER_PKG_URL =
-  'https://github.com/joelnishanth/offlyn-apply/releases/download/v0.7.0/offlyn-helper.pkg';
+  'https://github.com/joelnishanth/offlyn-apply/releases/download/v0.7.6/offlyn-helper-signed.pkg';
 const HELPER_WIN_BAT_URL =
-  'https://raw.githubusercontent.com/joelnishanth/offlyn-apply/main/scripts/native-host/install-win.bat';
+  'https://github.com/joelnishanth/offlyn-apply/releases/download/v0.7.6/offlyn-windows-installer.bat';
 
 function detectOS(): 'mac' | 'windows' | 'linux' {
   const ua = navigator.userAgent.toLowerCase();
@@ -522,10 +571,18 @@ function populateHelperInstructions(): void {
 }
 
 async function checkNativeHelper(): Promise<boolean> {
+  console.log('[NativeHelper] Sending CHECK_NATIVE_HELPER...');
   try {
     const res = await browser.runtime.sendMessage({ kind: 'CHECK_NATIVE_HELPER' });
-    return (res as any)?.installed === true;
-  } catch {
+    const installed = (res as any)?.installed === true;
+    console.log('[NativeHelper] Result:', installed, res);
+    if (!installed) {
+      const errMsg = (res as any)?.error ?? 'no error detail';
+      console.warn('[NativeHelper] not detected, reason:', errMsg);
+    }
+    return installed;
+  } catch (err) {
+    console.error('[NativeHelper] sendMessage threw:', err);
     return false;
   }
 }
@@ -591,12 +648,20 @@ function setupOllamaStepListeners(): void {
   });
 
   // "Helper Installed — Check Again" button
-  document.getElementById('checkHelperBtn')?.addEventListener('click', async () => {
-    const btn = document.getElementById('checkHelperBtn') as HTMLButtonElement | null;
-    if (btn) { btn.disabled = true; btn.textContent = 'Checking...'; }
-    const installed = await checkNativeHelper();
-    if (btn) { btn.disabled = false; btn.textContent = 'Helper Installed — Check Again'; }
-    updateHelperSubstate(installed);
+  const checkHelperBtnEl = document.getElementById('checkHelperBtn');
+  console.log('[Onboarding] checkHelperBtn element found:', !!checkHelperBtnEl);
+  checkHelperBtnEl?.addEventListener('click', async () => {
+    console.log('[Onboarding] Check Again button clicked');
+    const btn = checkHelperBtnEl as HTMLButtonElement;
+    btn.disabled = true; btn.textContent = 'Checking...';
+    try {
+      const installed = await checkNativeHelper();
+      btn.disabled = false; btn.textContent = 'I Installed It \u2014 Check Again';
+      updateHelperSubstate(installed);
+    } catch (err) {
+      console.error('[Onboarding] checkHelperBtn handler error:', err);
+      btn.disabled = false; btn.textContent = 'I Installed It \u2014 Check Again';
+    }
   });
 
   // "Set Up AI" button
@@ -2684,10 +2749,17 @@ async function init(): Promise<void> {
         
         extractedProfile = profile;
         
-        // Stage 4: Complete
-        updateProgress('done', 100, 'All done!');
+        // Stage 4: Complete — animate to 100% and show success immediately
+        const progressFillEl = document.getElementById('progressFill');
+        if (progressFillEl) progressFillEl.style.width = '100%';
+        const progressTextEl = document.getElementById('progressText');
+        if (progressTextEl) progressTextEl.textContent = '100%';
         setFriendlyStatus('Your profile is ready!');
-        await new Promise(resolve => setTimeout(resolve, 800));
+        setDetailLabel('');
+        stopTipCarousel();
+        const timeHint = document.getElementById('progressTimeHint');
+        if (timeHint) timeHint.textContent = '';
+        await new Promise(resolve => setTimeout(resolve, 600));
         
         // Resume parsed — reset button first so re-entry is clean
         parseBtn.disabled = false;

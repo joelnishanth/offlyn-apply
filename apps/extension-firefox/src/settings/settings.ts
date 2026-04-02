@@ -49,6 +49,53 @@ async function init(): Promise<void> {
     });
   }
 
+  // --- Job Discovery settings ---
+  const scheduledToggle = document.getElementById('toggle-scheduled-search');
+  const notifToggle = document.getElementById('toggle-notifications');
+  const prefLearnToggle = document.getElementById('toggle-pref-learn');
+  const intervalSelect = document.getElementById('select-search-interval') as HTMLSelectElement | null;
+  const lastSearchEl = document.getElementById('last-search-time');
+
+  function wireToggle(el: HTMLElement | null, key: keyof typeof settings, onChange?: () => void) {
+    if (!el) return;
+    el.classList.toggle('active', !!(settings as any)[key]);
+    el.setAttribute('aria-checked', String(!!(settings as any)[key]));
+    el.addEventListener('click', async () => {
+      const next = !el.classList.contains('active');
+      el.classList.toggle('active', next);
+      el.setAttribute('aria-checked', String(next));
+      await setSettings({ [key]: next } as any);
+      onChange?.();
+    });
+  }
+
+  wireToggle(scheduledToggle, 'scheduledSearchEnabled', () => {
+    browser.runtime.sendMessage({ kind: 'UPDATE_SEARCH_SCHEDULE' }).catch(() => {});
+  });
+  wireToggle(notifToggle, 'notificationsEnabled');
+  wireToggle(prefLearnToggle, 'preferenceLearnEnabled');
+
+  if (intervalSelect) {
+    intervalSelect.value = String(settings.scheduledSearchIntervalHours ?? 8);
+    intervalSelect.addEventListener('change', async () => {
+      await setSettings({ scheduledSearchIntervalHours: parseInt(intervalSelect.value, 10) });
+      browser.runtime.sendMessage({ kind: 'UPDATE_SEARCH_SCHEDULE' }).catch(() => {});
+    });
+  }
+
+  document.getElementById('btn-clear-prefs')?.addEventListener('click', async () => {
+    await browser.runtime.sendMessage({ kind: 'CLEAR_PREFERENCES' });
+    showFeedback('feedback-clear-prefs');
+  });
+
+  try {
+    const prefResp = await browser.runtime.sendMessage({ kind: 'GET_LEARNED_PREFERENCES' });
+    if (lastSearchEl && prefResp?.lastRun) {
+      const d = new Date(prefResp.lastRun);
+      lastSearchEl.textContent = d.toLocaleString();
+    }
+  } catch {}
+
   // --- Update Resume (re-upload & re-parse) ---
   const reuploadBtn = document.getElementById('btn-reupload-resume');
   const reuploadInput = document.getElementById('reupload-resume-input') as HTMLInputElement | null;
@@ -111,6 +158,7 @@ async function init(): Promise<void> {
       try {
         const resumeText = await extractTextForSettings(file);
 
+        // Quality gate
         const nonPrintable = (resumeText.match(/[\x00-\x08\x0E-\x1F\x7F-\x9F]/g) || []).length;
         if (nonPrintable / Math.max(resumeText.length, 1) > 0.05) {
           throw new Error('File appears garbled or is a scanned image. Use a text-based PDF, DOCX, or TXT.');
@@ -123,6 +171,7 @@ async function init(): Promise<void> {
         const response = await browser.runtime.sendMessage({ kind: 'PARSE_RESUME', resumeText });
 
         if (response?.kind === 'RESUME_PARSED' && response.profile) {
+          // Merge: preserve selfId, workAuth, professional links — overwrite skills/work/education/summary
           const existing = (await browser.storage.local.get('userProfile'))?.userProfile || {};
           const merged = {
             ...existing,
@@ -232,6 +281,7 @@ async function init(): Promise<void> {
     }
     try {
       await browser.storage.local.clear();
+      // Reload so settings UI reflects the cleared state
       window.location.reload();
     } catch (err) {
       error('Nuclear clear failed:', err);
@@ -314,7 +364,7 @@ async function initOllamaSettings(): Promise<void> {
           `<strong>CORS Blocked</strong> — Ollama v${result.version} is running but blocking this extension.<br><br>` +
           `<strong>Fix:</strong> Stop Ollama, then run this as ONE command in a new terminal:<br>` +
           `<code style="background:#1e2a3a;color:#fbbf24;padding:4px 8px;border-radius:4px;display:inline-block;margin-top:6px;font-size:12px;word-break:break-all;">` +
-          `OLLAMA_ORIGINS='moz-extension://*' ollama serve</code><br>` +
+          `OLLAMA_ORIGINS='chrome-extension://*' ollama serve</code><br>` +
           `<span style="font-size:11px;color:#6b7280;margin-top:4px;display:inline-block;">Keep that terminal open, then click Test Connection again.</span>`);
         testResultEl.className = 'ollama-test-result visible fail';
       } else {
@@ -364,7 +414,7 @@ function applyOllamaBadge(
     if (hint) hint.textContent = enabled ? 'Cannot reach Ollama — check that it is running' : 'AI features disabled — configure below to enable';
   } else if (result.corsBlocked) {
     if (badge) { badge.textContent = 'CORS Blocked'; badge.style.background = '#fffbeb'; badge.style.color = '#d97706'; }
-    if (hint) hint.textContent = `Ollama v${result.version} reachable but blocking extension. Stop Ollama, then run as one command: OLLAMA_ORIGINS='moz-extension://*' ollama serve`;
+    if (hint) hint.textContent = `Ollama v${result.version} reachable but blocking extension. Stop Ollama, then run as one command: OLLAMA_ORIGINS='chrome-extension://*' ollama serve`;
   } else {
     if (badge) { badge.textContent = 'Connected'; badge.style.background = '#e8f5e9'; badge.style.color = '#2e7d32'; }
     if (hint) hint.textContent = `Ollama v${result.version} at ${endpoint} — AI features ready`;

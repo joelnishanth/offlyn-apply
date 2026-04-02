@@ -19,11 +19,13 @@ export interface PdfDocument {
   numPages: number;
   getPage(num: number): Promise<{
     getTextContent(): Promise<{ items: { str: string }[] }>;
+    getAnnotations(): Promise<Array<{ subtype?: string; url?: string }>>;
   }>;
 }
 
 export async function extractPagesText(pdf: PdfDocument): Promise<string> {
   let fullText = '';
+  const linkUrls = new Set<string>();
   const totalPages = pdf.numPages;
 
   for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
@@ -31,6 +33,26 @@ export async function extractPagesText(pdf: PdfDocument): Promise<string> {
     const textContent = await page.getTextContent();
     const pageText = textContent.items.map((item) => item.str).join(' ');
     fullText += pageText + '\n\n';
+
+    try {
+      const annotations = await page.getAnnotations();
+      for (const annot of annotations) {
+        if (annot.subtype === 'Link' && annot.url) {
+          linkUrls.add(annot.url);
+        }
+      }
+    } catch {
+      // getAnnotations may not be available in all pdf.js builds
+    }
+  }
+
+  if (linkUrls.size > 0) {
+    const relevant = Array.from(linkUrls).filter(
+      (u) => /linkedin\.com|github\.com|github\.io|portfolio|mailto:/i.test(u)
+    );
+    if (relevant.length > 0) {
+      fullText += '\n\nEmbedded links found in document:\n' + relevant.join('\n');
+    }
   }
 
   return fullText.trim();

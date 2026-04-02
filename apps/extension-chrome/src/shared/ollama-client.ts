@@ -29,7 +29,7 @@ export interface ChatCompletionResponse {
 export class OllamaClient {
   private baseUrl = 'http://localhost:11434';
   private model = 'llama3.2';
-  private embeddingModel = 'nomic-embed-text'; // Optimized for embeddings
+  private embeddingModel = 'nomic-embed-text';
 
   constructor(baseUrl?: string, model?: string) {
     if (baseUrl) this.baseUrl = baseUrl;

@@ -1016,10 +1016,19 @@ async function handleInlineTileClick(field: FieldSchema, selector: string): Prom
  * Listen for refresh scan events from the UI
  */
 window.addEventListener('offlyn-refresh-scan', () => {
-  // Clean up stale inline tiles before re-scanning
   removeAllTiles();
-  // Don't hide the panel - just update it with new data
   detectPage();
+});
+
+window.addEventListener('offlyn-open-jobs', () => {
+  browser.runtime.sendMessage({ kind: 'OPEN_JOBS_PAGE' }).catch(() => {
+    const url = browser.runtime.getURL('jobs/jobs.html');
+    window.open(url, '_blank');
+  });
+});
+
+window.addEventListener('offlyn-tailor-resume', () => {
+  window.dispatchEvent(new CustomEvent('offlyn-generate-cover-letter'));
 });
 
 window.addEventListener('offlyn-browser-use-fill', () => {
@@ -4125,51 +4134,7 @@ async function init(): Promise<void> {
   
   log('Content script initialized with multi-page support');
 
-  // ── LinkedIn Auto-Apply ─────────────────────────────────────────────────
-  if (window.location.hostname.includes('linkedin.com')) {
-    initLinkedInAutoApply();
-  }
 }
 
-async function initLinkedInAutoApply(): Promise<void> {
-  const { isLinkedIn, detectLinkedInPage } = await import('./linkedin/linkedin-detector');
-  if (!isLinkedIn()) return;
-
-  const pageType = detectLinkedInPage();
-  if (pageType !== 'job-search' && pageType !== 'job-detail') return;
-
-  const { showLinkedInOverlay, updateOverlayStats, updateOverlayControls } = await import('./ui/linkedin-overlay');
-  const { startAutoApply, stopAutoApply } = await import('./linkedin/linkedin-autoapply');
-  const { getActiveProfileId, listProfiles } = await import('./shared/profile');
-
-  const activeId = await getActiveProfileId();
-  const profiles = await listProfiles();
-  const active = profiles.find(p => p.id === activeId) ?? profiles[0];
-
-  if (!active) return;
-
-  showLinkedInOverlay(
-    active.name,
-    active.color,
-    async (maxApply: number) => {
-      const result = await startAutoApply(
-        { maxApply },
-        (status, partial) => {
-          updateOverlayStats(partial);
-          updateOverlayControls(status, () => stopAutoApply());
-        },
-      );
-      updateOverlayStats(result);
-      updateOverlayControls('done');
-    },
-    () => stopAutoApply(),
-  );
-
-  info('[LinkedIn] Auto-apply overlay initialized');
-}
-
-window.addEventListener('offlyn-linkedin-autoapply', () => {
-  initLinkedInAutoApply();
-});
 
 init();

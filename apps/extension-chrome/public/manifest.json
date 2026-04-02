@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Offlyn Apply",
-  "version": "0.7.2",
+  "version": "0.7.6",
   "description": "Smart job application assistant - auto-fill forms, track applications, generate cover letters",
 
   "icons": {
@@ -18,7 +18,9 @@
     "tabs",
     "contextMenus",
     "scripting",
-    "nativeMessaging"
+    "nativeMessaging",
+    "alarms",
+    "notifications"
   ],
 
   "host_permissions": [

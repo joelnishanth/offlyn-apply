@@ -61,8 +61,9 @@
     .search-bar {
       display: flex;
       gap: 12px;
-      margin-bottom: 20px;
+      margin-bottom: 12px;
       flex-wrap: wrap;
+      align-items: center;
     }
 
     .search-bar input,
@@ -83,8 +84,51 @@
       box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
     }
 
-    .search-keywords { flex: 2; min-width: 200px; }
-    .search-location { flex: 1; min-width: 150px; }
+    .ac-wrap {
+      position: relative;
+      flex: 2;
+      min-width: 200px;
+    }
+    .ac-wrap.ac-location {
+      flex: 1;
+      min-width: 150px;
+    }
+    .ac-wrap input { width: 100%; }
+
+    .ac-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0; right: 0;
+      z-index: 50;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      max-height: 220px;
+      overflow-y: auto;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    }
+    .ac-dropdown.open { display: block; }
+
+    .ac-option {
+      padding: 8px 14px;
+      font-size: 13px;
+      color: #1e293b;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .ac-option:hover,
+    .ac-option.highlighted {
+      background: #f5f3ff;
+      color: #7c3aed;
+    }
+    .ac-option mark {
+      background: none;
+      color: #7c3aed;
+      font-weight: 600;
+    }
+
     .search-days { width: 140px; }
 
     .btn-search {
@@ -97,6 +141,54 @@
     .btn-search:hover { background: #6d28d9; }
     .btn-search:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    /* Advanced filters row */
+    .filters-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .filters-row select,
+    .filters-row input[type="number"] {
+      padding: 7px 10px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+      color: #1e293b;
+      background: #fff;
+    }
+    .filters-row select:focus,
+    .filters-row input[type="number"]:focus {
+      outline: none;
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
+    }
+
+    .filter-label {
+      font-size: 12px;
+      color: #94a3b8;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .salary-input {
+      width: 100px;
+    }
+    .salary-dash {
+      color: #94a3b8;
+      font-size: 13px;
+    }
+
     .toggle-row {
       display: flex;
       align-items: center;
@@ -106,6 +198,24 @@
     }
 
     .toggle-row input[type="checkbox"] { accent-color: #7c3aed; }
+
+    .filter-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 20px;
+      font-size: 12px;
+      color: #475569;
+      background: #fff;
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .filter-pill:hover { border-color: #7c3aed; color: #7c3aed; }
+    .filter-pill.active { background: #f5f3ff; border-color: #7c3aed; color: #7c3aed; font-weight: 600; }
+    .filter-pill input { display: none; }
 
     /* Results info */
     .results-info {
@@ -347,6 +457,74 @@
     html.dark .empty-state h3 { color: #94a3b8; }
     html.dark .toggle-row { color: #94a3b8; }
     html.dark .results-info { color: #64748b; }
+    html.dark .ac-dropdown { background: #1e293b; border-color: #334155; }
+    html.dark .ac-option { color: #f1f5f9; }
+    html.dark .ac-option:hover, html.dark .ac-option.highlighted { background: #312e81; color: #c4b5fd; }
+    html.dark .ac-option mark { color: #c4b5fd; }
+    html.dark .filters-row select,
+    html.dark .filters-row input[type="number"] { background: #1e293b; border-color: #334155; color: #f1f5f9; }
+    html.dark .filters-row select:focus,
+    html.dark .filters-row input[type="number"]:focus { border-color: #7c3aed; }
+    html.dark .filter-label { color: #64748b; }
+    html.dark .salary-dash { color: #64748b; }
+    html.dark .filter-pill { background: #1e293b; border-color: #334155; color: #94a3b8; }
+    html.dark .filter-pill:hover { border-color: #7c3aed; color: #c4b5fd; }
+    html.dark .filter-pill.active { background: #312e81; border-color: #7c3aed; color: #c4b5fd; }
+
+    /* Scheduled results banner */
+    .scheduled-banner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+      border: 1px solid #c4b5fd;
+      border-radius: 10px;
+    }
+    .scheduled-banner-icon {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: #7c3aed;
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-weight: 700; font-size: 14px;
+    }
+    .scheduled-banner-text {
+      flex: 1;
+      font-size: 14px;
+      color: #3b0764;
+      line-height: 1.4;
+    }
+    .scheduled-banner-text strong { font-weight: 700; }
+    .scheduled-banner-text small {
+      display: block;
+      font-size: 12px;
+      color: #6b21a8;
+      margin-top: 2px;
+    }
+    .scheduled-banner-actions { display: flex; gap: 8px; }
+    .btn-banner {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .btn-banner-primary { background: #7c3aed; color: #fff; }
+    .btn-banner-primary:hover { background: #6d28d9; }
+    .btn-banner-dismiss { background: transparent; color: #6b21a8; }
+    .btn-banner-dismiss:hover { background: rgba(124,58,237,0.1); }
+
+    html.dark .scheduled-banner { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); border-color: #4c1d95; }
+    html.dark .scheduled-banner-text { color: #e9d5ff; }
+    html.dark .scheduled-banner-text small { color: #c4b5fd; }
+    html.dark .btn-banner-dismiss { color: #c4b5fd; }
+    html.dark .btn-banner-dismiss:hover { background: rgba(124,58,237,0.2); }
   </style>
 </head>
 <body>
@@ -368,8 +546,21 @@
 
   <div class="container">
     <div class="search-bar">
-      <input type="text" id="search-keywords" class="search-keywords" placeholder="Job title or keywords...">
-      <input type="text" id="search-location" class="search-location" placeholder="Location">
+      <div class="ac-wrap" id="ac-keywords-wrap">
+        <input type="text" id="search-keywords" class="search-keywords" placeholder="Job title or keywords..." autocomplete="off">
+        <div class="ac-dropdown" id="ac-keywords-dropdown"></div>
+      </div>
+      <div class="ac-wrap ac-location" id="ac-location-wrap">
+        <input type="text" id="search-location" class="search-location" placeholder="City, state, or 'remote'" autocomplete="off">
+        <div class="ac-dropdown" id="ac-location-dropdown"></div>
+      </div>
+      <button class="btn-search" id="btn-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Search
+      </button>
+    </div>
+
+    <div class="filters-row" id="filters-row">
       <select id="search-days" class="search-days">
         <option value="">Any time</option>
         <option value="1">Past 24h</option>
@@ -377,14 +568,41 @@
         <option value="7">Past week</option>
         <option value="30">Past month</option>
       </select>
-      <div class="toggle-row">
-        <input type="checkbox" id="search-remote">
-        <label for="search-remote">Remote only</label>
+      <select id="search-sort">
+        <option value="default">Sort: Relevance</option>
+        <option value="date">Sort: Most recent</option>
+        <option value="salary">Sort: Highest salary</option>
+      </select>
+      <div class="filter-group">
+        <span class="filter-label">Salary</span>
+        <input type="number" id="salary-min" class="salary-input" placeholder="Min" step="10000" min="0">
+        <span class="salary-dash">&ndash;</span>
+        <input type="number" id="salary-max" class="salary-input" placeholder="Max" step="10000" min="0">
       </div>
-      <button class="btn-search" id="btn-search">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        Search
-      </button>
+      <label class="filter-pill" id="pill-remote">
+        <input type="checkbox" id="search-remote">
+        Remote
+      </label>
+      <label class="filter-pill" id="pill-fulltime">
+        <input type="checkbox" id="search-fulltime">
+        Full-time
+      </label>
+      <label class="filter-pill" id="pill-contract">
+        <input type="checkbox" id="search-contract">
+        Contract
+      </label>
+    </div>
+
+    <div class="scheduled-banner" id="scheduled-banner" style="display:none;">
+      <div class="scheduled-banner-icon" id="scheduled-count">0</div>
+      <div class="scheduled-banner-text">
+        <strong>New jobs found based on your preferences</strong>
+        <small>Background search discovered matching opportunities</small>
+      </div>
+      <div class="scheduled-banner-actions">
+        <button class="btn-banner btn-banner-primary" id="scheduled-view-btn">View</button>
+        <button class="btn-banner btn-banner-dismiss" id="scheduled-dismiss-btn">Dismiss</button>
+      </div>
     </div>
 
     <div class="results-info" id="results-info" style="display:none;">

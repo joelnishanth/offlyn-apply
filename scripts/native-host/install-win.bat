@@ -17,7 +17,7 @@ set RAW_BASE=https://raw.githubusercontent.com/joelnishanth/offlyn-apply/main/sc
 set SETUP_BASE=https://raw.githubusercontent.com/joelnishanth/offlyn-apply/main/scripts/setup-ollama
 set CHROME_EXT_ID=bjllpojjllhfghiemokcoknfmhpmfbph
 set FIREFOX_EXT_ID={e0857c2d-15a6-4d0c-935e-57761715dc3d}
-set CHAT_MODEL=llama3.2:1b
+set CHAT_MODEL=llama3.2
 set EMBED_MODEL=nomic-embed-text
 set ORIGINS=chrome-extension://*,moz-extension://*
 set MANIFEST_FILE=%OFFLYN_DIR%\%HOST_NAME%.json
@@ -30,9 +30,9 @@ echo.
 echo   This window will stay open while everything downloads
 echo   and installs automatically. No clicks needed from you.
 echo.
-echo   Total download size: roughly 2.5 GB
+echo   Total download size: roughly 3.9 GB
 echo     - Ollama AI runtime .......... ~1.6 GB  (one-time)
-echo     - llama3.2:1b AI model ....... ~637 MB  (one-time)
+echo     - llama3.2 AI model .......... ~2.0 GB  (one-time)
 echo     - nomic-embed-text model ..... ~274 MB  (one-time)
 echo.
 echo   Estimated time: 10-40 minutes depending on your internet.
@@ -97,7 +97,7 @@ echo    Extension access configured OK
 
 :: ---- Step 7: Start Ollama and wait -------------------------------------------
 echo [5/5] Starting Ollama and downloading AI models...
-echo    (This step downloads ~911 MB total. Progress shown below.)
+echo    (This step downloads ~2.3 GB total. Progress shown below.)
 echo.
 taskkill /IM ollama.exe /F >nul 2>&1
 timeout /t 2 /nobreak >nul
@@ -108,7 +108,7 @@ powershell -ExecutionPolicy Bypass -Command "for($i=0;$i-lt 30;$i++){try{$null=I
 if %errorlevel% neq 0 goto :ollama_start_error
 echo    Ollama engine is running!
 echo.
-echo    Downloading AI chat model: %CHAT_MODEL% (~637 MB)...
+echo    Downloading AI chat model: %CHAT_MODEL% (~2.0 GB)...
 echo    (This is the model that fills out your job applications)
 ollama pull %CHAT_MODEL%
 echo.

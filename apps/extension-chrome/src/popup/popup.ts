@@ -350,22 +350,6 @@ async function init(): Promise<void> {
     } catch (err) { error('Cover letter trigger failed:', err); }
   });
 
-  // ── LinkedIn Auto-Apply (only visible on LinkedIn) ──
-  try {
-    const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-    const url = tabs[0]?.url ?? '';
-    if (url.includes('linkedin.com/jobs')) {
-      const liBtn = document.getElementById('linkedin-autoapply-btn');
-      if (liBtn) liBtn.style.display = '';
-    }
-  } catch { /* non-critical */ }
-
-  document.getElementById('linkedin-autoapply-btn')?.addEventListener('click', async () => {
-    try {
-      await dispatchCustomEventOnActiveTab('offlyn-linkedin-autoapply');
-      window.close();
-    } catch (err) { error('LinkedIn auto-apply trigger failed:', err); }
-  });
 
   // ── Enabled toggle ──
   document.getElementById('enabled-toggle')?.addEventListener('click', async () => {
