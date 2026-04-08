@@ -179,24 +179,24 @@ export function generateSummaryMessage(summary: DailySummary): string {
   const count = summary.applications.length;
   
   if (count === 0) {
-    return `📊 Daily Job Application Summary (${summary.date})\n\n✅ No applications today.`;
+    return `Daily Job Application Summary (${summary.date})\n\nNo applications today.`;
   }
   
   const submittedCount = summary.applications.filter(a => a.status === 'submitted').length;
   const detectedCount = count - submittedCount;
   
-  let message = `📊 Daily Job Application Summary (${summary.date})\n\n`;
+  let message = `Daily Job Application Summary (${summary.date})\n\n`;
   message += `Total: ${count} positions\n`;
-  message += `✅ Submitted: ${submittedCount}\n`;
-  message += `👁️ Detected: ${detectedCount}\n\n`;
+  message += `Submitted: ${submittedCount}\n`;
+  message += `Detected: ${detectedCount}\n\n`;
   
-  message += `📋 Details:\n`;
+  message += `Details:\n`;
   summary.applications.forEach((app, i) => {
-    const status = app.status === 'submitted' ? '✅' : '👁️';
+    const status = app.status === 'submitted' ? '[Submitted]' : '[Detected]';
     message += `\n${i + 1}. ${status} ${app.jobTitle}\n`;
-    message += `   🏢 ${app.company}\n`;
+    message += `   Company: ${app.company}\n`;
     if (app.atsHint) {
-      message += `   📝 ATS: ${app.atsHint}\n`;
+      message += `   ATS: ${app.atsHint}\n`;
     }
   });
   

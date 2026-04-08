@@ -545,7 +545,7 @@ async function tryAutoFill(schema: ReturnType<typeof extractFormSchema>): Promis
   try {
     const profile = await getUserProfile();
     if (!profile) {
-      warn('⚠️ No user profile found. Please set up your profile first.');
+      warn('No user profile found. Please set up your profile first.');
       showNotification('Profile not set up', 'Complete onboarding to fill in your details automatically.', 'warning');
       return;
     }
@@ -580,7 +580,7 @@ async function tryAutoFill(schema: ReturnType<typeof extractFormSchema>): Promis
       return;
     }
     
-    info(`🚀 Starting auto-fill: ${mappings.length} fields detected`);
+    info(`Starting auto-fill: ${mappings.length} fields detected`);
     showNotification('Auto-filling form...', `Filling ${mappings.length} fields with your profile data`, 'info');
     
     // Create a fill plan
@@ -752,7 +752,7 @@ async function trySmartSuggestions(): Promise<void> {
           showNotification(`✓ Applied ${successCount} suggestion${successCount > 1 ? 's' : ''}!`, 'success');
         }
         if (failCount > 0) {
-          showNotification(`⚠️ Failed to apply ${failCount} suggestion${failCount > 1 ? 's' : ''}`, 'warning');
+          showNotification(`Failed to apply ${failCount} suggestion${failCount > 1 ? 's' : ''}`, 'warning');
         }
       },
       () => {
@@ -923,7 +923,7 @@ async function trySmartAutoFill(): Promise<void> {
       showUnfilledFieldsNotification(finalUnfilled.length);
       showInlineSuggestionTiles(allDetectedFields, filledSelectors, handleInlineTileClick);
     } else {
-      info('✅ All fields successfully filled!');
+      info('All fields successfully filled!');
       removeAllTiles();
     }
 
@@ -2313,7 +2313,7 @@ async function postFillRescan(profile: UserProfile): Promise<void> {
     return;
   }
   
-  info(`🔄 Post-fill re-scan: found ${newFields.length} new dynamic fields`);
+  info(`Post-fill re-scan: found ${newFields.length} new dynamic fields`);
   
   // Update the stored fields
   allDetectedFields = newSchema;
@@ -2325,7 +2325,7 @@ async function postFillRescan(profile: UserProfile): Promise<void> {
     return;
   }
   
-  info(`🔄 Filling ${newMappings.length} newly appeared fields`);
+  info(`Filling ${newMappings.length} newly appeared fields`);
   
   const fillPlan: FillPlan = {
     kind: 'FILL_PLAN',
@@ -2369,7 +2369,7 @@ async function checkForValidationError(selector: string, fieldLabel: string): Pr
       if (errorElement) {
         const errorText = errorElement.textContent?.trim();
         if (errorText && errorText.length > 0 && errorText.length < 200) {
-          console.warn(`[OA] ⚠️ Validation error for "${fieldLabel}": ${errorText}`);
+          console.warn(`[OA] Validation error for "${fieldLabel}": ${errorText}`);
           highlightFieldAsError(selector);
           return;
         }
@@ -2379,7 +2379,7 @@ async function checkForValidationError(selector: string, fieldLabel: string): Pr
   
   // Check if field itself is marked as invalid
   if (element.getAttribute('aria-invalid') === 'true') {
-    console.warn(`[OA] ⚠️ Field "${fieldLabel}" marked as invalid`);
+    console.warn(`[OA] Field "${fieldLabel}" marked as invalid`);
     highlightFieldAsError(selector);
   }
 }
@@ -3286,7 +3286,7 @@ async function executeFillPlan(plan: FillPlan): Promise<void> {
   }
   
   // Show completion message
-  info(`✅ Autofill complete! Filled ${result.filledCount} fields, ${result.failedSelectors.length} failed.`);
+  info(`Autofill complete! Filled ${result.filledCount} fields, ${result.failedSelectors.length} failed.`);
 
   // Teach the graph — record every successfully filled answer into background's graphMemory.
   // Skip untrusted fields (Tier 3: cookie banners, chat widgets, marketing embeds).

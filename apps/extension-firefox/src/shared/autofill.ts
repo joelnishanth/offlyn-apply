@@ -93,7 +93,7 @@ export function generateFillMappings(schema: FieldSchema[], profile: UserProfile
         source = 'profile';
       }
       // Reject learned full name for first-name-only or last-name-only fields.
-      // The RL system can record a full name (e.g. "Nishanth Ponukumatla") as the
+      // The RL system can record a full name (e.g. "Jane Smith") as the
       // "correct" answer for a First Name field if the user submitted the form with
       // a full name there. This guard prevents that stale pattern from being reused.
       else if (
@@ -444,7 +444,7 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
                                 label.includes('race') || label.includes('ethnic') ||
                                 label.includes('veteran') || label.includes('disability');
   if (labelContainsSelfId) {
-    console.log('[Autofill] 🔍 Matching Self-ID field:', {
+    console.log('[Autofill] Matching Self-ID field:', {
       label: field.label,
       name: field.name,
       id: field.id,
@@ -477,7 +477,7 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
       if (firstLower && lastLower.startsWith(firstLower + ' ')) {
         return storedLast.substring(firstName.length + 1).trim();
       }
-      // Fallback: if it's exactly two words (e.g., "Nishanth Ponukumatla"), return the last word
+      // Fallback: if it's exactly two words (e.g., "Jane Smith"), return the last word
       const parts = storedLast.trim().split(/\s+/);
       if (parts.length === 2) {
         return parts[1];
@@ -853,7 +853,7 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
     }).length;
     
     if (raceOptionCount >= 3) {
-      console.log('[Autofill] 🔍 Detected race field via radio options (', raceOptionCount, 'race options found)');
+      console.log('[Autofill] Detected race field via radio options (', raceOptionCount, 'race options found)');
       isRaceField = true;
     }
   }
@@ -934,7 +934,7 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
         });
         
         if (declineOption) {
-          console.log('[Autofill] ✅ Mapped "decline" variation to:', declineOption);
+          console.log('[Autofill] Mapped "decline" variation to:', declineOption);
           return declineOption;
         }
       }
@@ -1100,7 +1100,7 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
           );
         });
         if (noOption) {
-          console.log('[Autofill] ✅ Mapped "Not a veteran" to:', noOption);
+          console.log('[Autofill] Mapped "Not a veteran" to:', noOption);
           return noOption;
         }
       } else if (valueLower.includes('yes') || valueLower.includes('veteran')) {
@@ -1111,7 +1111,7 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
                  (optLower.includes('veteran') && !optLower.includes('not'));
         });
         if (yesOption) {
-          console.log('[Autofill] ✅ Mapped veteran status to:', yesOption);
+          console.log('[Autofill] Mapped veteran status to:', yesOption);
           return yesOption;
         }
       }
@@ -1130,7 +1130,7 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
                  optLower.includes('prefer not');
         });
         if (declineOption) {
-          console.log('[Autofill] ✅ Mapped "decline" to:', declineOption);
+          console.log('[Autofill] Mapped "decline" to:', declineOption);
           return declineOption;
         }
       }
@@ -1295,7 +1295,7 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
                  optLower.includes('decline');
         });
         if (noOption) {
-          console.log('[Autofill] ✅ Mapped "No disability" to:', noOption);
+          console.log('[Autofill] Mapped "No disability" to:', noOption);
           return noOption;
         }
       } else if (hasYesDisability) {
@@ -1307,7 +1307,7 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
                  (optLower.includes('disabilit') && !optLower.includes('not'));
         });
         if (yesOption) {
-          console.log('[Autofill] ✅ Mapped disability status to:', yesOption);
+          console.log('[Autofill] Mapped disability status to:', yesOption);
           return yesOption;
         }
       }
@@ -1326,7 +1326,7 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
                  optLower.includes('prefer not');
         });
         if (declineOption) {
-          console.log('[Autofill] ✅ Mapped "decline" to:', declineOption);
+          console.log('[Autofill] Mapped "decline" to:', declineOption);
           return declineOption;
         }
       }
@@ -1661,7 +1661,7 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
   // Non-compete / NDA / restrictive agreements questions
   // "Are you currently bound by any agreements with a current or former employer..."
   if (matchesAny([label, name, id], ['non-compete', 'non compete', 'non-solicitation', 'non-disclosure', 'nda', 'bound by', 'restrictive agreement', 'contractual obligation'])) {
-    console.log('[Autofill] 📋 Non-compete/NDA agreements question: No (default)');
+    console.log('[Autofill] Non-compete/NDA agreements question: No (default)');
     return 'No';
   }
 
@@ -1957,7 +1957,7 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
     // Check if label specifically says "website" (not "How did you hear")
     if (!label.includes('hear') && !label.includes('find') && !label.includes('source')) {
       const portfolioValue = profile.professional.portfolio || profile.professional.github || '';
-      console.log('[Autofill] 🌐 Website/Portfolio field matched:', portfolioValue || '(empty)');
+      console.log('[Autofill] Website/Portfolio field matched:', portfolioValue || '(empty)');
       return portfolioValue;
     }
   }
@@ -2052,7 +2052,7 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
           return validEntry.school;
         }
       }
-      console.log('[Autofill] ⚠️ No valid education data found in profile');
+      console.log('[Autofill] No valid education data found in profile');
     }
     return null;
   }
@@ -2069,7 +2069,7 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
           return validEntry.degree;
         }
       }
-      console.log('[Autofill] ⚠️ No valid education data found in profile');
+      console.log('[Autofill] No valid education data found in profile');
     }
         return null;
       }
@@ -2086,7 +2086,7 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
           return validEntry.field;
         }
       }
-      console.log('[Autofill] ⚠️ No valid education data found in profile');
+      console.log('[Autofill] No valid education data found in profile');
     }
     return null;
   }
@@ -2104,12 +2104,12 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
         labelLower.includes('summary') ||
         labelLower.includes('motivation')) {
       
-      console.log('[Autofill] 📝 Textarea field matched:', field.label);
+      console.log('[Autofill] Textarea field matched:', field.label);
       
       // For "Why" questions, generate role-aware answer
       if (labelLower.includes('why')) {
         const answer = generateWhyAnswer(field, profile);
-        console.log('[Autofill] 💬 Generated "Why" answer:', answer ? answer.substring(0, 100) + '...' : '(empty)');
+        console.log('[Autofill] Generated "Why" answer:', answer ? answer.substring(0, 100) + '...' : '(empty)');
         return answer;
       }
       
@@ -2203,7 +2203,7 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
         const fieldLabel = (field.label || '').toLowerCase();
     const fieldValue = (field.valuePreview || '').toLowerCase();
     
-    console.log('[Autofill] 🔍 Checking checkbox field:', {
+    console.log('[Autofill] Checking checkbox field:', {
       label: field.label,
       value: field.valuePreview,
       id: field.id,

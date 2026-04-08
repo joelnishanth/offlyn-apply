@@ -2,60 +2,60 @@
 
 Browser extension that detects job application forms, extracts your resume data, and auto-fills forms automatically.
 
-## 🆕 Recent Updates
+## Recent Updates
 
 ### Adaptive Learning System (Latest - Self-Improving AI!)
-- ✅ **Learns from Your Edits** - Records every correction you make with embeddings
-- ✅ **Semantic Pattern Recognition** - Finds similar fields using vector search
-- ✅ **Automatic Improvement** - 98% accuracy after 30 applications (up from 85%)
-- ✅ **Fast Learning** - Uses patterns after just 3-5 corrections
-- ✅ **Privacy-Focused** - All learning data stored locally (never uploaded)
-- ✅ **Zero Configuration** - Just use normally, it learns passively
+- **Learns from Your Edits** - Records every correction you make with embeddings
+- **Semantic Pattern Recognition** - Finds similar fields using vector search
+- **Automatic Improvement** - 98% accuracy after 30 applications (up from 85%)
+- **Fast Learning** - Uses patterns after just 3-5 corrections
+- **Privacy-Focused** - All learning data stored locally (never uploaded)
+- **Zero Configuration** - Just use normally, it learns passively
 
 ### RAG Resume Parsing (Major Accuracy Boost!)
-- ✅ **92% Parsing Accuracy** - Up from 74% with old method (+18% improvement!)
-- ✅ **Semantic Chunking** - Smart section-based splitting (not arbitrary char limits)
-- ✅ **Vector Search** - Finds relevant info anywhere in resume using embeddings
-- ✅ **Complete Descriptions** - Captures full work experience details (not cut off)
-- ✅ **Query-Driven Extraction** - Retrieves only relevant chunks per field
-- ✅ **Auto-Fallback** - Falls back to legacy parser if RAG fails
+- **92% Parsing Accuracy** - Up from 74% with old method (+18% improvement!)
+- **Semantic Chunking** - Smart section-based splitting (not arbitrary char limits)
+- **Vector Search** - Finds relevant info anywhere in resume using embeddings
+- **Complete Descriptions** - Captures full work experience details (not cut off)
+- **Query-Driven Extraction** - Retrieves only relevant chunks per field
+- **Auto-Fallback** - Falls back to legacy parser if RAG fails
 
 ### Autofill Improvements
-- ✅ **Lever ATS Support** - Correctly fills Lever/Greenhouse forms (Anthropic, Stripe, Netflix)
-- ✅ **Smart Dropdown Detection** - Identifies text inputs that function as dropdowns
-- ✅ **Strict Validation** - Prevents location data in ethnicity, immigration status in veteran fields
-- ✅ **Dropdown Selection** - Clicks options from dropdown lists (not just typing)
-- ✅ **Autocomplete Support** - Handles searchable dropdowns (types + clicks option)
-- ✅ **Visual Indicators** - Shows [▼?] icon for dropdowns, lists available options
-- ✅ **Shadow DOM Support** - Now works with SmartRecruiters and modern web components
-- ✅ **Phone Number Splitting** - Automatically splits `+12432349871` into country code (`+1`) and number (`2432349871`)
-- ✅ **200+ Country Codes** - Supports phone numbers from all countries
-- ✅ **Better Field Detection** - Finds 30% more fields (checkboxes, dropdowns, ARIA components)
-- ✅ **Multi-Page Forms** - Automatically detects and fills multi-step applications
-- ✅ **User Edit Protection** - Never overwrites fields you've manually edited
-- ✅ **Ollama Validation** - Validates autofill values before filling (88% accuracy)
+- **Lever ATS Support** - Correctly fills Lever/Greenhouse forms (Anthropic, Stripe, Netflix)
+- **Smart Dropdown Detection** - Identifies text inputs that function as dropdowns
+- **Strict Validation** - Prevents location data in ethnicity, immigration status in veteran fields
+- **Dropdown Selection** - Clicks options from dropdown lists (not just typing)
+- **Autocomplete Support** - Handles searchable dropdowns (types + clicks option)
+- **Visual Indicators** - Shows [▼?] icon for dropdowns, lists available options
+- **Shadow DOM Support** - Now works with SmartRecruiters and modern web components
+- **Phone Number Splitting** - Automatically splits `+12432349871` into country code (`+1`) and number (`2432349871`)
+- **200+ Country Codes** - Supports phone numbers from all countries
+- **Better Field Detection** - Finds 30% more fields (checkboxes, dropdowns, ARIA components)
+- **Multi-Page Forms** - Automatically detects and fills multi-step applications
+- **User Edit Protection** - Never overwrites fields you've manually edited
+- **Ollama Validation** - Validates autofill values before filling (88% accuracy)
 
 ### Work Authorization Questions
-- ✅ **Visa & Sponsorship** - Auto-fill work authorization questions
-- ✅ **50+ Question Variations** - Recognizes all common phrasings
-- ✅ **Conditional Logic** - Shows/hides follow-up questions intelligently
-- ✅ **Multiple Scenarios** - Supports US Citizen, Green Card, H-1B, OPT, TN, etc.
-- ✅ **Critical Fields** - Fills 3-5 essential questions per application
+- **Visa & Sponsorship** - Auto-fill work authorization questions
+- **50+ Question Variations** - Recognizes all common phrasings
+- **Conditional Logic** - Shows/hides follow-up questions intelligently
+- **Multiple Scenarios** - Supports US Citizen, Green Card, H-1B, OPT, TN, etc.
+- **Critical Fields** - Fills 3-5 essential questions per application
 
 ### Smart Autofill with AI
-- ✅ **Browser-Use Style (Ollama)** - LLM generates fill/click/select actions; extension runs them ([browser-use](https://github.com/browser-use/browser-use) compatible)
-- ✅ **AI Fill (Browser-Use) Button** - One-click "AI Fill (Browser-Use)" in field panel for full action-plan fill
-- ✅ **AI-Powered Field Matching** - Uses Ollama to fill remaining empty fields
-- ✅ **Fuzzy Self-ID Matching** - Intelligently matches Self-ID checkboxes
-- ✅ **Semantic Dropdown Matching** - Matches options using embeddings
-- ✅ **Context-Aware Values** - Analyzes field context to generate appropriate responses
-- ✅ **85-95% Form Completion** - Fills almost all fields automatically
+- **Browser-Use Style (Ollama)** - LLM generates fill/click/select actions; extension runs them ([browser-use](https://github.com/browser-use/browser-use) compatible)
+- **AI Fill (Browser-Use) Button** - One-click "AI Fill (Browser-Use)" in field panel for full action-plan fill
+- **AI-Powered Field Matching** - Uses Ollama to fill remaining empty fields
+- **Fuzzy Self-ID Matching** - Intelligently matches Self-ID checkboxes
+- **Semantic Dropdown Matching** - Matches options using embeddings
+- **Context-Aware Values** - Analyzes field context to generate appropriate responses
+- **85-95% Form Completion** - Fills almost all fields automatically
 
 ### Manual Data Entry
-- ✅ **Skip resume upload** - Enter your information manually
-- ✅ **No AI setup required** - Get started immediately
-- ✅ **Full profile form** - Edit all fields with a user-friendly interface
-- ✅ **Fixed button visibility** - Field detection panel buttons now clearly visible
+- **Skip resume upload** - Enter your information manually
+- **No AI setup required** - Get started immediately
+- **Full profile form** - Edit all fields with a user-friendly interface
+- **Fixed button visibility** - Field detection panel buttons now clearly visible
 
 See [BROWSER_USE_INTEGRATION.md](./BROWSER_USE_INTEGRATION.md) for Browser-Use/Ollama | [ADAPTIVE_LEARNING.md](./ADAPTIVE_LEARNING.md) for learning system | [RAG_PARSING.md](./RAG_PARSING.md) for parsing details | [LEVER_ATS_FIX.md](./LEVER_ATS_FIX.md) for Lever/Greenhouse support | [DROPDOWN_DETECTION_FIX.md](./DROPDOWN_DETECTION_FIX.md) for Shadow DOM | [AUTOFILL_IMPROVEMENTS.md](./AUTOFILL_IMPROVEMENTS.md) for bug fixes | [PHONE_PARSING.md](./PHONE_PARSING.md) for phone splitting | [WORK_AUTHORIZATION.md](./WORK_AUTHORIZATION.md) for visa info | [SMART_AUTOFILL.md](./SMART_AUTOFILL.md) for AI features
 
@@ -423,11 +423,11 @@ The extension uses a **browser-compatible AI agent** powered by:
 - **Direct HTTP** - All inference happens via Ollama's HTTP API (no native messaging needed)
 
 This approach provides:
-- ✅ Browser compatibility (no Node.js modules)
-- ✅ Direct Ollama HTTP API access
-- ✅ AI SDK abstractions for clean code
-- ✅ Lightweight bundle (no heavy framework overhead)
-- ✅ Streaming support for future features
+- Browser compatibility (no Node.js modules)
+- Direct Ollama HTTP API access
+- AI SDK abstractions for clean code
+- Lightweight bundle (no heavy framework overhead)
+- Streaming support for future features
 
 **Key Files:**
 - `src/shared/mastra-agent.ts` - AI agent service (browser-compatible)

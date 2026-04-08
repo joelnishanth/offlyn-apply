@@ -344,9 +344,9 @@ Return ONLY the JSON (no markdown, no explanations):`;
       personalQuery,
       `Extract personal/contact information from the resume.
 Rules for names:
-- firstName: given name only (e.g. "Joel")
-- middleName: middle name if present, otherwise ""  (e.g. "Nishanth")
-- lastName: family/surname only — never include middle names here (e.g. "Ponukumatla")
+- firstName: given name only (e.g. "John")
+- middleName: middle name if present, otherwise ""  (e.g. "Michael")
+- lastName: family/surname only — never include middle names here (e.g. "Smith")
 - If the person has only two names (no middle), put them in firstName and lastName only.
 
 IMPORTANT: The resume header (first lines) usually contains name/email/phone. Prioritise it.

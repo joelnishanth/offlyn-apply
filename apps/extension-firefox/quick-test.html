@@ -45,7 +45,7 @@
   <div class="test-section">
     <h2>Test Results</h2>
     <div id="test-results">
-      <div class="status pending">⏳ Waiting for extension to load...</div>
+      <div class="status pending">Waiting for extension to load...</div>
     </div>
     
     <button onclick="runManualTest()" style="margin: 10px 0; padding: 10px 20px;">Run Manual Test</button>
@@ -66,7 +66,7 @@
       
       Object.entries(testResults).forEach(([test, passed]) => {
         const status = passed ? 'pass' : (passed === false ? 'fail' : 'pending');
-        const icon = passed ? '✅' : (passed === false ? '❌' : '⏳');
+        const icon = passed ? '[OK]' : (passed === false ? '[FAIL]' : '[...]');
         html += `<div class="status ${status}">${icon} ${test}: ${passed}</div>`;
       });
       

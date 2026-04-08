@@ -166,9 +166,9 @@ export function analyzeUnfilledFields(
     if (filledSelectors.has(field.selector) && !hasValue) {
       // Only warn if we have a valid element (not a resolution issue)
       if (!element) {
-        console.log('[SmartAutofill] ⚠️ Field marked as filled but element not found:', field.label);
+        console.log('[SmartAutofill] Field marked as filled but element not found:', field.label);
       } else {
-        console.log('[SmartAutofill] ⚠️ Field marked as filled but has no value:', field.label);
+        console.log('[SmartAutofill] Field marked as filled but has no value:', field.label);
         console.log('[SmartAutofill] Debug - element type:', element.tagName, 'role:', element.getAttribute('role'));
       }
       filledSelectors.delete(field.selector);

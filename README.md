@@ -190,4 +190,4 @@ If you discover a security vulnerability, please follow the responsible disclosu
 
 ## License
 
-[MIT](LICENSE) — © 2026 [Joel Nishanth](https://offlyn.ai)
+[MIT](LICENSE) — © 2026 [Offlyn Apply](https://offlyn.ai)

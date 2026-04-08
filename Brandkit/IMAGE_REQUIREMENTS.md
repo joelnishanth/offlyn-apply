@@ -1,9 +1,9 @@
 # Offlyn Apply - Image Asset Requirements
 
 ## Current Files in Brandkit/
-✅ Offlyn_Apply_Monogram.png (OA monogram)
-✅ Offlyn_Apply_Primary_Logo.png (Full logo with robot)
-✅ offlyn-logo-3d.png (3D version)
+- Offlyn_Apply_Monogram.png (OA monogram)
+- Offlyn_Apply_Primary_Logo.png (Full logo with robot)
+- offlyn-logo-3d.png (3D version)
 
 ---
 

@@ -61,7 +61,7 @@ function install() {
   
   // Check if launcher exists
   if (!fs.existsSync(LAUNCHER_PATH)) {
-    console.error('❌ Error: launcher.sh not found');
+    console.error('[FAIL] Error: launcher.sh not found');
     console.error('   Expected:', LAUNCHER_PATH);
     process.exit(1);
   }
@@ -69,13 +69,13 @@ function install() {
   // Check if index.js exists
   const indexPath = path.join(__dirname, 'index.js');
   if (!fs.existsSync(indexPath)) {
-    console.error('❌ Error: index.js not found');
+    console.error('[FAIL] Error: index.js not found');
     console.error('   Expected:', indexPath);
     process.exit(1);
   }
   
   // Prompt for extension ID
-  console.log('📋 To get your Firefox extension ID:');
+  console.log('To get your Firefox extension ID:');
   console.log('   1. Open Firefox');
   console.log('   2. Go to about:debugging');
   console.log('   3. Click "This Firefox"');
@@ -93,7 +93,7 @@ function install() {
     rl.close();
     
     if (!extensionId.trim()) {
-      console.error('❌ Extension ID required');
+      console.error('[FAIL] Extension ID required');
       process.exit(1);
     }
     
@@ -104,7 +104,7 @@ function install() {
       const manifestDir = getManifestDir();
       if (!fs.existsSync(manifestDir)) {
         fs.mkdirSync(manifestDir, { recursive: true });
-        console.log('✅ Created manifest directory:', manifestDir);
+        console.log('[OK] Created manifest directory:', manifestDir);
       }
       
       // Create manifest
@@ -112,22 +112,22 @@ function install() {
       const manifestPath = path.join(manifestDir, `${NATIVE_HOST_NAME}.json`);
       
       fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-      console.log('✅ Installed manifest:', manifestPath);
+      console.log('[OK] Installed manifest:', manifestPath);
       
       // Make launcher executable
       fs.chmodSync(LAUNCHER_PATH, 0o755);
       fs.chmodSync(indexPath, 0o755);
-      console.log('✅ Made launcher executable');
+      console.log('[OK] Made launcher executable');
       
-      console.log('\n✅ Installation complete!');
-      console.log('\n📝 Next steps:');
+      console.log('\n[OK] Installation complete!');
+      console.log('\nNext steps:');
       console.log('   1. Reload the extension in Firefox (about:debugging)');
       console.log('   2. Check the background script console for "Connected to native host"');
       console.log('   3. Visit a job application page to test');
-      console.log('\n📄 Logs: native-host/native-host.log');
+      console.log('\nLogs: native-host/native-host.log');
       
     } catch (err) {
-      console.error('❌ Installation failed:', err.message);
+      console.error('[FAIL] Installation failed:', err.message);
       process.exit(1);
     }
   });

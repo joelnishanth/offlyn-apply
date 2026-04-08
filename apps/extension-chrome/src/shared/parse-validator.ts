@@ -301,7 +301,7 @@ export class ParseValidator {
     merged.personal = this.mergeObject(rag.personal || {}, legacy.personal || {}, recommendations, 'personal');
 
     // Post-process: if the model bundled middle+last into lastName and middleName is blank,
-    // split the first word into middleName (e.g. "Nishanth Ponukumatla" → mid:"Nishanth" last:"Ponukumatla")
+    // split the first word into middleName (e.g. "Jane Smith" → mid:"Jane" last:"Smith")
     if (merged.personal.lastName && !merged.personal.middleName) {
       const parts = String(merged.personal.lastName).trim().split(/\s+/);
       if (parts.length >= 2) {

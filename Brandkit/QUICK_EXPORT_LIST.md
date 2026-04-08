@@ -1,6 +1,6 @@
 # Quick Export List - Offlyn Apply
 
-## Your Source Files ✅
+## Your Source Files
 - `Offlyn_Apply_Monogram.png` (340x280) - OA monogram
 - `Offlyn_Apply_Primary_Logo.png` (658x368) - Full logo with robot
 - `offlyn-logo-3d.png` (886x1266) - 3D version
@@ -11,7 +11,7 @@
 
 Create a folder: `Brandkit/exports/` and export these files:
 
-### MUST HAVE (Do these first) 🔴
+### MUST HAVE (Do these first)
 
 **From Monogram** (`Offlyn_Apply_Monogram.png`):
 ```
@@ -30,7 +30,7 @@ Create a folder: `Brandkit/exports/` and export these files:
 ✓ favicon.ico          → Multi-size: 16x16, 32x32, 48x48
 ```
 
-### RECOMMENDED (Do these if you have time) 🟡
+### RECOMMENDED (Do these if you have time)
 
 **From Monogram**:
 ```

@@ -358,7 +358,7 @@ export function normalizeProfile(raw: any): UserProfile {
     const middleName = (p.personal.middleName || '').trim();
 
     if (!middleName && lastName.includes(' ')) {
-      // e.g. "Nishanth Ponukumatla" → middleName:"Nishanth" lastName:"Ponukumatla"
+      // e.g. "Jane Smith" → middleName:"Jane" lastName:"Smith"
       const parts = lastName.split(/\s+/);
       p.personal = {
         ...p.personal,

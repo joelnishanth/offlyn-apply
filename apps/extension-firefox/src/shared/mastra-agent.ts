@@ -406,9 +406,9 @@ Return ONLY valid JSON. Never include markdown, explanations, or any text outsid
 
 {
   "personal": {
-    "firstName": "Given name only (e.g. Joel)",
+    "firstName": "Given name only (e.g. John)",
     "middleName": "Middle name if present, otherwise empty string",
-    "lastName": "Family/surname ONLY — never include middle names here (e.g. Ponukumatla)",
+    "lastName": "Family/surname ONLY — never include middle names here (e.g. Smith)",
     "email": "email@example.com",
     "phone": "+1234567890",
     "location": "City, State/Country"

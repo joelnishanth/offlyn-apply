@@ -1203,7 +1203,7 @@ function createContextMenus(): void {
   browser.contextMenus.create({
     id: 'offlyn-smart-fill',
     parentId: 'offlyn-text-transform',
-    title: '✨ Smart Fill this field',
+    title: 'Smart Fill this field',
     contexts: ['editable'],
   });
 

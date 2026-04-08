@@ -153,7 +153,7 @@
           <label>Resume/CV *</label>
           <div class="file-input-wrapper" id="resumeWrapper">
             <label for="resume" class="file-label">
-              📄 Click to upload or drag & drop your resume
+              Click to upload or drag and drop your resume
               <div style="font-size: 12px; color: #999; margin-top: 5px;">PDF, DOC, DOCX (Max 5MB)</div>
             </label>
             <input type="file" id="resume" name="resume" accept=".pdf,.doc,.docx" required>
@@ -165,7 +165,7 @@
           <label>Cover Letter (Optional)</label>
           <div class="file-input-wrapper" id="coverWrapper">
             <label for="cover" class="file-label">
-              📄 Click to upload your cover letter
+              Click to upload your cover letter
               <div style="font-size: 12px; color: #999; margin-top: 5px;">PDF, DOC, DOCX (Max 5MB)</div>
             </label>
             <input type="file" id="cover" name="cover" accept=".pdf,.doc,.docx">
@@ -213,10 +213,10 @@
           
           // Log the upload
           const isAutoFilled = !e.isTrusted;
-          console.log(`${isAutoFilled ? '🤖 AUTO-FILLED' : '👤 USER UPLOADED'}: ${input} - ${file.name}`);
+          console.log(`${isAutoFilled ? '[AUTO-FILLED]' : '[USER UPLOADED]'}: ${input} - ${file.name}`);
           
           if (isAutoFilled) {
-            showStatus(`✅ Auto-uploaded: ${file.name} to ${input} field`, 'success');
+            showStatus(`[OK] Auto-uploaded: ${file.name} to ${input} field`, 'success');
           }
         }
       });
@@ -259,7 +259,7 @@
       }
       
       console.log('Form Data:', data);
-      showStatus('✅ Form submitted successfully! Check console for data.', 'success');
+      showStatus('[OK] Form submitted successfully! Check console for data.', 'success');
     });
 
     function showStatus(message, type = 'note') {
@@ -273,7 +273,7 @@
     }
 
     // Monitor for auto-fill
-    console.log('📋 Page loaded. Waiting for auto-fill...');
+    console.log('Page loaded. Waiting for auto-fill...');
     console.log('Expected: Resume should auto-upload to "resume" field only');
     console.log('Expected: Cover letter and portfolio should remain empty');
     
@@ -283,15 +283,15 @@
       const coverInput = document.getElementById('cover');
       const portfolioInput = document.getElementById('portfolio');
       
-      console.log('\n📊 Auto-fill Status Check:');
-      console.log(`Resume: ${resumeInput.files.length > 0 ? '✅ Uploaded' : '❌ Empty'}`);
-      console.log(`Cover Letter: ${coverInput.files.length > 0 ? '⚠️ Uploaded (unexpected)' : '✅ Empty (expected)'}`);
-      console.log(`Portfolio: ${portfolioInput.files.length > 0 ? '⚠️ Uploaded (unexpected)' : '✅ Empty (expected)'}`);
+      console.log('\nAuto-fill Status Check:');
+      console.log(`Resume: ${resumeInput.files.length > 0 ? '[OK] Uploaded' : '[FAIL] Empty'}`);
+      console.log(`Cover Letter: ${coverInput.files.length > 0 ? '[WARN] Uploaded (unexpected)' : '[OK] Empty (expected)'}`);
+      console.log(`Portfolio: ${portfolioInput.files.length > 0 ? '[WARN] Uploaded (unexpected)' : '[OK] Empty (expected)'}`);
       
       if (resumeInput.files.length > 0) {
-        console.log(`\n✅ SUCCESS: Resume auto-uploaded: ${resumeInput.files[0].name}`);
+        console.log(`\n[OK] SUCCESS: Resume auto-uploaded: ${resumeInput.files[0].name}`);
       } else {
-        console.log('\n❌ ISSUE: Resume was not auto-uploaded');
+        console.log('\n[FAIL] ISSUE: Resume was not auto-uploaded');
         console.log('Possible causes:');
         console.log('1. No resume file stored in browser storage');
         console.log('2. Extension not loaded');

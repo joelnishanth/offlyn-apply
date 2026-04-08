@@ -298,13 +298,13 @@
     });
 
     // Monitor auto-fill
-    console.log('📋 Page loaded. Waiting for auto-fill...');
+    console.log('Page loaded. Waiting for auto-fill...');
     
     // Log when fields are auto-filled
     document.querySelectorAll('input[type="radio"], select').forEach(input => {
       input.addEventListener('change', (e) => {
         if (!e.isTrusted) {
-          console.log(`✅ Auto-filled: ${input.name} = ${input.value}`);
+          console.log(`[OK] Auto-filled: ${input.name} = ${input.value}`);
         }
       });
     });
@@ -338,18 +338,18 @@
         }
       });
 
-      console.log('\n📊 Auto-fill Status Check:');
-      console.log(`✅ Filled: ${filled.length} fields`);
-      console.log(`❌ Empty: ${empty.length} fields`);
+      console.log('\nAuto-fill Status Check:');
+      console.log(`[OK] Filled: ${filled.length} fields`);
+      console.log(`[FAIL] Empty: ${empty.length} fields`);
       
       if (empty.length > 0) {
-        console.log('\n❌ Empty fields:', empty);
+        console.log('\n[FAIL] Empty fields:', empty);
         console.log('\nPossible causes:');
         console.log('1. No work auth data in profile');
         console.log('2. Extension not loaded');
         console.log('3. Field patterns not matching');
       } else {
-        console.log('\n✅ SUCCESS: All work authorization fields filled!');
+        console.log('\n[OK] SUCCESS: All work authorization fields filled!');
       }
     }, 3000);
   </script>

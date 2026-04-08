@@ -61,6 +61,15 @@ ApplyEase/
 automatic-job-application-filler-extension/
 mastra/
 
+# Personal and sensitive information
+.cursor/
+docs/
+CLEANUP_ANALYSIS.md
+REPORT.md
+*.personal.*
+**/personal/
+**/*personal*
+
 # Daily tracking dashboard (local only, not committed to git)
 .dashboard/
 /UImockupfiles
@@ -71,3 +80,8 @@ mastra/
 /test-screenshots
 /.screenshots
 /test-results
+
+# Build artifacts with personal info
+scripts/build-mac-pkg.sh
+**/*-signed.*
+**/signing/

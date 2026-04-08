@@ -292,7 +292,7 @@ function showErrorDetails(error: string, details?: any): void {
       <p><strong>Fix — run this as one complete command, keep the terminal open:</strong></p>
       <pre style="background:#1e2a3a;color:#a3e635;padding:10px 12px;border-radius:6px;font-size:12px;margin:8px 0;white-space:pre-wrap;word-break:break-all;">OLLAMA_ORIGINS='moz-extension://*' ollama serve</pre>
       <p style="font-size:12px;color:#e65100;margin-bottom:10px;">
-        ⚠️ Stop the currently running Ollama first (Ctrl+C or quit the menu-bar app),
+        Stop the currently running Ollama first (Ctrl+C or quit the menu-bar app),
         then run the command above and keep that terminal open.
       </p>
       <p><strong>Permanent fix</strong> (so you never need to do this again):</p>

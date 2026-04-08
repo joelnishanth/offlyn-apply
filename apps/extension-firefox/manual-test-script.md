@@ -43,7 +43,7 @@
 - [ ] Verify cache is cleared and fresh content generated
 
 ## Expected Results
-All checkboxes should be ✅ for the functionality to be considered working correctly.
+All checkboxes should be checked for the functionality to be considered working correctly.
 
 ## Notes
 - Record any unexpected behavior

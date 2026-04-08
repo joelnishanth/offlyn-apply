@@ -31,9 +31,9 @@ openclaw message send \
 
 if [ $? -eq 0 ]; then
   echo ""
-  echo "✅ Summary sent successfully!"
+  echo "[OK] Summary sent successfully!"
 else
   echo ""
-  echo "❌ Failed to send summary"
+  echo "[FAIL] Failed to send summary"
   exit 1
 fi

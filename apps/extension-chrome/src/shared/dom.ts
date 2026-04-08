@@ -696,7 +696,7 @@ export function extractFormSchema(form: HTMLFormElement | Document): FieldSchema
     let valuePreview: string | null = null;
     if (field instanceof HTMLInputElement && (field.type === 'checkbox' || field.type === 'radio')) {
       valuePreview = field.getAttribute('value') || field.value || null;
-      console.log('[OA] 🔍 Found checkbox/radio:', {
+      console.log('[OA] Found checkbox/radio:', {
         type: field.type,
         label,
         value: valuePreview,
