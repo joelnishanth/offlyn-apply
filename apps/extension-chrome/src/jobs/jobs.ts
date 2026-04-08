@@ -493,7 +493,7 @@ async function doSearch(): Promise<void> {
       resultsPerPage: 20,
     };
 
-    if (sortBy && sortBy !== 'default') filters.sortBy = sortBy;
+    if (sortBy && sortBy !== 'default' && sortBy !== 'compatibility') filters.sortBy = sortBy;
     if (salaryMinStr) filters.salaryMin = parseInt(salaryMinStr, 10);
     if (salaryMaxStr) filters.salaryMax = parseInt(salaryMaxStr, 10);
     if (fullTime) filters.fullTime = true;
@@ -508,6 +508,15 @@ async function doSearch(): Promise<void> {
       const result = response.result as JobSearchResult;
       currentResults = result.jobs;
 
+      if (sortBy === 'compatibility') {
+        const profile = await getUserProfile();
+        const skills = profile?.skills ?? [];
+        const years = profile?.professional?.yearsOfExperience;
+        currentResults.sort((a, b) =>
+          computeCompatibilityScore(b, skills, years) - computeCompatibilityScore(a, skills, years)
+        );
+      }
+
       resultsInfo.style.display = '';
       (document.getElementById('results-count') as HTMLElement).textContent =
         `${result.totalResults} jobs found`;
@@ -516,6 +525,7 @@ async function doSearch(): Promise<void> {
       updateTabButtons();
       await renderResults();
 
+      saveFormState();
       // Record search action for preference learning
       browser.runtime.sendMessage({
         kind: 'RECORD_SEARCH_ACTION',
@@ -588,11 +598,17 @@ async function autoPopulateFromProfile(): Promise<void> {
   const keywordsInput = document.getElementById('search-keywords') as HTMLInputElement;
   const locationInput = document.getElementById('search-location') as HTMLInputElement;
 
-  const currentWork = (profile.work ?? []).find((w: any) => w.current);
-  const titleKeyword = currentWork?.title
-    ?? (profile.professional as any)?.currentRole
-    ?? (profile.professional as any)?.currentTitle
-    ?? '';
+  const workEntries = (profile.work ?? []) as any[];
+  const sortedWork = [...workEntries].sort((a, b) =>
+    new Date(b.endDate ?? b.startDate ?? 0).getTime() -
+    new Date(a.endDate ?? a.startDate ?? 0).getTime()
+  );
+  const titleKeyword =
+    sortedWork.find((w) => w.current)?.title ??
+    sortedWork[0]?.title ??
+    (profile.professional as any)?.currentRole ??
+    (profile.professional as any)?.currentTitle ??
+    '';
   const skillKeywords = (profile.skills ?? []).slice(0, 3).join(', ');
   const keywords = titleKeyword || skillKeywords;
 
@@ -661,7 +677,49 @@ setupAutocomplete('search-keywords', 'ac-keywords-dropdown', JOB_TITLES);
 setupAutocomplete('search-location', 'ac-location-dropdown', US_LOCATIONS);
 setupFilterPills();
 
-loadSavedIds().then(() => {
-  autoPopulateFromProfile();
+const FORM_STATE_KEY = 'job_search_form_state';
+
+async function saveFormState(): Promise<void> {
+  const state = gatherFilters();
+  await browser.storage.local.set({ [FORM_STATE_KEY]: state });
+}
+
+async function restoreFormState(): Promise<boolean> {
+  try {
+    const result = await browser.storage.local.get(FORM_STATE_KEY);
+    const state = result[FORM_STATE_KEY];
+    if (!state) return false;
+
+    const keywordsInput = document.getElementById('search-keywords') as HTMLInputElement;
+    const locationInput = document.getElementById('search-location') as HTMLInputElement;
+    const daysSelect = document.getElementById('search-days') as HTMLSelectElement;
+    const sortSelect = document.getElementById('search-sort') as HTMLSelectElement;
+    const salaryMinInput = document.getElementById('salary-min') as HTMLInputElement;
+    const salaryMaxInput = document.getElementById('salary-max') as HTMLInputElement;
+    const remoteCheckbox = document.getElementById('search-remote') as HTMLInputElement;
+    const fullTimeCheckbox = document.getElementById('search-fulltime') as HTMLInputElement;
+    const contractCheckbox = document.getElementById('search-contract') as HTMLInputElement;
+
+    if (state.keywords) keywordsInput.value = state.keywords;
+    if (state.location) locationInput.value = state.location;
+    if (state.daysStr) daysSelect.value = state.daysStr;
+    if (state.sortBy) sortSelect.value = state.sortBy;
+    if (state.salaryMinStr) salaryMinInput.value = state.salaryMinStr;
+    if (state.salaryMaxStr) salaryMaxInput.value = state.salaryMaxStr;
+    if (state.remote) { remoteCheckbox.checked = true; remoteCheckbox.closest('.filter-pill')?.classList.add('active'); }
+    if (state.fullTime) { fullTimeCheckbox.checked = true; fullTimeCheckbox.closest('.filter-pill')?.classList.add('active'); }
+    if (state.contract) { contractCheckbox.checked = true; contractCheckbox.closest('.filter-pill')?.classList.add('active'); }
+
+    return !!state.keywords;
+  } catch { return false; }
+}
+
+loadSavedIds().then(async () => {
+  const restored = await restoreFormState();
+  if (!restored) {
+    await autoPopulateFromProfile();
+  } else {
+    doSearch();
+  }
   checkScheduledResults();
 });

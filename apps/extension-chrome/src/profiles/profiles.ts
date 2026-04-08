@@ -8,6 +8,7 @@ import {
   setActiveProfile,
   updateProfileMeta,
   migrateToMultiProfile,
+  getProfileById,
 } from '../shared/profile';
 import { setHTML } from '../shared/html';
 
@@ -45,11 +46,22 @@ function relativeTime(ts: number): string {
   return `${days}d ago`;
 }
 
+const profileDataMap = new Map<string, UserProfile>();
+
 async function loadProfiles(): Promise<void> {
   await migrateToMultiProfile();
   const index = await getProfilesIndex();
   activeId = index?.activeId ?? 'default';
   allProfiles = await listProfiles();
+
+  profileDataMap.clear();
+  for (const p of allProfiles) {
+    try {
+      const data = await getProfileById(p.id);
+      if (data) profileDataMap.set(p.id, data);
+    } catch {}
+  }
+
   renderActiveBanner();
   renderGrid();
 }
@@ -78,21 +90,35 @@ function renderGrid(): void {
 
   for (const p of allProfiles) {
     const isActive = p.id === activeId;
+    const profileData = profileDataMap.get(p.id);
+    const personal = profileData?.personal as
+      | (UserProfile['personal'] & { name?: string; fullName?: string })
+      | undefined;
+    const professional = profileData?.professional as
+      | (UserProfile['professional'] & { currentRole?: string; currentTitle?: string })
+      | undefined;
+    const resumeName = personal?.name || personal?.fullName || '';
+    const resumeTitle = profileData?.work?.find(w => w.current)?.title
+      ?? professional?.currentRole
+      ?? professional?.currentTitle
+      ?? '';
+    const displayName = resumeName || p.name;
+    const displayRole = resumeTitle || p.targetRole || '';
+
     html += `
       <div class="profile-card ${isActive ? 'active' : ''}" data-id="${escapeHtml(p.id)}">
         ${isActive ? '<div class="active-tag">Active</div>' : ''}
         <div class="profile-card-header">
-          <div class="profile-card-dot" style="background:${p.color}">${initials(p.name)}</div>
+          <div class="profile-card-dot" style="background:${p.color}">${initials(displayName)}</div>
           <div>
-            <div class="profile-card-name">${escapeHtml(p.name)}</div>
-            ${p.targetRole ? `<div class="profile-card-role">${escapeHtml(p.targetRole)}</div>` : ''}
+            <div class="profile-card-name" contenteditable="true" data-rename="${escapeHtml(p.id)}" spellcheck="false">${escapeHtml(displayName)}</div>
+            ${displayRole ? `<div class="profile-card-role">${escapeHtml(displayRole)}</div>` : ''}
           </div>
         </div>
         <div class="profile-card-meta">Created ${relativeTime(p.createdAt)}</div>
         <div class="profile-card-actions">
           ${!isActive ? `<button class="btn-activate" data-activate="${escapeHtml(p.id)}">Activate</button>` : ''}
           <button class="btn-edit-profile" data-edit="${escapeHtml(p.id)}">Edit</button>
-          <button class="btn-onboarding" data-onboard="${escapeHtml(p.id)}">Setup</button>
           ${allProfiles.length > 1 ? `<button class="btn-delete-profile" data-delete="${escapeHtml(p.id)}" title="Delete profile">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
           </button>` : ''}
@@ -127,7 +153,9 @@ function bindCardEvents(): void {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = (btn as HTMLElement).dataset.edit!;
-      openEditModal(id);
+      browser.tabs.create({
+        url: browser.runtime.getURL(`onboarding/onboarding.html?profileId=${id}&edit=true`),
+      });
     });
   });
 
@@ -143,18 +171,28 @@ function bindCardEvents(): void {
     });
   });
 
-  document.querySelectorAll('[data-onboard]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const id = (btn as HTMLElement).dataset.onboard!;
-      browser.tabs.create({
-        url: browser.runtime.getURL(`onboarding/onboarding.html?profileId=${id}`),
-      });
-    });
-  });
-
   document.getElementById('btn-new-profile')?.addEventListener('click', () => {
     openCreateModal();
+  });
+
+  document.querySelectorAll('[data-rename]').forEach(el => {
+    const htmlEl = el as HTMLElement;
+    htmlEl.addEventListener('blur', async () => {
+      const id = htmlEl.dataset.rename!;
+      const newName = htmlEl.textContent?.trim();
+      if (newName && newName.length > 0) {
+        await updateProfileMeta(id, { name: newName });
+        const p = allProfiles.find(x => x.id === id);
+        if (p) p.name = newName;
+        renderActiveBanner();
+      }
+    });
+    htmlEl.addEventListener('keydown', (e) => {
+      if ((e as KeyboardEvent).key === 'Enter') {
+        (e as KeyboardEvent).preventDefault();
+        htmlEl.blur();
+      }
+    });
   });
 }
 
@@ -177,21 +215,6 @@ function openCreateModal(): void {
   }
 
   renderColorPicker(COLORS[allProfiles.length % COLORS.length]);
-  document.getElementById('profile-modal')!.classList.add('active');
-}
-
-function openEditModal(id: string): void {
-  const p = allProfiles.find(x => x.id === id);
-  if (!p) return;
-  editMode = true;
-  (document.getElementById('modal-title') as HTMLElement).textContent = 'Edit Profile';
-  (document.getElementById('modal-submit') as HTMLElement).textContent = 'Save Changes';
-  (document.getElementById('edit-id') as HTMLInputElement).value = id;
-  (document.getElementById('profile-name') as HTMLInputElement).value = p.name;
-  (document.getElementById('profile-role') as HTMLInputElement).value = p.targetRole ?? '';
-  document.getElementById('clone-from')!.parentElement!.style.display = 'none';
-
-  renderColorPicker(p.color);
   document.getElementById('profile-modal')!.classList.add('active');
 }
 

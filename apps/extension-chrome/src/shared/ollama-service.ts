@@ -19,10 +19,16 @@ export interface EmbeddingResponse {
 const OLLAMA_BASE_URL = 'http://localhost:11434';
 
 /**
- * Check if Ollama is available
+ * Check if Ollama is available.
+ * Routes through the background script to avoid CORS blocks on job sites.
  */
 export async function checkOllamaConnection(): Promise<boolean> {
   try {
+    const browser = (globalThis as any).chrome ?? (globalThis as any).browser;
+    if (browser?.runtime?.sendMessage) {
+      const resp = await browser.runtime.sendMessage({ kind: 'CHECK_OLLAMA' });
+      return !!resp?.connected;
+    }
     const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' }

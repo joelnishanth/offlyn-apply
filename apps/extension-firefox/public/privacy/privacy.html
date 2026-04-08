@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/png" sizes="48x48" href="../icons/icon-48.png">
+  <script src="../shared/theme-init.js"></script>
   <title>Privacy Policy - Offlyn Apply</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -139,17 +140,48 @@
       text-decoration: none;
     }
     .footer a:hover { color: #1e2a3a; }
+
+    .dark-mode-toggle {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.3);
+      cursor: pointer; color: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: all .15s;
+      flex-shrink: 0;
+    }
+    .dark-mode-toggle:hover { background: rgba(255,255,255,0.1); }
+
+    /* Dark mode */
+    html.dark body { background: #0f172a; color: #e2e8f0; }
+    html.dark .card { background: #1e293b; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+    html.dark .card h2 { color: #f1f5f9; }
+    html.dark .card p, html.dark .card li { color: #94a3b8; }
+    html.dark .highlight-box { background: #162e1a; border-left-color: #4ade80; }
+    html.dark .highlight-box p { color: #e2e8f0; }
+    html.dark .badge--green { background: #162e1a; color: #4ade80; }
+    html.dark .badge--blue { background: #0c2d48; color: #7dd3fc; }
+    html.dark .perm-table th { background: #0f172a; color: #f1f5f9; }
+    html.dark .perm-table td { border-bottom-color: #334155; }
+    html.dark .perm-table td:first-child { color: #4ade80; }
+    html.dark .footer { color: #64748b; }
+    html.dark .footer a { color: #94a3b8; }
+    html.dark .footer a:hover { color: #e2e8f0; }
   </style>
 </head>
 <body>
 
   <div class="header">
     <div class="header-inner">
-      <img class="header-icon" src="../icons/primary-logo.png" alt="Offlyn Apply">
-      <div class="header-text">
-        <h1>Privacy Policy</h1>
-        <p>How Offlyn Apply handles your data</p>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <img class="header-icon" src="../icons/primary-logo.png" alt="Offlyn Apply">
+        <div class="header-text">
+          <h1>Privacy Policy</h1>
+          <p>How Offlyn Apply handles your data</p>
+        </div>
       </div>
+      <button id="dark-mode-toggle" class="dark-mode-toggle" aria-label="Toggle dark mode"></button>
     </div>
   </div>
 
@@ -258,5 +290,6 @@
 
   </div>
 
+  <script src="../shared/dark-mode.js"></script>
 </body>
 </html>

@@ -40,6 +40,7 @@ export interface ApplyAction {
 
 export interface LearnedPreferences {
   topKeywords: string[];
+  topSearchPhrases: string[];
   preferredLocations: string[];
   salaryMin?: number;
   salaryMax?: number;
@@ -100,9 +101,23 @@ async function recomputePreferences(): Promise<void> {
     const searches: SearchAction[] = data[SEARCH_HISTORY_KEY] ?? [];
     const applies: ApplyAction[] = data[APPLY_HISTORY_KEY] ?? [];
 
-    // Keyword frequency (searches weighted 1x, applies weighted 2x)
-    const keywordFreq = new Map<string, number>();
+    // Track full search phrases (preserves user intent like "Software Engineer")
+    const phraseFreq = new Map<string, number>();
+    for (const s of searches) {
+      const phrase = s.keywords.trim();
+      if (phrase) phraseFreq.set(phrase, (phraseFreq.get(phrase) ?? 0) + 1);
+    }
+    for (const a of applies) {
+      const phrase = a.jobTitle.trim();
+      if (phrase) phraseFreq.set(phrase, (phraseFreq.get(phrase) ?? 0) + 2);
+    }
+    const topSearchPhrases = [...phraseFreq.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([phrase]) => phrase);
 
+    // Individual keyword frequency as fallback
+    const keywordFreq = new Map<string, number>();
     for (const s of searches) {
       for (const token of tokenize(s.keywords)) {
         keywordFreq.set(token, (keywordFreq.get(token) ?? 0) + 1);
@@ -113,7 +128,6 @@ async function recomputePreferences(): Promise<void> {
         keywordFreq.set(token, (keywordFreq.get(token) ?? 0) + 2);
       }
     }
-
     const topKeywords = [...keywordFreq.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
@@ -132,15 +146,12 @@ async function recomputePreferences(): Promise<void> {
       .slice(0, 3)
       .map(([loc]) => loc);
 
-    // Remote ratio
     const remoteSearches = searches.filter(s => s.remote).length;
     const remoteRatio = searches.length > 0 ? remoteSearches / searches.length : 0;
 
-    // Full-time ratio
     const ftSearches = searches.filter(s => s.fullTime).length;
     const fullTimeRatio = searches.length > 0 ? ftSearches / searches.length : 0;
 
-    // Salary range (from applies that have salary data)
     const salaries = applies.filter(a => a.salaryMin || a.salaryMax);
     let salaryMin: number | undefined;
     let salaryMax: number | undefined;
@@ -153,6 +164,7 @@ async function recomputePreferences(): Promise<void> {
 
     const prefs: LearnedPreferences = {
       topKeywords,
+      topSearchPhrases,
       preferredLocations,
       salaryMin,
       salaryMax,

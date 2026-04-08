@@ -1,7 +1,7 @@
 {
   "name": "offlyn-chrome-extension",
-  "version": "0.7.6",
-  "description": "Offline-first Chrome WebExtension for job application automation",
+  "version": "0.7.8",
+  "description": "AI-powered Chrome extension for job application auto-fill, compatibility analysis, and cover letter generation",
   "type": "module",
   "scripts": {
     "build": "node esbuild.config.mjs",

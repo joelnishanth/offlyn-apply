@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/png" sizes="48x48" href="../icons/icon-48.png">
+  <script src="../shared/theme-init.js"></script>
   <title>Settings - Offlyn Apply</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -27,6 +28,7 @@
       padding: 0 24px;
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 14px;
     }
     .header-icon {
@@ -408,17 +410,74 @@
       color: #cbd5e1;
       margin-top: 8px;
     }
+    .dark-mode-toggle {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.3);
+      cursor: pointer; color: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: all .15s;
+      flex-shrink: 0;
+    }
+    .dark-mode-toggle:hover { background: rgba(255,255,255,0.1); }
+
+    /* Dark mode */
+    html.dark body { background: #0f172a; color: #e2e8f0; }
+    html.dark .section { background: #1e293b; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+    html.dark .section-header { border-bottom-color: #334155; }
+    html.dark .section-title { color: #f1f5f9; }
+    html.dark .section-desc { color: #94a3b8; }
+    html.dark .setting-label { color: #e2e8f0; }
+    html.dark .setting-hint { color: #64748b; }
+    html.dark .setting-row { border-bottom-color: #1e293b; }
+    html.dark .toggle { background: #475569; }
+    html.dark .toggle.active { background: #7cb342; }
+    html.dark .setting-input { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+    html.dark .setting-input:focus { border-color: #7cb342; box-shadow: 0 0 0 3px rgba(124,179,66,0.2); }
+    html.dark .action-btn { background: #1e293b; border-color: #334155; color: #cbd5e1; }
+    html.dark .action-btn:hover { background: #334155; border-color: #7cb342; }
+    html.dark .action-btn--danger { color: #f87171; border-color: #7f1d1d; }
+    html.dark .action-btn--danger:hover { background: #2d1515; border-color: #dc2626; }
+    html.dark .danger-zone { border-color: #7f1d1d; }
+    html.dark .danger-zone-header { background: #2d1515; }
+    html.dark .danger-zone-title { color: #f87171; }
+    html.dark .danger-zone-desc { color: #6b7280; }
+    html.dark .btn-danger-zone { background: #1e293b; border-color: #7f1d1d; color: #f87171; }
+    html.dark .btn-danger-zone:hover { background: #2d1515; border-color: #dc2626; }
+    html.dark .danger-confirm-panel { background: #1e293b; border-top-color: #7f1d1d; }
+    html.dark .danger-warning-text { color: #cbd5e1; }
+    html.dark .danger-warning-list { color: #94a3b8; }
+    html.dark .btn-download-data { background: #0c2d48; border-color: #1e6b9c; color: #7dd3fc; }
+    html.dark .btn-download-data:hover { background: #0e3a5e; border-color: #0369a1; }
+    html.dark .btn-cancel-nuke { background: #1e293b; border-color: #334155; color: #94a3b8; }
+    html.dark .btn-cancel-nuke:hover { background: #334155; color: #e2e8f0; }
+    html.dark .storage-meter { background: #334155; }
+    html.dark .storage-text { color: #94a3b8; }
+    html.dark .ollama-field input { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+    html.dark .ollama-field input:focus { border-color: #7cb342; background: #1e293b; }
+    html.dark .ollama-field label { color: #94a3b8; }
+    html.dark .ollama-field small { color: #64748b; }
+    html.dark .ollama-test-result.ok { background: #162e1a; color: #4ade80; border-color: #16a34a; }
+    html.dark .ollama-test-result.fail { background: #2d1515; color: #f87171; border-color: #dc2626; }
+    html.dark .footer-link { color: #64748b; }
+    html.dark .footer-link:hover { color: #e2e8f0; }
+    html.dark .version { color: #475569; }
+    html.dark .action-feedback { color: #4ade80; }
   </style>
 </head>
 <body>
 
   <div class="header">
     <div class="header-inner">
-      <img class="header-icon" src="../icons/primary-logo.png" alt="Offlyn Apply">
-      <div class="header-text">
-        <h1>Settings</h1>
-        <p>Configure your Offlyn Apply experience</p>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <img class="header-icon" src="../icons/primary-logo.png" alt="Offlyn Apply">
+        <div class="header-text">
+          <h1>Settings</h1>
+          <p>Configure your Offlyn Apply experience</p>
+        </div>
       </div>
+      <button id="dark-mode-toggle" class="dark-mode-toggle" aria-label="Toggle dark mode"></button>
     </div>
   </div>
 
@@ -484,6 +543,10 @@
           <div class="setting-hint">Improve recommendations based on your searches and applications</div>
         </div>
         <div class="toggle active" id="toggle-pref-learn" role="switch" aria-checked="true" aria-label="Toggle preference learning" tabindex="0"></div>
+      </div>
+      <div class="action-row">
+        <button class="action-btn" id="btn-test-notification">Test Notification</button>
+        <span class="action-feedback" id="feedback-test-notif">Sent!</span>
       </div>
       <div class="action-row">
         <button class="action-btn" id="btn-clear-prefs">Clear Learned Preferences</button>
@@ -660,5 +723,6 @@
   <script src="../onboarding/pdf.min.js"></script>
   <script src="settings.js"></script>
   <script src="../shared/version-init.js"></script>
+  <script src="../shared/dark-mode.js"></script>
 </body>
 </html>

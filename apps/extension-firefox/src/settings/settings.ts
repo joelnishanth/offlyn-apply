@@ -83,6 +83,11 @@ async function init(): Promise<void> {
     });
   }
 
+  document.getElementById('btn-test-notification')?.addEventListener('click', async () => {
+    await browser.runtime.sendMessage({ kind: 'TEST_NOTIFICATION' });
+    showFeedback('feedback-test-notif');
+  });
+
   document.getElementById('btn-clear-prefs')?.addEventListener('click', async () => {
     await browser.runtime.sendMessage({ kind: 'CLEAR_PREFERENCES' });
     showFeedback('feedback-clear-prefs');

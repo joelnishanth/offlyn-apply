@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/png" sizes="48x48" href="../icons/icon-48.png">
+  <script src="../shared/theme-init.js"></script>
   <title>Help - Offlyn Apply</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -241,17 +242,59 @@
       text-decoration: none;
     }
     .footer a:hover { color: #1e2a3a; }
+
+    .dark-mode-toggle {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.3);
+      cursor: pointer; color: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: all .15s;
+      flex-shrink: 0;
+    }
+    .dark-mode-toggle:hover { background: rgba(255,255,255,0.1); }
+
+    /* Dark mode */
+    html.dark body { background: #0f172a; color: #e2e8f0; }
+    html.dark .quick-start { background: #1e293b; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+    html.dark .quick-start h2 { color: #f1f5f9; }
+    html.dark .step { border-bottom-color: #334155; }
+    html.dark .step-title { color: #f1f5f9; }
+    html.dark .step-desc { color: #94a3b8; }
+    html.dark .step-tip { color: #4ade80; }
+    html.dark .features h2 { color: #f1f5f9; }
+    html.dark .feature-card { background: #1e293b; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+    html.dark .feature-card h3 { color: #f1f5f9; }
+    html.dark .feature-card p { color: #94a3b8; }
+    html.dark .faq-section h2 { color: #f1f5f9; }
+    html.dark .faq-item { background: #1e293b; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+    html.dark .faq-q { color: #f1f5f9; }
+    html.dark .faq-q:hover { background: #334155; }
+    html.dark .faq-a { color: #94a3b8; }
+    html.dark .shortcuts { background: #1e293b; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+    html.dark .shortcuts h2 { color: #f1f5f9; }
+    html.dark .shortcut-row { border-bottom-color: #334155; }
+    html.dark .shortcut-action { color: #cbd5e1; }
+    html.dark kbd { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+    html.dark .footer { color: #64748b; }
+    html.dark .footer a { color: #94a3b8; }
+    html.dark .footer a:hover { color: #e2e8f0; }
+    html.dark .step-num { background: #7c3aed; }
   </style>
 </head>
 <body>
 
   <div class="header">
     <div class="header-inner">
-      <img class="header-icon" src="../icons/primary-logo.png" alt="Offlyn Apply">
-      <div class="header-text">
-        <h1>Help & Tutorial</h1>
-        <p>Learn how to get the most out of Offlyn Apply</p>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <img class="header-icon" src="../icons/primary-logo.png" alt="Offlyn Apply">
+        <div class="header-text">
+          <h1>Help & Tutorial</h1>
+          <p>Learn how to get the most out of Offlyn Apply</p>
+        </div>
       </div>
+      <button id="dark-mode-toggle" class="dark-mode-toggle" aria-label="Toggle dark mode"></button>
     </div>
   </div>
 
@@ -417,5 +460,6 @@
   </div>
 
   <script src="help.js"></script>
+  <script src="../shared/dark-mode.js"></script>
 </body>
 </html>

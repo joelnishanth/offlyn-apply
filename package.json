@@ -1,0 +1,28 @@
+{
+  "name": "offlyn-apply",
+  "version": "1.0.0",
+  "description": "<div align=\"center\">   <img src=\"apps/extension-chrome/public/icons/logo-full-400w.png\" alt=\"Offlyn Apply\" width=\"320\" />   <h3>Privacy-first job application assistant for Chrome & Firefox</h3>   <p>Auto-fill forms · AI cover letters · Local Ollama · Zero cloud · Zero tracking</p>",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joelnishanth/offlyn-apply.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/joelnishanth/offlyn-apply/issues"
+  },
+  "homepage": "https://github.com/joelnishanth/offlyn-apply#readme",
+  "devDependencies": {
+    "playwright": "^1.59.1"
+  }
+}

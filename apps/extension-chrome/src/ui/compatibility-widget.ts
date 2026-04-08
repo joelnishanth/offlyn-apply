@@ -52,6 +52,10 @@ let fillLabelEl:       HTMLElement | null = null;
 let fillPanelRef:      HTMLElement | null = null;
 let fillPillRef:       HTMLElement | null = null;
 
+// Tailor section state
+let tailorOpen       = false;
+let lastCompatData:  CompatData | null = null;
+
 // Drag state
 let isDragging       = false;
 let dragStartX       = 0;
@@ -90,6 +94,7 @@ export function showCompatibilityWidget(
   compatOpen = false;
 
   const data = computeCompatibility(profile, pageText);
+  lastCompatData = data;
 
   host = document.createElement('div');
   host.id = 'offlyn-widget-host';
@@ -126,8 +131,9 @@ export function removeCompatibilityWidget(): void {
   currentActiveId = '';
   currentSetupIds = new Set();
   currentProfileScores = new Map();
-  panelOpen = compatOpen = false;
+  panelOpen = compatOpen = tailorOpen = false;
   fillModeActive = false;
+  lastCompatData = null;
   fillRingSvg = fillRingCircle = null;
   fillLabelEl = fillPanelRef = fillPillRef = null;
   isDragging = dragMoved = false;
@@ -303,6 +309,8 @@ function mount(sr: ShadowRoot, data: CompatData): void {
 
   // ── monogram pill (always visible, at top) ──
   const pill = buildPill(data);
+  if (data.overall >= 80) pill.classList.add('ow-anim-excellent');
+  else if (data.overall >= 60) pill.classList.add('ow-anim-match');
   root.appendChild(pill);
 
   const panel = buildPanel(sr, data);
@@ -327,49 +335,51 @@ function mount(sr: ShadowRoot, data: CompatData): void {
     if (panelOpen) repositionPanel();
   });
 
-  if (panelOpen) repositionPanel();
-
   // ── Drag support on pill ──
   pill.addEventListener('pointerdown', onDragStart);
 
   sr.appendChild(root);
+
+  // Must happen after root is in the DOM so layout measurements are accurate
+  if (panelOpen) repositionPanel();
 }
 
 /**
- * Position the absolutely-placed panel left or right of the pill
- * so it never clips off the viewport edge.
+ * Position the panel using a fixed-position overlay so it always
+ * opens toward the side with more viewport space, regardless of
+ * how the host/root flex container lays out internally.
  */
 function repositionPanel(): void {
   if (!host || !shadow) return;
-  const root = shadow.querySelector('.ow-root') as HTMLElement;
-  if (!root) return;
-  const panel = root.querySelector('div:nth-child(2)') as HTMLElement;
+  const panel = shadow.getElementById('ow-panel') as HTMLElement;
   if (!panel) return;
 
-  const pillRect = host.getBoundingClientRect();
+  const hostRect = host.getBoundingClientRect();
   const vw = window.innerWidth;
-  const panelW = 380;
+  const panelW = Math.min(380, vw - 20);
 
-  const spaceRight = vw - pillRect.left;
-  const spaceLeft = pillRect.right;
+  const pillCenterX = hostRect.left + hostRect.width / 2;
 
-  if (spaceRight >= panelW + 10) {
-    panel.style.left = '0';
-    panel.style.right = 'auto';
-  } else if (spaceLeft >= panelW + 10) {
-    panel.style.right = '0';
-    panel.style.left = 'auto';
+  // Pick side: if pill is on the left half, panel goes right; otherwise left
+  let panelLeft: number;
+  if (pillCenterX < vw / 2) {
+    // Open rightward — align panel's left edge with pill's left edge
+    panelLeft = hostRect.left;
   } else {
-    if (spaceRight >= spaceLeft) {
-      panel.style.left = '0';
-      panel.style.right = 'auto';
-    } else {
-      panel.style.right = '0';
-      panel.style.left = 'auto';
-    }
+    // Open leftward — align panel's right edge with pill's right edge
+    panelLeft = hostRect.right - panelW;
   }
 
-  panel.style.maxWidth = `${Math.min(panelW, vw - 20)}px`;
+  // Clamp so panel stays within viewport
+  panelLeft = Math.max(10, Math.min(panelLeft, vw - panelW - 10));
+
+  // Convert from viewport coords to host-relative coords
+  const offsetLeft = panelLeft - hostRect.left;
+
+  panel.style.left = `${offsetLeft}px`;
+  panel.style.right = 'auto';
+  panel.style.width = `${panelW}px`;
+  panel.style.maxWidth = `${panelW}px`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -422,7 +432,11 @@ function onDragEnd(): void {
   document.removeEventListener('pointermove', onDragMove);
   document.removeEventListener('pointerup', onDragEnd);
 
-  if (dragMoved) repositionPanel();
+  if (dragMoved) {
+    repositionPanel();
+    // Reset after a short delay so the click handler doesn't fire on pointer-up
+    setTimeout(() => { dragMoved = false; }, 50);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -508,6 +522,7 @@ function buildPanel(sr: ShadowRoot, data: CompatData): HTMLElement {
   const req = fields.filter(f => f.required).length;
 
   const panel = el('div');
+  panel.id = 'ow-panel';
   setStyles(panel, {
     width:        '380px',
     background:   '#fff',
@@ -628,6 +643,23 @@ function buildPanel(sr: ShadowRoot, data: CompatData): HTMLElement {
     compatOpen = !compatOpen;
     compatDetail.style.display = compatOpen ? 'block' : 'none';
     compatToggle.arrow.style.transform = compatOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+  });
+
+  // Tailor section (hidden by default, shown via offlyn-show-tailor-panel event)
+  const tailorSection = buildTailorSection(data);
+  tailorSection.style.display = tailorOpen ? 'block' : 'none';
+  body.appendChild(tailorSection);
+
+  // Listen for show-tailor event
+  window.addEventListener('offlyn-show-tailor-panel', () => {
+    tailorOpen = true;
+    tailorSection.style.display = 'block';
+    if (!panelOpen) {
+      panelOpen = true;
+      panel.style.display = 'block';
+      repositionPanel();
+    }
+    tailorSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
 
   panel.appendChild(body);
@@ -894,6 +926,147 @@ function buildProfileSection(): HTMLElement {
     wrap.appendChild(dropdownEl);
   }
 
+  return wrap;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tailor Resume inline section
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildTailorSection(data: CompatData): HTMLElement {
+  const wrap = el('div');
+  wrap.id = 'ow-tailor-section';
+
+  const missing = data.skills.missing;
+  const matched = data.skills.matched;
+  const total = data.skills.total;
+  const matchPct = total > 0 ? Math.round((matched.length / total) * 100) : 0;
+  const pillColor = matchPct >= 70 ? '#16a34a' : matchPct >= 40 ? '#ca8a04' : '#dc2626';
+
+  let detailOpen = false;
+  const detail = el('div');
+
+  // ── Collapsible header row ──
+  const toggle = el('button');
+  setStyles(toggle, {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    width: '100%', padding: '10px 14px', background: '#faf5ff',
+    border: 'none', borderTop: '1px solid #f1f5f9', cursor: 'pointer', textAlign: 'left',
+  });
+
+  const toggleLeft = el('div');
+  setStyles(toggleLeft, { display: 'flex', alignItems: 'center', gap: '8px' });
+
+  const sparkDot = el('div');
+  setStyles(sparkDot, {
+    width: '26px', height: '26px', borderRadius: '7px',
+    background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: '0',
+  });
+  setHTML(sparkDot, `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/></svg>`);
+  toggleLeft.appendChild(sparkDot);
+
+  const labelWrap = el('div');
+  setStyles(labelWrap, { display: 'flex', flexDirection: 'column' });
+  labelWrap.appendChild(txt2('Resume Keywords', { fontSize: '12px', fontWeight: '600', color: '#1e293b', lineHeight: '1.2' }));
+  labelWrap.appendChild(txt2(`${matched.length}/${total} matched`, { fontSize: '10px', color: '#64748b', lineHeight: '1.2' }));
+  toggleLeft.appendChild(labelWrap);
+
+  const toggleRight = el('div');
+  setStyles(toggleRight, { display: 'flex', alignItems: 'center', gap: '6px' });
+
+  const pctBadge = el('span');
+  const badgeBg = matchPct >= 70 ? '#dcfce7' : matchPct >= 40 ? '#fef9c3' : '#fef2f2';
+  setStyles(pctBadge, {
+    fontSize: '11px', fontWeight: '700', color: pillColor,
+    background: badgeBg, padding: '2px 8px', borderRadius: '10px',
+  });
+  pctBadge.textContent = `${matchPct}%`;
+  toggleRight.appendChild(pctBadge);
+
+  const arrow = el('span');
+  setStyles(arrow, { display: 'inline-flex', color: '#94a3b8', transition: 'transform 0.2s', flexShrink: '0' });
+  setHTML(arrow, `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 5 7 9 11 5"/></svg>`);
+  toggleRight.appendChild(arrow);
+
+  toggle.appendChild(toggleLeft);
+  toggle.appendChild(toggleRight);
+
+  toggle.addEventListener('click', () => {
+    detailOpen = !detailOpen;
+    detail.style.display = detailOpen ? 'flex' : 'none';
+    arrow.style.transform = detailOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+  });
+
+  wrap.appendChild(toggle);
+
+  // ── Collapsible detail body ──
+  setStyles(detail, {
+    display: 'none', flexDirection: 'column', gap: '8px',
+    padding: '10px 14px 14px', borderTop: '1px solid #f3e8ff',
+  });
+
+  // Thin progress bar
+  detail.appendChild(progressBar(matchPct, pillColor));
+
+  // Missing keywords (only if any)
+  if (missing.length > 0) {
+    const missingWrap = el('div');
+    setStyles(missingWrap, { display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '2px' });
+    missingWrap.appendChild(txt2('Missing', { fontSize: '9px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }));
+    const badges = el('div');
+    setStyles(badges, { display: 'flex', flexWrap: 'wrap', gap: '3px' });
+    missing.forEach(kw => {
+      const b = el('span');
+      setStyles(b, {
+        padding: '2px 7px', borderRadius: '20px', fontSize: '10px', fontWeight: '500',
+        background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca',
+      });
+      b.textContent = kw;
+      badges.appendChild(b);
+    });
+    missingWrap.appendChild(badges);
+    detail.appendChild(missingWrap);
+  }
+
+  // Matched keywords (compact, muted)
+  if (matched.length > 0) {
+    const matchWrap = el('div');
+    setStyles(matchWrap, { display: 'flex', flexDirection: 'column', gap: '4px' });
+    matchWrap.appendChild(txt2('Matched', { fontSize: '9px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }));
+    const badges = el('div');
+    setStyles(badges, { display: 'flex', flexWrap: 'wrap', gap: '3px' });
+    matched.forEach(kw => {
+      const b = el('span');
+      setStyles(b, {
+        padding: '2px 7px', borderRadius: '20px', fontSize: '10px', fontWeight: '500',
+        background: '#f0fdf4', color: '#16a34a', border: '1px solid #dcfce7',
+      });
+      b.textContent = kw;
+      badges.appendChild(b);
+    });
+    matchWrap.appendChild(badges);
+    detail.appendChild(matchWrap);
+  }
+
+  // Tailor button — compact, text-style
+  const tailorBtn = el('button');
+  setStyles(tailorBtn, {
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px',
+    width: '100%', padding: '7px 10px', borderRadius: '7px',
+    background: '#7c3aed', color: '#fff', border: 'none',
+    fontSize: '11px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit',
+    marginTop: '2px', transition: 'background 0.15s',
+  });
+  setHTML(tailorBtn, `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/></svg>` + escHtml('Open AI Resume Tailor'));
+  tailorBtn.addEventListener('mouseenter', () => { tailorBtn.style.background = '#6d28d9'; });
+  tailorBtn.addEventListener('mouseleave', () => { tailorBtn.style.background = '#7c3aed'; });
+  tailorBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    window.dispatchEvent(new CustomEvent('offlyn-open-resume-tailor'));
+  });
+  detail.appendChild(tailorBtn);
+
+  wrap.appendChild(detail);
   return wrap;
 }
 
@@ -1324,6 +1497,34 @@ function injectBaseCSS(sr: ShadowRoot): void {
     .ow-scrollbody::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 2px; }
     button { font-family: inherit; cursor: pointer; }
     p { margin: 0; }
+    @keyframes ow-swivel {
+      0%   { transform: rotate(0deg)   scale(1);    }
+      12%  { transform: rotate(-22deg) scale(1.10); }
+      28%  { transform: rotate(18deg)  scale(1.07); }
+      44%  { transform: rotate(-13deg) scale(1.04); }
+      58%  { transform: rotate(9deg)   scale(1.02); }
+      72%  { transform: rotate(-5deg)  scale(1.01); }
+      86%  { transform: rotate(3deg)   scale(1);    }
+      100% { transform: rotate(0deg)   scale(1);    }
+    }
+    @keyframes ow-glow-green {
+      0%,100% { box-shadow: 0 4px 18px rgba(30,41,59,.22), 0 0  0px  0px rgba(22,163,74,0);    }
+      40%     { box-shadow: 0 4px 18px rgba(30,41,59,.22), 0 0 20px 10px rgba(22,163,74,0.55); }
+      70%     { box-shadow: 0 4px 18px rgba(30,41,59,.22), 0 0 10px  4px rgba(22,163,74,0.28); }
+    }
+    @keyframes ow-glow-amber {
+      0%,100% { box-shadow: 0 4px 18px rgba(30,41,59,.22), 0 0  0px  0px rgba(245,158,11,0);    }
+      40%     { box-shadow: 0 4px 18px rgba(30,41,59,.22), 0 0 20px 10px rgba(245,158,11,0.55); }
+      70%     { box-shadow: 0 4px 18px rgba(30,41,59,.22), 0 0 10px  4px rgba(245,158,11,0.28); }
+    }
+    .ow-anim-match {
+      animation: ow-swivel 1.4s cubic-bezier(.36,.07,.19,.97) 0.35s 1 both,
+                 ow-glow-amber 1.8s ease-in-out 0.35s 3 forwards;
+    }
+    .ow-anim-excellent {
+      animation: ow-swivel 1.4s cubic-bezier(.36,.07,.19,.97) 0.35s 1 both,
+                 ow-glow-green 1.8s ease-in-out 0.35s 3 forwards;
+    }
   `;
   sr.appendChild(s);
 }

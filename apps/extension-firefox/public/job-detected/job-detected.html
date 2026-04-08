@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Offlyn – Job detected</title>
+  <script src="../shared/theme-init.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -43,6 +44,13 @@
     .btn.secondary { background: #1976d2; }
     .btn.secondary:hover { background: #1565c0; }
     .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    /* Dark mode */
+    html.dark body { background: #0f172a; color: #e2e8f0; }
+    html.dark .card { background: #1e293b; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+    html.dark .card h1 { color: #f1f5f9; }
+    html.dark .card .company { color: #94a3b8; }
+    html.dark .card .hostname { color: #64748b; }
   </style>
 </head>
 <body>
@@ -56,5 +64,6 @@
     </div>
   </div>
   <script src="job-detected.js"></script>
+  <script src="../shared/dark-mode.js"></script>
 </body>
 </html>

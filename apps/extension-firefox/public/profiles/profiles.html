@@ -201,6 +201,18 @@
       font-weight: 600;
       font-size: 1em;
       color: #1e293b;
+      outline: none;
+      border-radius: 4px;
+      padding: 1px 4px;
+      margin: -1px -4px;
+      transition: background 0.15s, box-shadow 0.15s;
+    }
+    .profile-card-name:hover {
+      background: rgba(124,58,237,0.06);
+    }
+    .profile-card-name:focus {
+      background: rgba(124,58,237,0.1);
+      box-shadow: 0 0 0 2px rgba(124,58,237,0.3);
     }
 
     .profile-card-role {
@@ -432,6 +444,8 @@
     html.dark .profile-card:hover { border-color: #475569; }
     html.dark .profile-card.active { border-color: #7c3aed; }
     html.dark .profile-card-name { color: #f1f5f9; }
+    html.dark .profile-card-name:hover { background: rgba(124,58,237,0.15); }
+    html.dark .profile-card-name:focus { background: rgba(124,58,237,0.2); box-shadow: 0 0 0 2px rgba(124,58,237,0.4); }
     html.dark .profile-card-role { color: #94a3b8; }
     html.dark .profile-card-meta { color: #64748b; }
     html.dark .btn-edit-profile { background: #334155; color: #cbd5e1; }

@@ -3,38 +3,14 @@
  */
 
 import type { JobMeta, FieldSchema, PageClassification } from './types';
+import { ALL_DOMAINS } from './ats-domains';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Trust / exclusion constants (shared by extractFormSchema and classifyPage)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Hostnames that unambiguously host a job application form. */
-const TRUSTED_ATS_HOSTNAMES = [
-  'greenhouse.io',
-  'lever.co',
-  'workday.com',
-  'myworkdayjobs.com',
-  'smartrecruiters.com',
-  'workable.com',
-  'breezy.hr',
-  'bamboohr.com',
-  'icims.com',
-  'ultipro.com',
-  'ashbyhq.com',
-  'jobvite.com',
-  'taleo.net',
-  'successfactors.com',
-  'jazz.co',
-  'fountain.com',
-  'recruiting.paylocity.com',
-  'applytojob.com',
-  'hire.withgoogle.com',
-  'jobs.lever.co',
-  'jobs.workday.com',
-  'app.ashbyhq.com',
-  'boards.greenhouse.io',
-  'job-boards.greenhouse.io',
-];
+/** Hostnames that unambiguously host a job application form. Sourced from ats-domains.ts. */
+const TRUSTED_ATS_HOSTNAMES: readonly string[] = ALL_DOMAINS;
 
 /**
  * Returns true when an iframe src URL belongs to a trusted ATS platform.
@@ -1274,29 +1250,8 @@ export function isJobApplicationPage(): boolean {
   console.log('[OA Detection] Hostname:', hostname);
   
   // ── Tier 1: Known ATS hostnames (instant match) ───────────────────────
-  const knownATSHostnames = [
-    'greenhouse.io',
-    'lever.co',
-    'workday.com',
-    'myworkdayjobs.com',
-    'smartrecruiters.com',
-    'workable.com',
-    'breezy.hr',
-    'bamboohr.com',
-    'icims.com',
-    'ultipro.com',
-    'ashbyhq.com',
-    'jobvite.com',
-    'taleo.net',
-    'successfactors.com',
-    'jazz.co',
-    'fountain.com',
-    'recruiting.paylocity.com',
-    'applytojob.com',
-  ];
-  
-  for (const ats of knownATSHostnames) {
-    if (hostname.includes(ats)) {
+  for (const ats of TRUSTED_ATS_HOSTNAMES) {
+    if (hostname === ats || hostname.endsWith('.' + ats)) {
       console.log('[OA Detection] Tier-1 match (ATS hostname):', ats);
       return true;
     }

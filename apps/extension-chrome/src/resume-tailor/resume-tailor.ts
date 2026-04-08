@@ -28,12 +28,35 @@ const resultPanel = document.getElementById('result-panel') as HTMLElement;
 const resultText = document.getElementById('result-text') as HTMLElement;
 
 let tailoredResult = '';
+let sourceTabId: number | null = null;
 
 // Wire up "Got it" dismiss for the PDF instructions banner
 document.getElementById('pdf-instructions-close')?.addEventListener('click', () => {
   const el = document.getElementById('pdf-instructions');
   if (el) el.classList.remove('visible');
 });
+
+const OLLAMA_URL = 'http://localhost:11434';
+
+async function checkOllamaStatus(): Promise<boolean> {
+  const indicatorEl = document.getElementById('ollama-indicator');
+  const statusLabelEl = document.getElementById('ollama-status-label');
+  try {
+    const res = await fetch(`${OLLAMA_URL}/api/version`, { method: 'GET', signal: AbortSignal.timeout(3000) });
+    if (res.ok) {
+      if (indicatorEl) { indicatorEl.className = 'ollama-indicator connected'; }
+      if (statusLabelEl) { statusLabelEl.textContent = 'Ollama Connected'; }
+      if (btnTailor) btnTailor.disabled = false;
+      return true;
+    }
+  } catch { /* offline */ }
+  if (indicatorEl) { indicatorEl.className = 'ollama-indicator disconnected'; }
+  if (statusLabelEl) {
+    statusLabelEl.innerHTML = 'Ollama Offline — <a href="https://ollama.com/download" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">Download</a> &amp; run <code style="font-size:11px;background:rgba(0,0,0,0.06);padding:1px 4px;border-radius:3px;">ollama serve</code>';
+  }
+  if (btnTailor) { btnTailor.disabled = true; btnTailor.title = 'Ollama must be running to tailor your resume'; }
+  return false;
+}
 
 async function loadProfileResume(): Promise<void> {
   const profile = await getUserProfile();
@@ -45,15 +68,44 @@ async function loadProfileResume(): Promise<void> {
   }
 }
 
+async function loadPendingJD(): Promise<void> {
+  try {
+    const data = await browser.storage.local.get([
+      'pending_tailor_jd', 'pending_tailor_title', 'pending_tailor_company',
+      'pending_tailor_url', 'pending_tailor_source_tab',
+    ]);
+    if (data.pending_tailor_jd && typeof data.pending_tailor_jd === 'string' && data.pending_tailor_jd.length > 10) {
+      jdTextArea.value = data.pending_tailor_jd;
+      const parts: string[] = [];
+      if (data.pending_tailor_title) parts.push(data.pending_tailor_title);
+      if (data.pending_tailor_company) parts.push(`at ${data.pending_tailor_company}`);
+      statusText.textContent = parts.length
+        ? `Job description loaded: ${parts.join(' ')}`
+        : 'Job description loaded from previous page.';
+    }
+    if (data.pending_tailor_source_tab && typeof data.pending_tailor_source_tab === 'number') {
+      sourceTabId = data.pending_tailor_source_tab;
+    }
+    await browser.storage.local.remove([
+      'pending_tailor_jd', 'pending_tailor_title', 'pending_tailor_company',
+      'pending_tailor_url', 'pending_tailor_source_tab',
+    ]);
+  } catch (err) {
+    console.warn('Failed to load pending JD:', err);
+  }
+}
+
 btnScrape?.addEventListener('click', async () => {
   try {
-    statusText.textContent = 'Scraping job description from active tab...';
-    const response = await browser.runtime.sendMessage({ kind: 'SCRAPE_JOB_DESCRIPTION' });
+    statusText.textContent = 'Scraping job description...';
+    const msg: any = { kind: 'SCRAPE_JOB_DESCRIPTION' };
+    if (sourceTabId) msg.sourceTabId = sourceTabId;
+    const response = await browser.runtime.sendMessage(msg);
     if (response?.text) {
       jdTextArea.value = response.text;
       statusText.textContent = 'Job description scraped successfully.';
     } else {
-      statusText.textContent = 'Could not extract job description from the active tab.';
+      statusText.textContent = 'Could not extract job description. Paste it manually.';
     }
   } catch (err) {
     console.error('Scrape failed:', err);
@@ -163,4 +215,9 @@ btnExport?.addEventListener('click', async () => {
   }
 });
 
-loadProfileResume();
+async function init(): Promise<void> {
+  await loadProfileResume();
+  await loadPendingJD();
+  await checkOllamaStatus();
+}
+init();

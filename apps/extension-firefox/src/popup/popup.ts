@@ -121,7 +121,26 @@ async function requestState(): Promise<void> {
   }
 }
 
+async function checkScheduledJobs(): Promise<void> {
+  try {
+    const response = await browser.runtime.sendMessage({ kind: 'GET_SCHEDULED_RESULTS' }) as any;
+    const banner = document.getElementById('new-jobs-banner');
+    const countEl = document.getElementById('new-jobs-count');
+    if (!banner || !countEl) return;
+
+    const jobs: any[] = response?.jobs ?? [];
+    if (jobs.length > 0) {
+      countEl.textContent = `${jobs.length} new job${jobs.length > 1 ? 's' : ''}`;
+      banner.style.display = 'flex';
+    } else {
+      banner.style.display = 'none';
+    }
+  } catch { /* non-critical */ }
+}
+
 async function executeOnActiveTab(code: string): Promise<void> {
+  await browser.runtime.sendMessage({ kind: 'ENSURE_CONTENT_SCRIPT' });
+
   const tabs = await browser.tabs.query({ active: true, currentWindow: true });
   if (tabs[0]?.id) {
     await browser.tabs.executeScript(tabs[0].id, { code });
@@ -285,8 +304,62 @@ async function init(): Promise<void> {
     window.close();
   });
 
-  // ── Tailor Resume ──
-  document.getElementById('tailor-resume-btn')?.addEventListener('click', () => {
+  // ── Tailor Resume — scrape JD from active tab, store it, then open tailor page ──
+  document.getElementById('tailor-resume-btn')?.addEventListener('click', async () => {
+    try {
+      const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+      const tab = tabs[0];
+      if (tab?.id) {
+        let jdText = '';
+        const scripting = (browser as typeof browser & {
+          scripting?: {
+            executeScript: (injection: {
+              target: { tabId: number };
+              func: () => string;
+            }) => Promise<Array<{ result?: unknown }>>;
+          };
+        }).scripting;
+        if (scripting?.executeScript) {
+          const [injection] = await scripting.executeScript({
+            target: { tabId: tab.id },
+            func: () => {
+              const selectors = [
+                '.jobs-description__content', '.jobs-description-content',
+                '#job-details', '[data-automation-id="jobPostingDescription"]',
+                '[class*="job-description"]', '[class*="jobDescription"]',
+                '[data-qa="job-description"]', '.posting-page .section-wrapper',
+                'article', '[role="main"]', 'main',
+              ];
+              for (const sel of selectors) {
+                const el = document.querySelector(sel);
+                const t = el?.textContent?.trim() ?? '';
+                if (t.length > 100) return t;
+              }
+              return document.body.innerText.substring(0, 6000);
+            },
+          });
+          jdText = typeof injection?.result === 'string' ? injection.result : '';
+        } else {
+          const selectorsJson = JSON.stringify([
+            '.jobs-description__content', '.jobs-description-content',
+            '#job-details', '[data-automation-id="jobPostingDescription"]',
+            '[class*="job-description"]', '[class*="jobDescription"]',
+            '[data-qa="job-description"]', '.posting-page .section-wrapper',
+            'article', '[role="main"]', 'main',
+          ]);
+          const code = `(() => { const selectors = ${selectorsJson}; for (const sel of selectors) { const el = document.querySelector(sel); const t = (el && el.textContent ? el.textContent.trim() : '') || ''; if (t.length > 100) return t; } return document.body.innerText.substring(0, 6000); })();`;
+          const results = await browser.tabs.executeScript(tab.id, { code });
+          jdText = typeof results?.[0] === 'string' ? results[0] : '';
+        }
+        await browser.storage.local.set({
+          pending_tailor_jd: jdText,
+          pending_tailor_title: currentState.lastJob?.title || '',
+          pending_tailor_company: currentState.lastJob?.hostname || '',
+          pending_tailor_url: tab.url || '',
+          pending_tailor_source_tab: tab.id,
+        });
+      }
+    } catch (err) { error('Failed to scrape JD for tailor:', err); }
     browser.tabs.create({ url: browser.runtime.getURL('resume-tailor/resume-tailor.html') });
     window.close();
   });
@@ -451,6 +524,23 @@ async function init(): Promise<void> {
 
   // Poll every 3s — background will return fresh stats each time
   setInterval(() => requestState(), 3000);
+
+  // ── New jobs notification banner ──
+  await checkScheduledJobs();
+
+  const banner = document.getElementById('new-jobs-banner');
+  banner?.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).id === 'new-jobs-dismiss') return;
+    browser.tabs.create({ url: browser.runtime.getURL('jobs/jobs.html') });
+    window.close();
+  });
+  document.getElementById('new-jobs-dismiss')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (banner) banner.style.display = 'none';
+    try {
+      await browser.runtime.sendMessage({ kind: 'CLEAR_SCHEDULED_RESULTS' });
+    } catch { /* non-critical */ }
+  });
 
   log('Popup initialized');
 }

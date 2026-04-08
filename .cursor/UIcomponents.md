@@ -3,7 +3,7 @@
 > **Purpose:** Reference document for the upcoming full UI redesign.
 > Every UI component in the extension is cataloged here so nothing is missed during the rebuild.
 
-Last updated: 2026-03-27
+Last updated: 2026-04-02
 
 ---
 
@@ -234,7 +234,7 @@ Last updated: 2026-03-27
 
 ### 8a. Find Jobs — `public/jobs/jobs.html` + `src/jobs/jobs.ts`
 
-**What it does:** Full-page job discovery: search via Adzuna (background `SEARCH_JOBS`), compatibility scores from profile skills, save jobs to `chrome.storage.local` (`savedJobs`). Tabs: Results / Saved. Parity: `apps/extension-chrome/` and `apps/extension-firefox/` (Chrome `jobs.ts` imports `browser` from `../shared/browser-compat`).
+**What it does:** Full-page job discovery: background `SEARCH_JOBS` aggregates Adzuna + Remotive + Arbeitnow; compatibility scores from profile skills; optional sort by match %; form state persisted in `browser.storage.local`; save jobs to `savedJobs`. Tabs: Results / Saved. Parity: `apps/extension-chrome/` and `apps/extension-firefox/` (Chrome `jobs.ts` imports `browser` from `../shared/browser-compat`; Firefox uses native `browser`).
 
 **Injection method:** Opened via `browser.runtime.getURL('jobs/jobs.html')` from popup **Find Jobs**.
 
@@ -243,7 +243,7 @@ Last updated: 2026-03-27
 - Search: `.search-keywords`, `.search-location`, `.search-days`, `#search-remote`, `#btn-search`, `.toggle-row`
 - Tabs: `.tab-bar`, `.tab-btn`, `#tab-results`, `#tab-saved`
 - Cards: `.job-card`, `.job-card-header`, `.job-card-title`, `.job-card-score` (`.score-high` / `.medium` / `.low`), `.job-card-company`, `.job-card-location`, `.job-card-salary`, `.job-card-desc`, `.job-card-footer`, `.btn-apply`, `.btn-save`, `.job-card-date`
-- IDs: `search-keywords`, `search-location`, `search-days`, `search-remote`, `btn-search`, `results-info`, `results-count`, `empty-state`, `loading`, `jobs-grid`, `saved-grid`, `dark-mode-toggle`
+- IDs: `search-keywords`, `search-location`, `search-days`, `search-sort` (includes “Sort: Best Match %”), `search-remote`, `btn-search`, `results-info`, `results-count`, `empty-state`, `loading`, `jobs-grid`, `saved-grid`, `dark-mode-toggle`
 
 **Dependencies (jobs.ts):** `browser` from `../shared/browser-compat` (Chrome); `getUserProfile` from `../shared/profile`; `setHTML` from `../shared/html`; `computeCompatibilityScore` and types from `../shared/job-search-service`. Background dynamically imports `job-search-service` for `searchJobs`.
 
@@ -251,19 +251,19 @@ Last updated: 2026-03-27
 
 ### 8b. Manage Profiles — `public/profiles/profiles.html` + `src/profiles/profiles.ts`
 
-**What it does:** Full-page UI to list profiles, set active, create (with optional clone), edit meta, delete, and open onboarding per profile (`?profileId=`).
+**What it does:** Full-page UI to list profiles, set active, create (with optional clone), inline-rename on card (contenteditable `data-rename`), delete, and **Edit** opens onboarding (`onboarding.html?profileId=&edit=true`). Cards show resume-derived display name/role when available.
 
 **Injection method:** Opened via `browser.runtime.getURL('profiles/profiles.html')` in a new tab.
 
 **Key DOM elements / CSS classes:**
-- Layout: `.header`, `.header-inner`, `.header-brand`, `.container`, `.section-title`
+- Layout: `.header`, `.header-inner`, `.header-brand`, `.container`, `.section-title`, `.dark-mode-toggle`
 - Banner: `.active-banner`, `.active-banner-dot`, `.active-banner-info`, `.active-banner-badge`
-- Grid: `.profiles-grid`, `.profile-card`, `.profile-card-new`, `.profile-card-header`, `.profile-card-dot`, `.profile-card-name`, `.profile-card-role`, `.profile-card-meta`, `.profile-card-actions`, `.active-tag`
-- Buttons: `.btn-activate`, `.btn-edit-profile`, `.btn-onboarding`, `.btn-delete-profile`
+- Grid: `.profiles-grid`, `.profile-card`, `.profile-card-new`, `.profile-card-header`, `.profile-card-dot`, `.profile-card-name` (`contenteditable`, `data-rename`), `.profile-card-role`, `.profile-card-meta`, `.profile-card-actions`, `.active-tag`
+- Buttons: `.btn-activate`, `.btn-edit-profile`, `.btn-delete-profile`
 - Modal: `.modal`, `.modal-content`, `.form-group`, `.color-picker`, `.color-swatch`, `.form-actions`, `.btn-primary`, `.btn-secondary`
 - IDs: `profiles-grid`, `active-banner`, `profile-modal`, `profile-form`, `profile-name`, `profile-role`, `clone-from`, `color-picker`, `btn-new-profile`
 
-**Dependencies:** `browser` from `../shared/browser-compat` (Chrome); profile CRUD + `migrateToMultiProfile` from `../shared/profile`; `setHTML` from `../shared/html`
+**Dependencies:** `browser` native (Firefox) or `../shared/browser-compat` (Chrome); profile CRUD + `migrateToMultiProfile` + `getProfileById` from `../shared/profile`; `setHTML` from `../shared/html`
 
 ---
 
@@ -274,12 +274,13 @@ Last updated: 2026-03-27
 **Injection method:** Opened via `browser.runtime.getURL('resume-tailor/resume-tailor.html')` in a new tab (e.g. from popup **Tailor Resume**).
 
 **Key DOM elements / CSS classes:**
-- Layout: `.header`, `.header-inner`, `.header-brand`, `.header-actions`, `.container`, `.panels`, `.panel`, `.panel-header`, `.panel-body`, `.action-bar`, `.keyword-section`, `.result-panel`
+- Layout: `.header`, `.header-inner`, `.header-brand`, `.header-actions`, `.container`, `.ollama-status-bar`, `.panels`, `.panel`, `.panel-header`, `.panel-body`, `.action-bar`, `.keyword-section`, `.result-panel`
+- Ollama status: `.ollama-indicator` (`.connected` / `.disconnected`)
 - Buttons: `.btn-back`, `.btn-scrape`, `.btn-tailor`, `.btn-export`, `.btn-copy`, `.dark-mode-toggle`
 - Keyword UI: `.keyword-title`, `.keyword-score` (`.high` / `.medium` / `.low`), `.keyword-badges`, `.keyword-badge` (`.present` / `.missing`), `.keyword-group-label`
-- IDs: `resume-text`, `jd-text`, `btn-scrape`, `btn-tailor`, `btn-export`, `btn-copy`, `status-text`, `keyword-section`, `keyword-score`, `keywords-present`, `keywords-missing`, `result-panel`, `result-text`, `dark-mode-toggle`
+- IDs: `resume-text`, `jd-text`, `btn-scrape`, `btn-tailor`, `btn-export`, `btn-copy`, `status-text`, `ollama-indicator`, `ollama-status-label`, `keyword-section`, `keyword-score`, `keywords-present`, `keywords-missing`, `result-panel`, `result-text`, `dark-mode-toggle`
 
-**Dependencies (resume-tailor.ts):** `browser` from `../shared/browser-compat` (Chrome build); `getUserProfile` from `../shared/profile`; `tailorResume`, `analyzeKeywordGap` from `../shared/resume-tailor-service`. Background handles `SCRAPE_JOB_DESCRIPTION` (Chrome: `chrome.scripting.executeScript` on the active tab).
+**Dependencies (resume-tailor.ts):** `browser` from `../shared/browser-compat` (Chrome and Firefox); `getUserProfile` from `../shared/profile`; `tailorResume`, `analyzeKeywordGap` from `../shared/resume-tailor-service`. Background handles `SCRAPE_JOB_DESCRIPTION`.
 
 ---
 

@@ -28,7 +28,7 @@ let currentState: PopupState = {
 
 function updateUI(): void {
   // Enabled toggle (in header)
-  const enabledToggle = document.getElementById('enabled-toggle');
+  const enabledToggle = document.getElementById('toggle-enabled');
   if (enabledToggle) enabledToggle.classList.toggle('active', currentState.enabled);
 
   // Dry run toggle
@@ -121,7 +121,26 @@ async function requestState(): Promise<void> {
   }
 }
 
+async function checkScheduledJobs(): Promise<void> {
+  try {
+    const response = await browser.runtime.sendMessage({ kind: 'GET_SCHEDULED_RESULTS' }) as any;
+    const banner = document.getElementById('new-jobs-banner');
+    const countEl = document.getElementById('new-jobs-count');
+    if (!banner || !countEl) return;
+
+    const jobs: any[] = response?.jobs ?? [];
+    if (jobs.length > 0) {
+      countEl.textContent = `${jobs.length} new job${jobs.length > 1 ? 's' : ''}`;
+      banner.style.display = 'flex';
+    } else {
+      banner.style.display = 'none';
+    }
+  } catch { /* non-critical */ }
+}
+
 async function dispatchCustomEventOnActiveTab(eventName: string): Promise<void> {
+  await browser.runtime.sendMessage({ kind: 'ENSURE_CONTENT_SCRIPT' });
+
   const tabs = await browser.tabs.query({ active: true, currentWindow: true });
   if (tabs[0]?.id) {
     await chrome.scripting.executeScript({
@@ -287,13 +306,45 @@ async function init(): Promise<void> {
     window.close();
   });
 
-  document.getElementById('find-jobs-btn')?.addEventListener('click', () => {
+  document.getElementById('btn-jobs')?.addEventListener('click', () => {
     browser.tabs.create({ url: browser.runtime.getURL('jobs/jobs.html') });
     window.close();
   });
 
-  // ── Tailor Resume ──
-  document.getElementById('tailor-resume-btn')?.addEventListener('click', () => {
+  // ── Tailor Resume — scrape JD from active tab, store it, then open tailor page ──
+  document.getElementById('tailor-resume-btn')?.addEventListener('click', async () => {
+    try {
+      const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+      const tab = tabs[0];
+      if (tab?.id) {
+        const [injection] = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            const selectors = [
+              '.jobs-description__content', '.jobs-description-content',
+              '#job-details', '[data-automation-id="jobPostingDescription"]',
+              '[class*="job-description"]', '[class*="jobDescription"]',
+              '[data-qa="job-description"]', '.posting-page .section-wrapper',
+              'article', '[role="main"]', 'main',
+            ];
+            for (const sel of selectors) {
+              const el = document.querySelector(sel);
+              const t = el?.textContent?.trim() ?? '';
+              if (t.length > 100) return t;
+            }
+            return document.body.innerText.substring(0, 6000);
+          },
+        });
+        const jdText = typeof injection?.result === 'string' ? injection.result : '';
+        await browser.storage.local.set({
+          pending_tailor_jd: jdText,
+          pending_tailor_title: currentState.lastJob?.title || '',
+          pending_tailor_company: currentState.lastJob?.hostname || '',
+          pending_tailor_url: tab.url || '',
+          pending_tailor_source_tab: tab.id,
+        });
+      }
+    } catch (err) { error('Failed to scrape JD for tailor:', err); }
     browser.tabs.create({ url: browser.runtime.getURL('resume-tailor/resume-tailor.html') });
     window.close();
   });
@@ -352,7 +403,7 @@ async function init(): Promise<void> {
 
 
   // ── Enabled toggle ──
-  document.getElementById('enabled-toggle')?.addEventListener('click', async () => {
+  document.getElementById('toggle-enabled')?.addEventListener('click', async () => {
     currentState.enabled = !currentState.enabled;
     await setSettings({ enabled: currentState.enabled });
     updateUI();
@@ -461,7 +512,38 @@ async function init(): Promise<void> {
   // Poll every 3s — background will return fresh stats each time
   setInterval(() => requestState(), 3000);
 
+  // ── New jobs notification banner ──
+  await checkScheduledJobs();
+
+  const banner = document.getElementById('new-jobs-banner');
+  banner?.addEventListener('click', (e) => {
+    if ((e.target as HTMLElement).id === 'new-jobs-dismiss') return;
+    browser.tabs.create({ url: browser.runtime.getURL('jobs/jobs.html') });
+    window.close();
+  });
+  document.getElementById('new-jobs-dismiss')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (banner) banner.style.display = 'none';
+    try {
+      await browser.runtime.sendMessage({ kind: 'CLEAR_SCHEDULED_RESULTS' });
+    } catch { /* non-critical */ }
+  });
+
   log('Popup initialized');
+
+  // Feature tour — show on first launch after onboarding
+  setTimeout(() => {
+    if (typeof (window as any).offlynTour !== 'undefined') {
+      const tour = (window as any).offlynTour;
+      if (tour.isPending() || !tour.isDone('popup-intro')) {
+        tour.start('popup-intro', [
+          { selector: '#profile-btn', title: 'Manage Your Profile', body: 'View and edit your profile, switch between profiles for different job targets.' },
+          { selector: '#btn-jobs', title: 'Job Discovery', body: 'Search for jobs matched to your resume with compatibility scores. Results come from multiple sources.' },
+          { selector: '#toggle-enabled', title: 'Quick Controls', body: 'Enable or disable the extension instantly. Use Dry Run to preview autofill without changing forms.' },
+        ]);
+      }
+    }
+  }, 800);
 }
 
 init();

@@ -24,6 +24,7 @@ import {
   getScheduledResults, setScheduledResults, clearScheduledResults,
   setLastScheduledSearch, getLastScheduledSearch,
 } from './shared/job-preferences';
+import { isJobURL } from './shared/ats-domains';
 
 interface ConnectionState {
   connected: boolean;
@@ -38,6 +39,24 @@ const connectionState: ConnectionState = {
 };
 
 const tabJobInfo: Map<number, TabJobInfo> = new Map();
+
+/** Tracks tabs where content.js has already been injected (programmatic injection). */
+const injectedTabs = new Set<number>();
+
+/**
+ * Inject content.js into a tab if not already injected.
+ * Returns true if injection succeeded or was already done.
+ */
+async function ensureContentScript(tabId: number): Promise<boolean> {
+  if (injectedTabs.has(tabId)) return true;
+  try {
+    await browser.tabs.executeScript(tabId, { file: 'content.js', allFrames: true });
+    injectedTabs.add(tabId);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // isGenericJobEntry and isDuplicateSubmit are imported from ./shared/job-dedup
 
@@ -630,20 +649,35 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
       }
     }
 
-    // ── Resume tailoring ──────────────────────────────────────────────────────
+    // ── Open Resume Tailor page ────────────────────────────────────────────────
+    if (message.kind === 'OPEN_RESUME_TAILOR') {
+      browser.tabs.create({ url: browser.runtime.getURL('resume-tailor/resume-tailor.html') });
+      return;
+    }
+
+    // ── Resume tailoring: scrape job description from active tab ──────────────
     if (message.kind === 'SCRAPE_JOB_DESCRIPTION') {
       try {
-        const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-        const tab = tabs[0];
-        if (!tab?.id) return { kind: 'SCRAPE_JOB_DESCRIPTION_RESULT', text: '' };
+        const sourceTabId = (message as any).sourceTabId as number | undefined;
+        let tabId: number | undefined;
 
-        const results = await browser.tabs.executeScript(tab.id, {
+        if (sourceTabId) {
+          tabId = sourceTabId;
+        } else {
+          const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+          tabId = tabs[0]?.id;
+        }
+        if (!tabId) return { kind: 'SCRAPE_JOB_DESCRIPTION_RESULT', text: '' };
+
+        const results = await browser.tabs.executeScript(tabId, {
           code: `(function() {
             const selectors = [
               '.job-details-jobs-unified-top-card__job-insight',
               '.jobs-description__content',
               '.jobs-description-content',
               '#job-details',
+              '[data-automation-id="jobPostingDescription"]',
+              '[data-qa="job-description"]',
               '[class*="job-description"]',
               '[class*="jobDescription"]',
               'article',
@@ -651,13 +685,15 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
             ];
             for (const sel of selectors) {
               const el = document.querySelector(sel);
-              if (el && el.textContent.trim().length > 100) return el.textContent.trim();
+              const t = el?.textContent?.trim() ?? '';
+              if (t.length > 100) return t;
             }
-            return document.body.innerText.substring(0, 5000);
+            return document.body.innerText.substring(0, 6000);
           })()`,
         });
 
-        return { kind: 'SCRAPE_JOB_DESCRIPTION_RESULT', text: results?.[0] ?? '' };
+        const text = typeof results?.[0] === 'string' ? results[0] : '';
+        return { kind: 'SCRAPE_JOB_DESCRIPTION_RESULT', text };
       } catch (e) {
         warn('[ResumeTailor] Failed to scrape JD:', e);
         return { kind: 'SCRAPE_JOB_DESCRIPTION_RESULT', text: '' };
@@ -933,6 +969,21 @@ ${profileContext}`;
       return { kind: 'ACK' };
     }
 
+    if (message.kind === 'TEST_NOTIFICATION') {
+      try {
+        browser.notifications.create(`offlyn-test-${Date.now()}`, {
+          type: 'basic',
+          iconUrl: browser.runtime.getURL('icons/monogram-icon.png'),
+          title: 'Offlyn Apply — Test',
+          message: 'Notifications are working! You will see alerts when new jobs match your profile.',
+          priority: 1,
+        });
+      } catch (e) {
+        console.error('Test notification failed:', e);
+      }
+      return;
+    }
+
     if (message.kind === 'CLEAR_PREFERENCES') {
       await clearPreferences();
       return { kind: 'ACK' };
@@ -944,6 +995,24 @@ ${profileContext}`;
       return { kind: 'LEARNED_PREFERENCES', prefs, lastRun };
     }
 
+    // ── Programmatic content script injection (popup/UI requests) ───────────
+    if (message.kind === 'ENSURE_CONTENT_SCRIPT') {
+      const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+      const tabId = tabs[0]?.id;
+      if (tabId) {
+        const ok = await ensureContentScript(tabId);
+        return { injected: ok };
+      }
+      return { injected: false };
+    }
+
+    if (message.kind === 'CHECK_OLLAMA') {
+      if (!connectionState.connected) {
+        await checkOllamaConnection();
+      }
+      return { connected: connectionState.connected };
+    }
+
     return;
   } catch (err) {
     error('Error handling message:', err);
@@ -951,6 +1020,54 @@ ${profileContext}`;
       kind: 'ERROR',
       message: err instanceof Error ? err.message : 'Unknown error',
     };
+  }
+});
+
+// ── Cover letter generation via port-based streaming ────────────────────────
+
+browser.runtime.onConnect.addListener((port: browser.runtime.Port) => {
+  if (port.name === 'cover-letter-generate') {
+    port.onMessage.addListener(async (msg: any) => {
+      try {
+        if (!connectionState.connected) {
+          await checkOllamaConnection();
+        }
+        if (!connectionState.connected) {
+          port.postMessage({ kind: 'error', error: 'Ollama is not running. Start it to generate a cover letter.' });
+          return;
+        }
+
+        const { generateCoverLetter } = await import('./shared/cover-letter-service');
+        const result = await generateCoverLetter(msg.profile, msg.jobDesc, (partial: string) => {
+          try { port.postMessage({ kind: 'chunk', text: partial }); } catch { /* port closed */ }
+        });
+        port.postMessage({ kind: 'done', result });
+      } catch (err: any) {
+        port.postMessage({ kind: 'error', error: err?.message || 'Generation failed.' });
+      }
+    });
+  }
+
+  if (port.name === 'cover-letter-refine') {
+    port.onMessage.addListener(async (msg: any) => {
+      try {
+        if (!connectionState.connected) {
+          await checkOllamaConnection();
+        }
+        if (!connectionState.connected) {
+          port.postMessage({ kind: 'error', error: 'Ollama is not running.' });
+          return;
+        }
+
+        const { refineCoverLetter } = await import('./shared/cover-letter-service');
+        const refined = await refineCoverLetter(msg.currentText, msg.action, (partial: string) => {
+          try { port.postMessage({ kind: 'chunk', text: partial }); } catch { /* port closed */ }
+        });
+        port.postMessage({ kind: 'done', text: refined });
+      } catch (err: any) {
+        port.postMessage({ kind: 'error', error: err?.message || 'Refinement failed.' });
+      }
+    });
   }
 });
 
@@ -984,17 +1101,40 @@ async function runScheduledSearch(): Promise<void> {
     let keywords = '';
     let location = '';
 
-    if (prefs && prefs.topKeywords.length > 0) {
-      keywords = prefs.topKeywords.slice(0, 3).join(' ');
-      location = prefs.preferredLocations[0] ?? '';
-    } else if (profile) {
-      const currentWork = (profile.work ?? []).find((w: any) => w.current);
-      keywords = currentWork?.title
-        ?? (profile.professional as any)?.currentRole
-        ?? (profile.skills ?? []).slice(0, 3).join(', ')
-        ?? '';
+    // Primary source: profile data (most accurate representation of the user)
+    if (profile) {
+      const workEntries = (profile.work ?? []) as any[];
+      const sortedWork = [...workEntries].sort((a, b) =>
+        new Date(b.endDate ?? b.startDate ?? 0).getTime() -
+        new Date(a.endDate ?? a.startDate ?? 0).getTime()
+      );
+      const jobTitle =
+        sortedWork.find((w) => w.current)?.title ??
+        sortedWork[0]?.title ??
+        (profile.professional as any)?.currentRole ??
+        (profile.professional as any)?.currentTitle ??
+        '';
+
+      keywords = jobTitle;
+
       const loc = profile.personal?.location;
       location = typeof loc === 'string' ? loc : [loc?.city, loc?.state].filter(Boolean).join(', ');
+    }
+
+    // Secondary: augment with learned preferences from manual searches
+    if (prefs) {
+      if (!keywords && prefs.topSearchPhrases?.length > 0) {
+        keywords = prefs.topSearchPhrases[0];
+      } else if (!keywords && prefs.topKeywords.length > 0) {
+        keywords = prefs.topKeywords.slice(0, 3).join(' ');
+      }
+      if (!location && prefs.preferredLocations.length > 0) {
+        location = prefs.preferredLocations[0];
+      }
+    }
+
+    if (!keywords && profile) {
+      keywords = (profile.skills ?? []).slice(0, 3).join(', ');
     }
 
     if (!keywords) {
@@ -1002,6 +1142,8 @@ async function runScheduledSearch(): Promise<void> {
       await setLastScheduledSearch(Date.now());
       return;
     }
+
+    log('[Scheduler] Searching:', keywords, '|', location || '(no location)');
 
     const { searchJobs } = await import('./shared/job-search-service');
     const result = await searchJobs({
@@ -1022,11 +1164,14 @@ async function runScheduledSearch(): Promise<void> {
 
       if (settings.notificationsEnabled) {
         try {
+          const jobSummary = newJobs.length === 1
+            ? newJobs[0].title
+            : `${newJobs[0].title} and ${newJobs.length - 1} more`;
           browser.notifications.create(`offlyn-jobs-${Date.now()}`, {
             type: 'basic',
-            iconUrl: browser.runtime.getURL('icons/toolbar-128.png'),
-            title: `${newJobs.length} new job${newJobs.length > 1 ? 's' : ''} match your profile`,
-            message: newJobs[0].title + (newJobs.length > 1 ? ` and ${newJobs.length - 1} more` : ''),
+            iconUrl: browser.runtime.getURL('icons/monogram-icon.png'),
+            title: `Offlyn Apply — ${newJobs.length} New Job${newJobs.length > 1 ? 's' : ''}`,
+            message: jobSummary,
           });
         } catch (e) {
           warn('[Scheduler] Notification failed:', e);
@@ -1131,9 +1276,12 @@ function createContextMenus(): void {
 
 /**
  * Handle context menu clicks — relay to the content script.
+ * Ensures content.js is injected before sending the message.
  */
-browser.menus.onClicked.addListener((menuInfo, tab) => {
+browser.menus.onClicked.addListener(async (menuInfo, tab) => {
   if (!tab?.id) return;
+
+  await ensureContentScript(tab.id);
 
   const actionMap: Record<string, string> = {
     'offlyn-professional-fix': 'professional-fix',
@@ -1151,7 +1299,6 @@ browser.menus.onClicked.addListener((menuInfo, tab) => {
     return;
   }
 
-  // Smart Fill: generate answer from profile + LLM for the right-clicked field
   if (menuInfo.menuItemId === 'offlyn-smart-fill') {
     info(`Context menu: "smart-fill" on tab ${tab.id}`);
     browser.tabs.sendMessage(
@@ -1162,7 +1309,6 @@ browser.menus.onClicked.addListener((menuInfo, tab) => {
     return;
   }
 
-  // Debug: "Why was this filled?"
   if (menuInfo.menuItemId === 'offlyn-debug-fill') {
     info(`Context menu: "debug-fill" on tab ${tab.id}`);
     browser.tabs.sendMessage(
@@ -1450,6 +1596,36 @@ browser.runtime.onInstalled.addListener((details: { reason: string }) => {
   if (details.reason === 'install') {
     browser.tabs.create({ url: browser.runtime.getURL('onboarding/onboarding.html') });
   }
+});
+
+// ── Programmatic content script injection ───────────────────────────────────
+// Replaces the old manifest content_scripts <all_urls> entry.
+// Content.js is injected only into tabs whose URL matches a known ATS domain
+// or a job-related URL path pattern.
+
+browser.tabs.onUpdated.addListener(async (tabId: number, changeInfo: any, tab: any) => {
+  const url = changeInfo.url || tab.url;
+  if (!url) return;
+
+  const isComplete = changeInfo.status === 'complete';
+  const isUrlChange = !!changeInfo.url;
+  if (!isComplete && !isUrlChange) return;
+
+  if (injectedTabs.has(tabId)) return;
+  if (!isJobURL(url)) return;
+
+  try {
+    await browser.tabs.executeScript(tabId, { file: 'content.js', allFrames: true });
+    injectedTabs.add(tabId);
+    log('[Inject] Content script injected into tab', tabId, url);
+  } catch (err) {
+    // Permission denied or tab not accessible
+  }
+});
+
+browser.tabs.onRemoved.addListener((tabId: number) => {
+  injectedTabs.delete(tabId);
+  tabJobInfo.delete(tabId);
 });
 
 init();

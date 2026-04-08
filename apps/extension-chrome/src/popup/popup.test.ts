@@ -131,17 +131,17 @@ describe('popup.html — header toggle', () => {
   });
 
   it('has the extension enabled toggle in the header', () => {
-    const toggle = doc.getElementById('enabled-toggle');
+    const toggle = doc.getElementById('toggle-enabled');
     expect(toggle).not.toBeNull();
   });
 
   it('toggle starts in active (enabled) state', () => {
-    const toggle = doc.getElementById('enabled-toggle')!;
+    const toggle = doc.getElementById('toggle-enabled')!;
     expect(toggle.classList.contains('active')).toBe(true);
   });
 
   it('has a role="switch" for accessibility', () => {
-    const toggle = doc.getElementById('enabled-toggle')!;
+    const toggle = doc.getElementById('toggle-enabled')!;
     expect(toggle.getAttribute('role')).toBe('switch');
   });
 });

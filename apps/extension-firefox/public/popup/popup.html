@@ -514,6 +514,43 @@
     .ollama-bar.clickable:hover { background: #f1f5f9; }
     html.dark .ollama-bar.clickable:hover { background: #1e293b; }
     html.dark #profile-warning { background: #1c1108; border-top-color: #d97706; color: #fbbf24; }
+
+    /* ── New jobs banner ─── */
+    .new-jobs-banner {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: linear-gradient(90deg, #7c3aed 0%, #6d28d9 100%);
+      color: #fff;
+      font-size: 12px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .new-jobs-banner:hover { opacity: 0.92; }
+    .new-jobs-icon {
+      width: 22px; height: 22px; border-radius: 6px;
+      background: rgba(255,255,255,.2);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .new-jobs-text {
+      flex: 1;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+    .new-jobs-text small {
+      display: block;
+      font-weight: 400;
+      font-size: 10px;
+      opacity: 0.8;
+    }
+    .new-jobs-dismiss {
+      background: none; border: none; color: rgba(255,255,255,.6);
+      cursor: pointer; padding: 2px; font-size: 14px; line-height: 1;
+      border-radius: 4px; transition: color 0.15s;
+    }
+    .new-jobs-dismiss:hover { color: #fff; }
   </style>
 </head>
 <body>
@@ -545,6 +582,18 @@
 
   <!-- Profile completeness warning (shown only when profile is incomplete) -->
   <div id="profile-warning" style="display:none; background:#fff7ed; border-top:2px solid #f97316; padding:8px 12px; font-size:11px; color:#92400e; line-height:1.4;"></div>
+
+  <!-- New jobs notification banner -->
+  <div class="new-jobs-banner" id="new-jobs-banner">
+    <div class="new-jobs-icon">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+    </div>
+    <div class="new-jobs-text" id="new-jobs-text">
+      <span id="new-jobs-count">3 new jobs</span> match your profile
+      <small>Tap to view</small>
+    </div>
+    <button class="new-jobs-dismiss" id="new-jobs-dismiss" title="Dismiss">&times;</button>
+  </div>
 
   <div class="body">
     <!-- Primary actions -->

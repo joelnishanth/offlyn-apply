@@ -38,7 +38,6 @@ import {
   type FieldSuggestion
 } from './shared/suggestion-service';
 import { scrapeJobDescription } from './shared/job-description-scraper';
-import { generateCoverLetter, refineCoverLetter } from './shared/cover-letter-service';
 import {
   openCoverLetterPanel,
   updateCoverLetterPreview,
@@ -1029,8 +1028,26 @@ window.addEventListener('offlyn-open-jobs', () => {
   });
 });
 
-window.addEventListener('offlyn-tailor-resume', () => {
-  window.dispatchEvent(new CustomEvent('offlyn-generate-cover-letter'));
+window.addEventListener('offlyn-tailor-resume', async () => {
+  try {
+    const jobDesc = scrapeJobDescription(lastJobMeta?.jobTitle, lastJobMeta?.company);
+    await browser.storage.local.set({
+      pending_tailor_jd: jobDesc.description || '',
+      pending_tailor_title: jobDesc.title || lastJobMeta?.jobTitle || '',
+      pending_tailor_company: jobDesc.company || lastJobMeta?.company || '',
+      pending_tailor_url: window.location.href,
+    });
+    window.dispatchEvent(new CustomEvent('offlyn-show-tailor-panel'));
+  } catch (e) {
+    console.error('[Offlyn] Failed to scrape JD for tailor:', e);
+  }
+});
+
+window.addEventListener('offlyn-open-resume-tailor', () => {
+  browser.runtime.sendMessage({ kind: 'OPEN_RESUME_TAILOR' }).catch(() => {
+    const url = browser.runtime.getURL('resume-tailor/resume-tailor.html');
+    window.open(url, '_blank');
+  });
 });
 
 window.addEventListener('offlyn-browser-use-fill', () => {
@@ -1092,7 +1109,8 @@ window.addEventListener('offlyn-cover-letter-back', () => {
 });
 
 /**
- * Listen for cover letter refinement (shorten / lengthen / more impactful)
+ * Listen for cover letter refinement (shorten / lengthen / more impactful).
+ * Routes through background script for reliable Ollama access.
  */
 window.addEventListener('offlyn-refine-cover-letter', async (e: Event) => {
   const detail = (e as CustomEvent).detail as { action: string; currentText: string } | undefined;
@@ -1102,11 +1120,27 @@ window.addEventListener('offlyn-refine-cover-letter', async (e: Event) => {
   info(`Refining cover letter: ${action}…`);
 
   try {
-    const refined = await refineCoverLetter(
-      currentText,
-      action as 'shorten' | 'lengthen' | 'impactful',
-      (partial) => updateCoverLetterPreview(partial),
-    );
+    const refined = await new Promise<string>((resolve, reject) => {
+      const port = browser.runtime.connect({ name: 'cover-letter-refine' });
+      port.postMessage({ currentText, action });
+
+      port.onMessage.addListener((msg: any) => {
+        if (msg.kind === 'chunk') {
+          updateCoverLetterPreview(msg.text);
+        } else if (msg.kind === 'done') {
+          port.disconnect();
+          resolve(msg.text);
+        } else if (msg.kind === 'error') {
+          port.disconnect();
+          reject(new Error(msg.error));
+        }
+      });
+
+      port.onDisconnect.addListener(() => {
+        const lastErr = browser.runtime.lastError;
+        if (lastErr) reject(new Error(lastErr.message || 'Port disconnected'));
+      });
+    });
 
     const refinedResult = {
       text: refined,
@@ -1125,28 +1159,22 @@ window.addEventListener('offlyn-refine-cover-letter', async (e: Event) => {
 });
 
 /**
- * Generate a cover letter using the user's profile and the scraped job description
+ * Generate a cover letter via background script (which has reliable Ollama access).
+ * Uses port-based streaming for live preview.
  */
 async function triggerCoverLetterGeneration(): Promise<void> {
-  if (coverLetterGenerating) return; // prevent double-fire
+  if (coverLetterGenerating) return;
   coverLetterGenerating = true;
 
   try {
-    // 1. Check Ollama
-    const ollamaOk = await checkOllamaConnection();
-    if (!ollamaOk) {
-      showError('Ollama Offline', 'Ollama is not running. Start it to generate a cover letter.');
-      return;
-    }
-
-    // 2. Get profile
+    // 1. Get profile
     const profile = await getUserProfile();
     if (!profile) {
       showError('No Profile', 'Set up your profile first so we can personalise the letter.');
       return;
     }
 
-    // 3. Scrape job description from current page
+    // 2. Scrape job description from current page
     const jobDesc = scrapeJobDescription(lastJobMeta?.jobTitle, lastJobMeta?.company);
     if (!jobDesc.description || jobDesc.description.length < 30) {
       showWarning('Limited Job Info', 'Could not find a detailed job description on this page. The cover letter may be generic.');
@@ -1154,23 +1182,41 @@ async function triggerCoverLetterGeneration(): Promise<void> {
 
     info(`Generating cover letter for "${jobDesc.title}" at ${jobDesc.company}…`);
 
-    // 4. Detect a cover letter textarea / file input on the page for auto-apply
+    // 3. Detect a cover letter textarea / file input on the page for auto-apply
     const coverLetterField = detectCoverLetterField();
     lastCoverLetterAutoApplySelector = coverLetterField;
 
-    // 5. Open the preview panel
+    // 4. Open the preview panel
     openCoverLetterPanel(
       jobDesc.title || 'Position',
       jobDesc.company || 'Company',
       coverLetterField ? (text: string) => applyCoverLetterToField(coverLetterField, text) : undefined,
     );
 
-    // 6. Stream the cover letter
-    const result = await generateCoverLetter(profile, jobDesc, (partial) => {
-      updateCoverLetterPreview(partial);
+    // 5. Stream via background port
+    const result = await new Promise<{ text: string; jobTitle: string; company: string; generatedAt: number }>((resolve, reject) => {
+      const port = browser.runtime.connect({ name: 'cover-letter-generate' });
+      port.postMessage({ profile, jobDesc });
+
+      port.onMessage.addListener((msg: any) => {
+        if (msg.kind === 'chunk') {
+          updateCoverLetterPreview(msg.text);
+        } else if (msg.kind === 'done') {
+          port.disconnect();
+          resolve(msg.result);
+        } else if (msg.kind === 'error') {
+          port.disconnect();
+          reject(new Error(msg.error));
+        }
+      });
+
+      port.onDisconnect.addListener(() => {
+        const lastErr = browser.runtime.lastError;
+        if (lastErr) reject(new Error(lastErr.message || 'Port disconnected'));
+      });
     });
 
-    // 7. Cache the result + show it
+    // 6. Cache the result + show it
     lastCoverLetterResult = result;
     showCoverLetterResult(result);
     showSuccess('Cover Letter Ready', 'Your tailored cover letter has been generated.');
@@ -3962,6 +4008,9 @@ browser.runtime.onMessage.addListener((message: unknown) => {
  * Initialize content script
  */
 async function init(): Promise<void> {
+  if ((window as any).__offlyn_content_loaded) return;
+  (window as any).__offlyn_content_loaded = true;
+
   // Initialize RL learning system
   try {
     await rlSystem.initialize();
