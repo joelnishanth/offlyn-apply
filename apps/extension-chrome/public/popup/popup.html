@@ -86,7 +86,7 @@
       cursor: pointer;
       transition: background .2s;
     }
-    .header-toggle.active { background: var(--green); }
+    .header-toggle.active { background: var(--gray-200); }
     .header-toggle::after {
       content: '';
       position: absolute;
@@ -94,7 +94,7 @@
       border-radius: 50%;
       background: var(--white);
       top: 2px; left: 2px;
-      transition: transform .2s;
+      transition: transform .2s, background .2s;
       box-shadow: 0 1px 3px rgba(0,0,0,.2);
     }
     .header-toggle.active::after { transform: translateX(18px); background: var(--green); }

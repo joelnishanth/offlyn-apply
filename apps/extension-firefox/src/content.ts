@@ -60,7 +60,7 @@ import {
   showInlineSuggestionTiles,
   removeAllTiles
 } from './ui/inline-suggestion-tile';
-import { showProgress, updateProgress, hideProgress, showProgressComplete } from './ui/progress-indicator';
+import { showProgress, updateProgress, hideProgress, showProgressComplete, waitIfPaused, togglePause } from './ui/progress-indicator';
 import { 
   smartFillField, 
   fillReactSelectField, 
@@ -1341,6 +1341,9 @@ function applyCoverLetterToField(selector: string, text: string): void {
 /**
  * Listen for manual autofill trigger
  */
+// Widget pause button dispatches this event
+window.addEventListener('offlyn-toggle-fill-pause', () => { togglePause(); });
+
 window.addEventListener('offlyn-manual-autofill', async () => {
   if (allDetectedFields.length > 0) {
     info('Manual trigger: starting autofill with highlighting');
@@ -2492,6 +2495,9 @@ async function executeFillPlan(plan: FillPlan): Promise<void> {
   let processedCount = 0;
   
   for (const mapping of plan.mappings) {
+    // Wait if user paused the fill
+    await waitIfPaused();
+
     processedCount++;
     
     // Highlight field as being filled

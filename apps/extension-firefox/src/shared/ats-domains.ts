@@ -171,7 +171,7 @@ export const ATS_PLATFORM_DOMAINS: readonly string[] = [
 
 export const JOB_BOARD_DOMAINS: readonly string[] = [
   'indeed.com',
-  'linkedin.com',
+  // 'linkedin.com', — excluded: LinkedIn's own Easy Apply handles applications
   'glassdoor.com',
   'ziprecruiter.com',
   'monster.com',

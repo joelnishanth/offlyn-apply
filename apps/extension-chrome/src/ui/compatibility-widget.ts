@@ -51,6 +51,7 @@ let fillRingCircle:    SVGCircleElement | null = null;
 let fillLabelEl:       HTMLElement | null = null;
 let fillPanelRef:      HTMLElement | null = null;
 let fillPillRef:       HTMLElement | null = null;
+let fillPauseOverlay:  HTMLElement | null = null;
 
 // Tailor section state
 let tailorOpen       = false;
@@ -136,6 +137,7 @@ export function removeCompatibilityWidget(): void {
   lastCompatData = null;
   fillRingSvg = fillRingCircle = null;
   fillLabelEl = fillPanelRef = fillPillRef = null;
+  fillPauseOverlay = null;
   isDragging = dragMoved = false;
 }
 
@@ -248,6 +250,65 @@ export function enterFillMode(total: number): void {
     fillLabelEl = label;
   }
 
+  // Pause/play overlay on the pill
+  if (!fillPauseOverlay && fillPillRef) {
+    const overlay = el('div');
+    overlay.id = 'ow-pause-overlay';
+    setStyles(overlay, {
+      position:       'absolute',
+      top:            '0',
+      left:           '0',
+      width:          '100%',
+      height:         '100%',
+      borderRadius:   '50%',
+      background:     'rgba(10,10,10,0.55)',
+      display:        'flex',
+      alignItems:     'center',
+      justifyContent: 'center',
+      cursor:         'pointer',
+      zIndex:         '10',
+      opacity:        '0',
+      transition:     'opacity 0.15s',
+      pointerEvents:  'auto',
+    });
+    setHTML(overlay, `<svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`);
+
+    overlay.addEventListener('mouseenter', () => { overlay.style.opacity = '1'; });
+    overlay.addEventListener('mouseleave', () => {
+      overlay.style.opacity = '0';
+    });
+    overlay.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Dispatch toggle event that progress-indicator listens for
+      window.dispatchEvent(new CustomEvent('offlyn-toggle-fill-pause'));
+    });
+
+    fillPillRef.style.position = 'relative';
+    fillPillRef.appendChild(overlay);
+    fillPauseOverlay = overlay;
+  }
+
+  // Listen for pause state changes from progress-indicator
+  const pauseHandler = ((e: CustomEvent) => {
+    if (!fillPauseOverlay) return;
+    const isPaused = e.detail?.paused;
+    if (isPaused) {
+      fillPauseOverlay.style.opacity = '1';
+      setHTML(fillPauseOverlay, `<svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>`);
+      if (fillLabelEl) {
+        fillLabelEl.textContent = 'Paused';
+        fillLabelEl.style.color = '#d97706';
+      }
+    } else {
+      fillPauseOverlay.style.opacity = '0';
+      setHTML(fillPauseOverlay, `<svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`);
+      if (fillLabelEl) {
+        fillLabelEl.style.color = '#1a7f5a';
+      }
+    }
+  }) as EventListener;
+  window.addEventListener('offlyn-fill-pause-state', pauseHandler);
+
   updateFillProgress(0, total);
 }
 
@@ -279,6 +340,10 @@ export function exitFillMode(success: boolean, filled: number, total: number): v
     fillLabelEl.textContent = success ? `${filled} filled` : `${filled}/${total}`;
     fillLabelEl.style.color = success ? '#1a7f5a' : '#f59e0b';
   }
+
+  // Remove pause overlay immediately
+  fillPauseOverlay?.remove();
+  fillPauseOverlay = null;
 
   // After 2.5s, clean up ring and restore normal state
   setTimeout(() => {

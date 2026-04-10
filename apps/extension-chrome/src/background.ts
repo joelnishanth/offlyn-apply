@@ -1597,6 +1597,9 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   const url = changeInfo.url || tab.url;
   if (!url) return;
 
+  // Never inject into LinkedIn — their Easy Apply handles it
+  try { if (new URL(url).hostname.includes('linkedin.com')) return; } catch {}
+
   // Inject on page load complete or SPA URL change to a job-related page
   const isComplete = changeInfo.status === 'complete';
   const isUrlChange = !!changeInfo.url;

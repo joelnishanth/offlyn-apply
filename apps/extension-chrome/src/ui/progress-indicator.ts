@@ -2,6 +2,9 @@
  * Progress indicator — delegates to the widget's minimized ring when it
  * is mounted; falls back to a standalone slide-in card otherwise.
  * Brand: navy #0a0a0a + green #1a7f5a
+ *
+ * Includes pause/resume support: the fill loop can call `waitIfPaused()`
+ * before each field to suspend when the user clicks the pause button.
  */
 
 import { setHTML } from '../shared/html';
@@ -15,11 +18,79 @@ import {
 let progressElement: HTMLElement | null = null;
 let usingWidgetRing = false;
 
+// ── Pause / Resume state ────────────────────────────────────────────────────
+let paused = false;
+let resumeResolver: (() => void) | null = null;
+
+export function isPaused(): boolean { return paused; }
+
+export function togglePause(): void {
+  if (paused) {
+    resumeFill();
+  } else {
+    pauseFill();
+  }
+}
+
+function pauseFill(): void {
+  paused = true;
+  updatePauseUI(true);
+}
+
+function resumeFill(): void {
+  paused = false;
+  updatePauseUI(false);
+  if (resumeResolver) {
+    resumeResolver();
+    resumeResolver = null;
+  }
+}
+
+/**
+ * Await this in the fill loop before each field.
+ * Resolves immediately when not paused; blocks until resumed when paused.
+ */
+export function waitIfPaused(): Promise<void> {
+  if (!paused) return Promise.resolve();
+  return new Promise<void>(resolve => { resumeResolver = resolve; });
+}
+
+// ── Pause button UI update helper ───────────────────────────────────────────
+
+const ICON_PAUSE = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>`;
+const ICON_PLAY  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
+
+function updatePauseUI(isPaused: boolean): void {
+  // Update standalone card button
+  if (progressElement) {
+    const btn = progressElement.querySelector('#offlyn-pause-btn') as HTMLElement;
+    const title = progressElement.querySelector('.offlyn-progress-title') as HTMLElement;
+    const spinner = progressElement.querySelector('.offlyn-spinner') as HTMLElement;
+    if (btn) {
+      setHTML(btn, isPaused ? ICON_PLAY : ICON_PAUSE);
+      btn.title = isPaused ? 'Resume filling' : 'Pause filling';
+    }
+    if (title) {
+      title.textContent = isPaused ? 'Paused' : 'Auto-filling form…';
+    }
+    if (spinner) {
+      spinner.style.animationPlayState = isPaused ? 'paused' : 'running';
+    }
+  }
+
+  // Update widget overlay
+  window.dispatchEvent(new CustomEvent('offlyn-fill-pause-state', {
+    detail: { paused: isPaused },
+  }));
+}
+
 /**
  * Show progress indicator
  */
 export function showProgress(total: number): void {
   hideProgress(0);
+  paused = false;
+  resumeResolver = null;
 
   if (isWidgetMounted()) {
     usingWidgetRing = true;
@@ -60,9 +131,18 @@ export function showProgress(total: number): void {
         animation:offlyn-spin 0.7s linear infinite;
       "></div>
       <div style="flex:1;min-width:0;">
-        <div class="offlyn-progress-title" style="
-          font-weight:600;font-size:13px;color:#0a0a0a;line-height:1.3;margin-bottom:6px;
-        ">Auto-filling form…</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div class="offlyn-progress-title" style="
+            font-weight:600;font-size:13px;color:#0a0a0a;line-height:1.3;
+          ">Auto-filling form…</div>
+          <button id="offlyn-pause-btn" title="Pause filling" style="
+            display:flex;align-items:center;justify-content:center;
+            width:26px;height:26px;border-radius:50%;
+            border:1px solid #e2e8f0;background:#f8fafc;
+            color:#475569;cursor:pointer;flex-shrink:0;
+            transition:background 0.15s, color 0.15s;
+          ">${ICON_PAUSE}</button>
+        </div>
         <div style="
           background:#f1f5f9;height:5px;border-radius:3px;overflow:hidden;
         ">
@@ -79,6 +159,23 @@ export function showProgress(total: number): void {
       </div>
     </div>
   `);
+
+  // Wire pause button
+  const pauseBtn = container.querySelector('#offlyn-pause-btn') as HTMLElement;
+  if (pauseBtn) {
+    pauseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      togglePause();
+    });
+    pauseBtn.addEventListener('mouseenter', () => {
+      pauseBtn.style.background = '#e2e8f0';
+      pauseBtn.style.color = '#0a0a0a';
+    });
+    pauseBtn.addEventListener('mouseleave', () => {
+      pauseBtn.style.background = '#f8fafc';
+      pauseBtn.style.color = '#475569';
+    });
+  }
 
   document.body.appendChild(container);
   progressElement = container;
@@ -108,6 +205,9 @@ export function updateProgress(current: number, total: number, fieldName?: strin
  * Hide progress indicator (with optional delay)
  */
 export function hideProgress(delay: number = 1000): void {
+  paused = false;
+  if (resumeResolver) { resumeResolver(); resumeResolver = null; }
+
   if (usingWidgetRing) {
     usingWidgetRing = false;
     return;
@@ -126,6 +226,9 @@ export function hideProgress(delay: number = 1000): void {
  * Show completion state then auto-hide
  */
 export function showProgressComplete(success: boolean, filled: number, total: number): void {
+  paused = false;
+  if (resumeResolver) { resumeResolver(); resumeResolver = null; }
+
   if (usingWidgetRing) {
     exitFillMode(success, filled, total);
     usingWidgetRing = false;
@@ -137,6 +240,9 @@ export function showProgressComplete(success: boolean, filled: number, total: nu
   const spinner = progressElement.querySelector('.offlyn-spinner') as HTMLElement;
   const title = progressElement.querySelector('.offlyn-progress-title') as HTMLElement;
   const bar = progressElement.querySelector('#offlyn-progress-bar') as HTMLElement;
+  const pauseBtn = progressElement.querySelector('#offlyn-pause-btn') as HTMLElement;
+
+  if (pauseBtn) pauseBtn.style.display = 'none';
 
   if (spinner) {
     spinner.style.animation = 'none';

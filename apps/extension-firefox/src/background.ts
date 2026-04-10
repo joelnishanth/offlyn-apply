@@ -1617,6 +1617,9 @@ browser.tabs.onUpdated.addListener(async (tabId: number, changeInfo: any, tab: a
   const url = changeInfo.url || tab.url;
   if (!url) return;
 
+  // Never inject into LinkedIn — their Easy Apply handles it
+  try { if (new URL(url).hostname.includes('linkedin.com')) return; } catch {}
+
   const isComplete = changeInfo.status === 'complete';
   const isUrlChange = !!changeInfo.url;
   if (!isComplete && !isUrlChange) return;
