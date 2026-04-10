@@ -267,7 +267,7 @@ function highlightField(selector: string): void {
   activeHighlight = selector;
 
   el.style.transition = 'outline .2s, box-shadow .2s';
-  el.style.outline = '3px solid #1e2a3a';
+  el.style.outline = '3px solid #0a0a0a';
   el.style.boxShadow = '0 0 0 6px rgba(30,42,58,.25)';
   el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
@@ -303,7 +303,7 @@ function highlightFieldSuccess(selector: string): void {
   activeHighlight = selector;
 
   el.style.transition = 'outline .2s, box-shadow .2s';
-  el.style.outline = '3px solid #10b981';
+  el.style.outline = '3px solid #1a7f5a';
   el.style.boxShadow = '0 0 0 6px rgba(16,185,129,.25)';
   el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
@@ -336,7 +336,7 @@ function updateApplyCount(): void {
 }
 
 function confidenceColor(c: number): string {
-  if (c >= 0.8) return '#10b981';
+  if (c >= 0.8) return '#1a7f5a';
   if (c >= 0.6) return '#f59e0b';
   return '#94a3b8';
 }
@@ -387,7 +387,7 @@ function injectStyles(): void {
 /* ── Header ── */
 .osp-header {
   padding: 16px 20px;
-  background: linear-gradient(135deg, #1e2a3a 0%, #7cb342 100%);
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a7f5a 100%);
   color: #fff;
   display: flex;
   align-items: center;
@@ -421,22 +421,22 @@ function injectStyles(): void {
 
 /* ── Card ── */
 .osp-card {
-  border: 1px solid #e5e7eb;
+  border: 1px solid #e2e0da;
   border-radius: 10px;
   padding: 12px 14px;
   margin-bottom: 10px;
   background: #fff;
   transition: border-color .2s, opacity .2s;
 }
-.osp-card:hover { border-color: #1e2a3a; }
+.osp-card:hover { border-color: #0a0a0a; }
 .osp-card--disabled { opacity: .45; }
-.osp-card--disabled:hover { border-color: #e5e7eb; }
+.osp-card--disabled:hover { border-color: #e2e0da; }
 .osp-card--applied {
-  border-color: #10b981;
-  background: #f0fdf4;
+  border-color: #1a7f5a;
+  background: #e6f4ee;
   opacity: .7;
 }
-.osp-card--applied:hover { border-color: #10b981; }
+.osp-card--applied:hover { border-color: #1a7f5a; }
 .osp-card--applied .osp-options { pointer-events: none; opacity: .5; }
 
 .osp-card-head {
@@ -447,7 +447,7 @@ function injectStyles(): void {
 }
 .osp-toggle {
   width: 16px; height: 16px; cursor: pointer;
-  accent-color: #1e2a3a; flex-shrink: 0;
+  accent-color: #0a0a0a; flex-shrink: 0;
 }
 .osp-card-label {
   font-weight: 600; font-size: 13px; color: #111827;
@@ -457,8 +457,8 @@ function injectStyles(): void {
   transition: text-decoration-color .15s;
 }
 .osp-card-label:hover {
-  text-decoration-color: #1e2a3a;
-  color: #1e2a3a;
+  text-decoration-color: #0a0a0a;
+  color: #0a0a0a;
 }
 .osp-badge {
   color: #fff; font-size: 10px; font-weight: 700;
@@ -466,21 +466,21 @@ function injectStyles(): void {
   flex-shrink: 0;
 }
 .osp-btn-single {
-  background: #eef2ff; color: #1e2a3a;
+  background: #eef2ff; color: #0a0a0a;
   border: 1px solid #c7d2fe; border-radius: 6px;
   padding: 3px 10px; font-size: 11px; font-weight: 600;
   cursor: pointer; transition: all .15s;
   flex-shrink: 0; font-family: inherit;
 }
 .osp-btn-single:hover {
-  background: #1e2a3a; color: #fff;
-  border-color: #1e2a3a;
+  background: #0a0a0a; color: #fff;
+  border-color: #0a0a0a;
 }
 .osp-btn-single:disabled {
   opacity: .5; cursor: default;
 }
 .osp-applied-tag {
-  color: #10b981; font-size: 11px; font-weight: 700;
+  color: #1a7f5a; font-size: 11px; font-weight: 700;
   flex-shrink: 0; white-space: nowrap;
 }
 
@@ -488,13 +488,13 @@ function injectStyles(): void {
 .osp-options { display: flex; flex-direction: column; gap: 6px; }
 .osp-option {
   display: flex; align-items: flex-start; gap: 8px;
-  padding: 8px 10px; border: 2px solid #e5e7eb;
+  padding: 8px 10px; border: 2px solid #e2e0da;
   border-radius: 8px; cursor: pointer;
   transition: border-color .15s, background .15s;
 }
 .osp-option:hover { border-color: rgba(124, 179, 66, 0.4); background: #f0f7e8; }
-.osp-option--selected { border-color: #1e2a3a; background: #f0f7e8; }
-.osp-option input[type=radio] { margin-top: 3px; accent-color: #1e2a3a; flex-shrink: 0; }
+.osp-option--selected { border-color: #0a0a0a; background: #f0f7e8; }
+.osp-option input[type=radio] { margin-top: 3px; accent-color: #0a0a0a; flex-shrink: 0; }
 
 .osp-option-body { flex: 1; min-width: 0; }
 .osp-option-value {
@@ -511,9 +511,9 @@ function injectStyles(): void {
   text-transform: uppercase; color: #fff;
 }
 .osp-source--profile { background: #3b82f6; }
-.osp-source--contextual { background: #1e2a3a; }
-.osp-source--ai { background: #7cb342; }
-.osp-source--learned { background: #10b981; }
+.osp-source--contextual { background: #0a0a0a; }
+.osp-source--ai { background: #1a7f5a; }
+.osp-source--learned { background: #1a7f5a; }
 .osp-reason {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -521,7 +521,7 @@ function injectStyles(): void {
 /* ── Footer ── */
 .osp-footer {
   padding: 12px 16px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid #e2e0da;
   background: #f9fafb;
   display: flex; gap: 10px; justify-content: flex-end;
   flex-shrink: 0;
@@ -538,7 +538,7 @@ function injectStyles(): void {
 }
 .osp-btn-cancel:hover { background: #f3f4f6; }
 .osp-btn-apply {
-  background: linear-gradient(135deg, #1e2a3a 0%, #7cb342 100%);
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a7f5a 100%);
   color: #fff;
 }
 .osp-btn-apply:hover {

@@ -540,11 +540,18 @@ function detectPage(): void {
  * Try to auto-fill form with user profile
  */
 async function tryAutoFill(schema: ReturnType<typeof extractFormSchema>): Promise<void> {
+  const dispatchDone = (success: boolean, filled: number, total: number, message?: string) => {
+    window.dispatchEvent(new CustomEvent('offlyn-autofill-done', {
+      detail: { success, filled, total, message },
+    }));
+  };
+
   try {
     const profile = await getUserProfile();
     if (!profile) {
       warn('No user profile found. Please set up your profile first.');
       showNotification('Profile not set up', 'Complete onboarding to fill in your details automatically.', 'warning');
+      dispatchDone(false, 0, schema.length, 'No profile');
       return;
     }
     
@@ -575,6 +582,7 @@ async function tryAutoFill(schema: ReturnType<typeof extractFormSchema>): Promis
     if (mappings.length === 0) {
       info('ℹ️ No fields matched profile data.');
       showNotification('No matches found', 'No fields could be auto-filled from your profile.', 'info');
+      dispatchDone(false, 0, schema.length, 'No matches');
       return;
     }
     
@@ -633,9 +641,13 @@ async function tryAutoFill(schema: ReturnType<typeof extractFormSchema>): Promis
       info(`ℹ️ ${unfilledCount} fields remain unfilled. Showing AI suggestion tiles.`);
       showInlineSuggestionTiles(allDetectedFields, filledSelectors, handleInlineTileClick);
     }
+
+    const filled = filledSelectors.size;
+    dispatchDone(filled > 0, filled, schema.length, filled > 0 ? `Filled ${filled} fields` : 'No fields filled');
   } catch (err) {
     error('Error in auto-fill:', err);
     showError('Auto-fill Error', 'An error occurred during auto-fill. Please try again.', 5000);
+    dispatchDone(false, 0, schema.length, 'Fill error');
   }
 }
 

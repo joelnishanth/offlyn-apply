@@ -2,7 +2,7 @@
  * User profile management - stores extracted resume data
  */
 
-import browser from './browser-compat';
+import { chromeCompat } from './browser-compat';
 
 export interface PhoneDetails {
   countryCode: string;   // e.g., "+1"
@@ -139,7 +139,7 @@ function generateProfileId(name: string): string {
 
 export async function getProfilesIndex(): Promise<ProfilesIndex | null> {
   try {
-    const result = await browser.storage.local.get(PROFILES_INDEX_KEY);
+    const result = await chromeCompat.storage.local.get(PROFILES_INDEX_KEY);
     return result[PROFILES_INDEX_KEY] || null;
   } catch (err) {
     console.error('[Profile] Failed to get profiles index:', err);
@@ -148,7 +148,7 @@ export async function getProfilesIndex(): Promise<ProfilesIndex | null> {
 }
 
 export async function saveProfilesIndex(index: ProfilesIndex): Promise<void> {
-  await browser.storage.local.set({ [PROFILES_INDEX_KEY]: index });
+  await chromeCompat.storage.local.set({ [PROFILES_INDEX_KEY]: index });
 }
 
 export async function getActiveProfileId(): Promise<string> {
@@ -168,7 +168,7 @@ export async function setActiveProfile(id: string): Promise<void> {
 export async function getProfileById(id: string): Promise<UserProfile | null> {
   try {
     const key = profileStorageKey(id);
-    const result = await browser.storage.local.get(key);
+    const result = await chromeCompat.storage.local.get(key);
     return result[key] || null;
   } catch (err) {
     console.error(`[Profile] Failed to get profile ${id}:`, err);
@@ -178,7 +178,7 @@ export async function getProfileById(id: string): Promise<UserProfile | null> {
 
 export async function saveProfileById(id: string, profile: UserProfile): Promise<void> {
   profile.lastUpdated = Date.now();
-  await browser.storage.local.set({ [profileStorageKey(id)]: profile });
+  await chromeCompat.storage.local.set({ [profileStorageKey(id)]: profile });
 }
 
 export async function createProfile(
@@ -224,7 +224,7 @@ export async function deleteProfile(id: string): Promise<void> {
     index.activeId = index.profiles[0].id;
   }
   await saveProfilesIndex(index);
-  await browser.storage.local.remove(profileStorageKey(id));
+  await chromeCompat.storage.local.remove(profileStorageKey(id));
 }
 
 export async function updateProfileMeta(
@@ -252,7 +252,7 @@ export async function migrateToMultiProfile(): Promise<void> {
 
   const legacy = await (async () => {
     try {
-      const result = await browser.storage.local.get(LEGACY_PROFILE_KEY);
+      const result = await chromeCompat.storage.local.get(LEGACY_PROFILE_KEY);
       return result[LEGACY_PROFILE_KEY] as UserProfile | undefined;
     } catch { return undefined; }
   })();
@@ -281,7 +281,7 @@ export async function getUserProfile(): Promise<UserProfile | null> {
     if (index) {
       return await getProfileById(index.activeId);
     }
-    const result = await browser.storage.local.get(PROFILE_KEY);
+    const result = await chromeCompat.storage.local.get(PROFILE_KEY);
     return result[PROFILE_KEY] || null;
   } catch (err) {
     console.error('Failed to get profile:', err);
@@ -299,7 +299,7 @@ export async function saveUserProfile(profile: UserProfile): Promise<void> {
       await saveProfileById(index.activeId, profile);
     } else {
       profile.lastUpdated = Date.now();
-      await browser.storage.local.set({ [PROFILE_KEY]: profile });
+      await chromeCompat.storage.local.set({ [PROFILE_KEY]: profile });
     }
   } catch (err) {
     console.error('Failed to save profile:', err);
@@ -314,9 +314,9 @@ export async function clearUserProfile(): Promise<void> {
   try {
     const index = await getProfilesIndex();
     if (index) {
-      await browser.storage.local.remove(profileStorageKey(index.activeId));
+      await chromeCompat.storage.local.remove(profileStorageKey(index.activeId));
     } else {
-      await browser.storage.local.remove(PROFILE_KEY);
+      await chromeCompat.storage.local.remove(PROFILE_KEY);
     }
   } catch (err) {
     console.error('Failed to clear profile:', err);

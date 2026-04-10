@@ -5,20 +5,61 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/png" sizes="48x48" href="../icons/icon-48.png">
   <title>Resume Tailor - Offlyn Apply</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <script src="../shared/theme-init.js"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* ── Design Tokens ── */
+    :root {
+      --black: #0a0a0a;
+      --white: #ffffff;
+      --off-white: #f9f8f6;
+      --green: #1a7f5a;
+      --green-light: #e6f4ee;
+      --green-mid: #2da870;
+      --gray-100: #f4f3f0;
+      --gray-200: #e8e6e1;
+      --gray-400: #9e9b93;
+      --gray-600: #5a5750;
+      --gray-800: #2c2b28;
+      --border: #e2e0da;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --font-serif: 'Lora', Georgia, serif;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    html.dark {
+      --black: #ffffff;
+      --white: #0a0a0a;
+      --off-white: #111111;
+      --green: #2da870;
+      --green-light: #1a3a2a;
+      --green-mid: #34d399;
+      --gray-100: #1a1a1a;
+      --gray-200: #2a2a2a;
+      --gray-400: #737373;
+      --gray-600: #a3a3a3;
+      --gray-800: #e5e5e5;
+      --border: #2a2a2a;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f8fafc;
+      font-family: var(--font-sans);
+      background: var(--white);
       min-height: 100vh;
-      color: #1a1a1a;
+      color: var(--black);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
     }
 
     .header {
-      background: #fff;
-      border-bottom: 1px solid #e2e8f0;
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
       position: sticky;
       top: 0;
       z-index: 10;
@@ -40,7 +81,7 @@
     }
 
     .header-brand img { height: 40px; width: auto; object-fit: contain; }
-    .header-brand h1 { font-size: 1.25em; color: #1e293b; font-weight: 600; }
+    .header-brand h1 { font-family: var(--font-serif); font-size: 1.25em; color: var(--black); font-weight: 500; }
 
     .header-actions {
       display: flex;
@@ -52,21 +93,21 @@
       width: 34px; height: 34px;
       border-radius: 50%;
       background: transparent;
-      border: 1px solid #e2e8f0;
-      cursor: pointer; color: #64748b;
+      border: 1px solid var(--border);
+      cursor: pointer; color: var(--gray-600);
       display: inline-flex; align-items: center; justify-content: center;
       transition: all .15s; flex-shrink: 0;
     }
-    .dark-mode-toggle:hover { background: #f1f5f9; color: #1e293b; border-color: #cbd5e1; }
+    .dark-mode-toggle:hover { background: var(--gray-100); color: var(--black); border-color: var(--gray-200); }
 
     .btn-back {
       display: inline-flex; align-items: center; gap: 6px;
-      background: none; border: none; color: #64748b;
+      background: none; border: none; color: var(--gray-600);
       font-size: 14px; font-weight: 500; cursor: pointer;
-      padding: 6px 12px; border-radius: 6px;
+      padding: 6px 12px; border-radius: var(--radius-sm);
       text-decoration: none; transition: background 0.15s, color 0.15s;
     }
-    .btn-back:hover { background: #f1f5f9; color: #1e293b; }
+    .btn-back:hover { background: var(--gray-100); color: var(--black); }
 
     .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
 
@@ -80,9 +121,9 @@
     @media (max-width: 768px) { .panels { grid-template-columns: 1fr; } }
 
     .panel {
-      background: #fff;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -90,8 +131,9 @@
 
     .panel-header {
       padding: 14px 18px;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid var(--border);
       font-weight: 600;
+      color: var(--black);
       font-size: 0.9em;
       color: #334155;
       display: flex;
@@ -104,7 +146,9 @@
     .panel-body textarea {
       width: 100%;
       min-height: 300px;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
+      background: var(--white);
+      color: var(--black);
       border-radius: 8px;
       padding: 12px;
       font-family: 'SF Mono', 'Fira Code', monospace;
@@ -116,8 +160,8 @@
 
     .panel-body textarea:focus {
       outline: none;
-      border-color: #7c3aed;
-      box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(26,127,90,0.12);
     }
 
     .btn-scrape {
@@ -300,29 +344,9 @@
     html.dark .btn-instr-close { color: #60a5fa; }
     html.dark .btn-instr-close:hover { background: #1e3a6e; }
 
-    /* Dark mode */
-    html.dark body { background: #0f172a; color: #f1f5f9; }
-    html.dark .header { background: #1e293b; border-bottom-color: #334155; }
-    html.dark .header-brand h1 { color: #f1f5f9; }
-    html.dark .dark-mode-toggle { border-color: #334155; color: #94a3b8; }
-    html.dark .dark-mode-toggle:hover { background: #334155; color: #f1f5f9; }
-    html.dark .btn-back { color: #94a3b8; }
-    html.dark .btn-back:hover { background: #334155; color: #f1f5f9; }
-    html.dark .panel { background: #1e293b; border-color: #334155; }
-    html.dark .panel-header { border-bottom-color: #334155; color: #f1f5f9; }
-    html.dark .panel-body textarea { background: #0f172a; border-color: #334155; color: #f1f5f9; }
-    html.dark .panel-body textarea:focus { border-color: #7c3aed; }
-    html.dark .btn-scrape { border-color: #334155; color: #94a3b8; }
-    html.dark .btn-scrape:hover { background: #334155; color: #f1f5f9; }
-    html.dark .btn-copy { border-color: #334155; color: #94a3b8; }
-    html.dark .btn-copy:hover { background: #334155; color: #f1f5f9; }
-    html.dark .keyword-section { background: #1e293b; border-color: #334155; }
-    html.dark .keyword-title { color: #f1f5f9; }
-    html.dark .keyword-score { background: #334155; color: #94a3b8; }
-    html.dark .keyword-badge.present { background: #162e1a; color: #4ade80; border-color: #166534; }
+    /* Dark mode — mostly handled by CSS tokens */
+    html.dark .keyword-badge.present { background: var(--green-light); color: var(--green-mid); border-color: var(--green); }
     html.dark .keyword-badge.missing { background: #2d1515; color: #f87171; border-color: #7f1d1d; }
-    html.dark .result-panel { background: #1e293b; border-color: #334155; }
-    html.dark .result-panel pre { color: #f1f5f9; }
 
     /* Ollama status indicator */
     .ollama-status-bar {

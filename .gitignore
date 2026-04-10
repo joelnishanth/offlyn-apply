@@ -85,3 +85,7 @@ REPORT.md
 scripts/build-mac-pkg.sh
 **/*-signed.*
 **/signing/
+/marketing
+*.mjs
+*.mjs
+/scripts

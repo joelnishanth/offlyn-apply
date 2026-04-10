@@ -571,7 +571,7 @@ function addStyles(): void {
       height: 88px !important;
       cursor: pointer;
       overflow: hidden;
-      background: #0F172A;
+      background: #0a0a0a;
       transition: transform .18s ease, box-shadow .18s ease;
     }
     /* Right edge: left half-circle visible, right half off-screen */
@@ -670,7 +670,7 @@ function addStyles(): void {
 
     /* ─── Header ─── */
     .ofl-header {
-      background: #0F172A;
+      background: #0a0a0a;
       padding: 10px 12px;
       display: flex;
       align-items: center;
@@ -772,10 +772,10 @@ function addStyles(): void {
     }
     .ofl-stat { display: flex; align-items: baseline; gap: 5px; }
     .ofl-stat-num {
-      font-size: 22px; font-weight: 700; color: #0F172A; line-height: 1;
+      font-size: 22px; font-weight: 700; color: #0a0a0a; line-height: 1;
     }
     .ofl-stat-num.ofl-required { color: #EF4444; }
-    .ofl-stat-label { font-size: 12px; color: #64748B; font-weight: 500; }
+    .ofl-stat-label { font-size: 12px; color: #5a5750; font-weight: 500; }
 
     .ofl-actions { display: flex; flex-direction: column; gap: 8px; }
     .ofl-btn {
@@ -796,31 +796,31 @@ function addStyles(): void {
     }
     .ofl-btn-icon { font-size: 16px; }
     .ofl-btn-fill {
-      background: #27E38D;
-      color: #0F172A;
+      background: #1a7f5a;
+      color: #0a0a0a;
     }
     .ofl-btn-fill:hover {
-      background: #22CC7A;
+      background: #2da870;
       transform: translateY(-1px);
       box-shadow: 0 6px 20px rgba(39, 227, 141, 0.3);
     }
     .ofl-btn-fill:active {
-      background: #1EB86B;
+      background: #1a7f5a;
       transform: translateY(0);
     }
     .ofl-btn-cover {
-      background: #0F172A;
+      background: #0a0a0a;
       color: #FFFFFF;
-      border: 2px solid #27E38D;
+      border: 2px solid #1a7f5a;
     }
     .ofl-btn-cover:hover {
-      background: #1E293B;
-      border-color: #22CC7A;
+      background: #0a0a0a;
+      border-color: #2da870;
       transform: translateY(-1px);
       box-shadow: 0 6px 20px rgba(39, 227, 141, 0.2);
     }
     .ofl-btn-cover:active {
-      background: #0F172A;
+      background: #0a0a0a;
       transform: translateY(0);
     }
 
@@ -833,9 +833,9 @@ function addStyles(): void {
       padding: 0 8px;
       transition: all .2s;
     }
-    .ofl-status-info  { color: #0F172A; }
-    .ofl-status-success { color: #0F172A; background: rgba(39, 227, 141, 0.15); padding: 4px 8px; border: 1px solid #27E38D; }
-    .ofl-status-error   { color: #0F172A; background: rgba(239, 68, 68, 0.15); padding: 4px 8px; border: 1px solid #EF4444; }
+    .ofl-status-info  { color: #0a0a0a; }
+    .ofl-status-success { color: #0a0a0a; background: rgba(39, 227, 141, 0.15); padding: 4px 8px; border: 1px solid #1a7f5a; }
+    .ofl-status-error   { color: #0a0a0a; background: rgba(239, 68, 68, 0.15); padding: 4px 8px; border: 1px solid #EF4444; }
 
     .ofl-footer {
       padding: 8px 16px;
@@ -847,7 +847,7 @@ function addStyles(): void {
     .ofl-link-btn {
       background: none;
       border: none;
-      color: #64748B;
+      color: #5a5750;
       font-size: 12px;
       cursor: pointer;
       padding: 4px 6px;
@@ -856,7 +856,7 @@ function addStyles(): void {
       font-family: inherit;
     }
     .ofl-link-btn:hover {
-      color: #0F172A;
+      color: #0a0a0a;
       background: rgba(39, 227, 141, 0.1);
     }
     .ofl-link-btn:disabled { opacity: .5; cursor: default; }

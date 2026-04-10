@@ -3,6 +3,7 @@
  */
 
 import browser from './browser-compat';
+import { chromeCompat } from './browser-compat';
 import type { FieldSchema, FillMapping } from './types';
 import type { UserProfile } from './profile';
 import { isPhoneDetails, isLocationDetails } from './profile';
@@ -200,9 +201,6 @@ export async function applyGraphEnhancement(
   existingMappings: FillMapping[],
   context?: { platform?: string; company?: string; jobTitle?: string; url?: string }
 ): Promise<FillMapping[]> {
-  // Use chrome.runtime directly in Chrome builds to avoid polyfill ReferenceError in content scripts
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rt: typeof browser = (typeof (globalThis as any).chrome !== 'undefined' ? (globalThis as any).chrome : browser);
   const filledSelectors = new Set(existingMappings.map(m => m.selector));
   const enhanced = [...existingMappings];
   const unfilledCount = schema.filter(f => !filledSelectors.has(f.selector)).length;
@@ -231,24 +229,13 @@ export async function applyGraphEnhancement(
     /cover letter/i,
   ];
 
+  // Record provenance for already-filled fields (fire-and-forget)
   for (const field of schema) {
     const fieldLabel = field.label ?? field.name ?? field.id ?? '';
-    const fieldType = field.type ?? '';
-
-    // Skip file inputs and other non-textual inputs — they can never be graph-filled
-    if (UNFILLABLE_TYPES.has(fieldType)) continue;
-
-    // Skip generic placeholder labels — these are dropdown/UI chrome, not real questions
-    if (!fieldLabel || PLACEHOLDER_LABELS.test(fieldLabel.trim())) continue;
-
-    // Skip fields where the label is shorter than 3 chars (likely a widget artifact)
-    if (fieldLabel.trim().length < 3) continue;
-
     if (filledSelectors.has(field.selector)) {
-      // Already filled by profile/RL — record provenance in background for debug panel
       const existingMapping = existingMappings.find(m => m.selector === field.selector);
       if (existingMapping && fieldLabel) {
-        rt.runtime.sendMessage({
+        chromeCompat.runtime.sendMessage({
           kind: 'GRAPH_RECORD_PROVENANCE',
           label: fieldLabel,
           record: {
@@ -259,59 +246,79 @@ export async function applyGraphEnhancement(
           },
         }).catch(() => {});
       }
-      continue;
     }
+  }
 
-    // Skip contextual questions that need specific answers — graph similarity can produce
-    // false positives here (e.g. matching a "No" sponsorship answer to a timeline question)
-    if (CONTEXTUAL_QUESTION_PATTERNS.some(re => re.test(fieldLabel))) continue;
+  // Collect unfilled fields eligible for graph lookup
+  const candidates = schema.filter(field => {
+    const fieldLabel = field.label ?? field.name ?? field.id ?? '';
+    const fieldType = field.type ?? '';
+    if (UNFILLABLE_TYPES.has(fieldType)) return false;
+    if (!fieldLabel || PLACEHOLDER_LABELS.test(fieldLabel.trim())) return false;
+    if (fieldLabel.trim().length < 3) return false;
+    if (filledSelectors.has(field.selector)) return false;
+    if (CONTEXTUAL_QUESTION_PATTERNS.some(re => re.test(fieldLabel))) return false;
+    return true;
+  });
 
-    // Field is unfilled — ask background to classify, gate, and look it up in the graph.
-    // Pass inputType and fieldName so the background can run the full two-stage classifier.
+  if (candidates.length === 0) return enhanced;
+
+  // Parallel graph lookup with concurrency limit to avoid overwhelming background
+  const CONCURRENCY = 6;
+  const graphLookup = async (field: FieldSchema) => {
+    const fieldLabel = field.label ?? field.name ?? field.id ?? '';
     let result: GetBestAnswerResult & { abstained?: boolean; reason?: string } = {
       value: null, confidence: 0, source: null, selectionReason: null,
     };
-
     try {
-      result = await rt.runtime.sendMessage({
+      result = await chromeCompat.runtime.sendMessage({
         kind: 'GRAPH_GET_BEST_ANSWER',
         questionText: fieldLabel,
         inputType:    field.type   ?? 'text',
         fieldName:    field.name   ?? field.id ?? '',
-        // canonicalField omitted — background classifier resolves it
         platform: context?.platform,
         company:  context?.company,
         jobTitle: context?.jobTitle,
         url:      context?.url,
       }) as typeof result;
     } catch {
-      // Background not ready — skip silently
+      // Background not ready
     }
+    return { field, fieldLabel, result };
+  };
 
-    // Abstained fields (junk/unclassifiable) are never filled or recorded
-    if (result?.abstained) continue;
+  // Process in batches of CONCURRENCY
+  for (let i = 0; i < candidates.length; i += CONCURRENCY) {
+    const batch = candidates.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(batch.map(graphLookup));
 
-    if (result?.value && result.confidence >= 0.6) {
-      enhanced.push({ selector: field.selector, value: result.value });
-      console.log(
-        `[Autofill/Graph] Filled "${fieldLabel}" via ${result.source} (confidence: ${result.confidence.toFixed(2)})`
-      );
-    }
+    for (const settled of results) {
+      if (settled.status !== 'fulfilled') continue;
+      const { field, fieldLabel, result } = settled.value;
 
-    // Record provenance in background so debug panel can show it
-    if (fieldLabel) {
-      rt.runtime.sendMessage({
-        kind: 'GRAPH_RECORD_PROVENANCE',
-        label: fieldLabel,
-        record: {
-          value:             result?.value ?? '',
-          source:            result?.selectionReason ?? null,
-          confidence:        result?.confidence ?? 0,
-          matchedQuestionId: result?.questionNodeId,
-          answerNodeId:      result?.answerNodeId,
-          resolvedAt:        Date.now(),
-        },
-      }).catch(() => {});
+      if (result?.abstained) continue;
+
+      if (result?.value && result.confidence >= 0.6) {
+        enhanced.push({ selector: field.selector, value: result.value });
+        console.log(
+          `[Autofill/Graph] Filled "${fieldLabel}" via ${result.source} (confidence: ${result.confidence.toFixed(2)})`
+        );
+      }
+
+      if (fieldLabel) {
+        chromeCompat.runtime.sendMessage({
+          kind: 'GRAPH_RECORD_PROVENANCE',
+          label: fieldLabel,
+          record: {
+            value:             result?.value ?? '',
+            source:            result?.selectionReason ?? null,
+            confidence:        result?.confidence ?? 0,
+            matchedQuestionId: result?.questionNodeId,
+            answerNodeId:      result?.answerNodeId,
+            resolvedAt:        Date.now(),
+          },
+        }).catch(() => {});
+      }
     }
   }
 
@@ -918,6 +925,18 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
       const value = profile.selfId.race[0] || '';
       const valueLower = value.toLowerCase();
       
+      // If race is empty, find "decline" option in the dropdown
+      if (!value) {
+        const declineOpt = options.find((opt: string) => {
+          const o = opt.toLowerCase();
+          return o.includes('decline') || o.includes('prefer not') || o.includes('not disclose');
+        });
+        if (declineOpt) {
+          console.log('[Autofill] Race is empty, selecting decline option:', declineOpt);
+          return declineOpt;
+        }
+      }
+
       // Check if user declined to answer (multiple variations)
       const isDecline = valueLower.includes('decline') || 
                         valueLower.includes('not disclose') || 
@@ -977,11 +996,16 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
       return null; // Skip filling
     }
     // If profile stored an ethnicity answer in the race field, skip — wrong category
-    if (!value ||
+    if (value && (
         value.toLowerCase() === 'not hispanic or latino' ||
-        value.toLowerCase() === 'hispanic or latino') {
+        value.toLowerCase() === 'hispanic or latino')) {
       console.warn('[Autofill] Race value looks like an ethnicity answer, skipping:', value);
       return null;
+    }
+    // If race is empty, default to "Decline to self-identify"
+    if (!value) {
+      console.log('[Autofill] Race is empty, defaulting to decline');
+      return 'Decline to self-identify';
     }
 
     return value;
@@ -1582,7 +1606,8 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
     
     // "Are you currently based in or willing to relocate to X?"
     if (labelLower.includes('based in') || labelLower.includes('relocate to')) {
-      const userLocation = (profile.personal.location || '').toLowerCase();
+      const rawLoc = profile.personal.location;
+      const userLocation = (typeof rawLoc === 'object' && rawLoc !== null ? [rawLoc.city, rawLoc.state, rawLoc.country].filter(Boolean).join(', ') : String(rawLoc || '')).toLowerCase();
       
       // If asking about "Bay Area" or "San Francisco" and user is in Palo Alto
       if ((labelLower.includes('bay area') || labelLower.includes('san francisco')) && 
@@ -1597,6 +1622,16 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
     }
   }
   
+  // "Will you be based in the U.S. or Canada?" / "If hired, will you be based in..."
+  if (matchesAny([label], ['based in', 'be based'])) {
+    const labelLower = label.toLowerCase();
+    if (labelLower.includes('u.s.') || labelLower.includes('united states') || 
+        labelLower.includes('canada') || labelLower.includes('usa')) {
+      console.log('[Autofill] 🌎 US/Canada based question: Yes');
+      return 'Yes';
+    }
+  }
+
   // "Are you currently located in the US?"
   if (matchesAny([label, name, id], ['currently located', 'located in'])) {
     const labelLower = label.toLowerCase();
@@ -1609,7 +1644,8 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
         return 'Yes';
       }
       // Or check if location seems US-based
-      const userLocation = (profile.personal.location || '').toLowerCase();
+      const rawLoc2 = profile.personal.location;
+      const userLocation = (typeof rawLoc2 === 'object' && rawLoc2 !== null ? [rawLoc2.city, rawLoc2.state, rawLoc2.country].filter(Boolean).join(', ') : String(rawLoc2 || '')).toLowerCase();
       if (userLocation && (userLocation.includes('ca') || userLocation.includes('california') || 
           userLocation.includes('ny') || userLocation.includes('texas') || userLocation.includes('usa') ||
           userLocation.includes('palo alto'))) {
@@ -1662,6 +1698,18 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
     }
   }
   
+  // "Have you ever interviewed at [company] before?" / "Have you previously applied?"
+  if (matchesAny([label], ['interviewed', 'previously applied', 'applied before', 'interviewed before'])) {
+    console.log('[Autofill] Previous interview/application question: No (default)');
+    return 'No';
+  }
+
+  // "AI Policy" / "AI usage acknowledgment" / policy agreement questions
+  if (matchesAny([label], ['ai policy', 'ai usage', 'ai partnership'])) {
+    console.log('[Autofill] AI policy acknowledgment: Yes');
+    return 'Yes';
+  }
+
   // Non-compete / NDA / restrictive agreements questions
   // "Are you currently bound by any agreements with a current or former employer..."
   if (matchesAny([label, name, id], ['non-compete', 'non compete', 'non-solicitation', 'non-disclosure', 'nda', 'bound by', 'restrictive agreement', 'contractual obligation'])) {
@@ -1687,7 +1735,7 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
     // Legally authorized to work
     // IMPORTANT: Exclude sponsorship questions — "Will you require sponsorship for work authorization?"
     // contains "authorization" but is asking about sponsorship, not legal authorization.
-    if (matchesAny([label, name, id], ['legally', 'authorized', 'legal', 'eligible', 'work authorization']) &&
+    if (matchesAny([label, name, id], ['legally', 'authorized', 'authorization', 'legal', 'eligible', 'work authorization']) &&
         !label.includes('sponsor')) {
       console.log('[Autofill] 💼 Matched work authorization field:', field.label);
       
@@ -1720,7 +1768,8 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
       const labelLower = (label || '').toLowerCase();
       
       // Skip if this is asking about visa TYPE (handled below)
-      if (matchesAny([label, name, id], ['type', 'kind', 'which'])) {
+      // Be specific: "which visa" or "visa type" — not "in which the job" (false positive)
+      if (matchesAny([label, name, id], ['visa type', 'type of visa', 'kind of visa', 'which visa'])) {
         // This is asking for visa type, not yes/no
         if (profile.workAuth.visaType) {
           return profile.workAuth.visaType;
@@ -1821,10 +1870,14 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
     const labelLower = (label || '').toLowerCase();
     
     // EXCLUDE policy questions that contain location keywords
-    if (labelLower.includes('open to') || 
+    // But don't exclude address fields that mention "relocate" as secondary context
+    // e.g., "What is the address from which you plan on working? If you would need to relocate..."
+    const isAddressQuestion = labelLower.includes('address') || labelLower.includes('plan on working');
+    if (!isAddressQuestion && (
+        labelLower.includes('open to') || 
         labelLower.includes('willing to') || 
         labelLower.includes('relocate') ||
-        labelLower.includes('relocation')) {
+        labelLower.includes('relocation'))) {
       console.log('[Autofill] 🚫 Skipping location-like field (is actually a policy question):', field.label);
       return null;
     }

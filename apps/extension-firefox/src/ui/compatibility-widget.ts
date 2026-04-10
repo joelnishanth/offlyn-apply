@@ -189,7 +189,7 @@ export function enterFillMode(total: number): void {
     track.setAttribute('cy', '38');
     track.setAttribute('r', String(RING_RADIUS));
     track.setAttribute('fill', 'none');
-    track.setAttribute('stroke', '#e2e8f0');
+    track.setAttribute('stroke', '#e2e0da');
     track.setAttribute('stroke-width', '3.5');
     svg.appendChild(track);
 
@@ -199,7 +199,7 @@ export function enterFillMode(total: number): void {
     circle.setAttribute('cy', '38');
     circle.setAttribute('r', String(RING_RADIUS));
     circle.setAttribute('fill', 'none');
-    circle.setAttribute('stroke', '#16a34a');
+    circle.setAttribute('stroke', '#1a7f5a');
     circle.setAttribute('stroke-width', '3.5');
     circle.setAttribute('stroke-linecap', 'round');
     circle.style.cssText = `
@@ -231,7 +231,7 @@ export function enterFillMode(total: number): void {
       textAlign: 'center',
       fontSize: '10px',
       fontWeight: '600',
-      color: '#16a34a',
+      color: '#1a7f5a',
       marginTop: '-4px',
       whiteSpace: 'nowrap',
       opacity: '0.9',
@@ -272,12 +272,12 @@ export function exitFillMode(success: boolean, filled: number, total: number): v
   // Show completion state on ring
   if (fillRingCircle) {
     fillRingCircle.style.strokeDashoffset = '0';
-    fillRingCircle.setAttribute('stroke', success ? '#16a34a' : '#f59e0b');
+    fillRingCircle.setAttribute('stroke', success ? '#1a7f5a' : '#f59e0b');
   }
 
   if (fillLabelEl) {
     fillLabelEl.textContent = success ? `${filled} filled` : `${filled}/${total}`;
-    fillLabelEl.style.color = success ? '#16a34a' : '#f59e0b';
+    fillLabelEl.style.color = success ? '#1a7f5a' : '#f59e0b';
   }
 
   // After 2.5s, clean up ring and restore normal state
@@ -434,6 +434,7 @@ function onDragEnd(): void {
 
   if (dragMoved) {
     repositionPanel();
+    // Reset after a short delay so the click handler doesn't fire on pointer-up
     setTimeout(() => { dragMoved = false; }, 50);
   }
 }
@@ -481,7 +482,7 @@ function buildPill(data: CompatData): HTMLElement {
   } else {
     // Fallback: "OA" text if image not available
     const fallback = el('span');
-    setStyles(fallback, { fontSize: '14px', fontWeight: '700', color: '#1e293b', letterSpacing: '0.5px' });
+    setStyles(fallback, { fontSize: '14px', fontWeight: '700', color: '#0a0a0a', letterSpacing: '0.5px' });
     fallback.textContent = 'OA';
     pill.appendChild(fallback);
   }
@@ -527,7 +528,7 @@ function buildPanel(sr: ShadowRoot, data: CompatData): HTMLElement {
     background:   '#fff',
     borderRadius: '14px',
     boxShadow:    '0 8px 36px rgba(30,41,59,0.16), 0 2px 8px rgba(30,41,59,0.08)',
-    border:       '1px solid #e2e8f0',
+    border:       '1px solid #e2e0da',
     overflow:     'hidden',
   });
 
@@ -539,7 +540,7 @@ function buildPanel(sr: ShadowRoot, data: CompatData): HTMLElement {
     alignItems:      'center',
     justifyContent:  'space-between',
     padding:         '12px 14px',
-    background:      '#1e293b',
+    background:      '#0a0a0a',
     color:           '#fff',
   });
 
@@ -671,12 +672,12 @@ function buildPanel(sr: ShadowRoot, data: CompatData): HTMLElement {
 
 function buildActionsSection(sr: ShadowRoot, req: number): HTMLElement {
   const wrap = el('div');
-  setStyles(wrap, { padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', borderBottom: '1px solid #f1f5f9' });
+  setStyles(wrap, { padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', borderBottom: '1px solid #f4f3f0' });
 
   // chips row
   const chipsRow = el('div');
   setStyles(chipsRow, { display: 'flex', flexDirection: 'row', gap: '8px', flexWrap: 'wrap' });
-  chip(chipsRow, `<strong id="ow-field-count">${fields.length}</strong>&nbsp;fields`, '#f1f5f9', '#475569');
+  chip(chipsRow, `<strong id="ow-field-count">${fields.length}</strong>&nbsp;fields`, '#f4f3f0', '#475569');
   if (req > 0) {
     chip(chipsRow, `<strong id="ow-req-count" style="color:#dc2626">${req}</strong>&nbsp;required`, '#fef2f2', '#b91c1c');
   }
@@ -691,8 +692,8 @@ function buildActionsSection(sr: ShadowRoot, req: number): HTMLElement {
   // primary actions row
   const row1 = el('div');
   setStyles(row1, { display: 'flex', flexDirection: 'row', gap: '8px' });
-  const fillBtn   = actionBtn(ICON_SPARKLE, 'Auto-Fill Form',  '#1e293b', '#fff');
-  const coverBtn  = actionBtn(ICON_DOC,     'Cover Letter',     '#16a34a', '#fff');
+  const fillBtn   = actionBtn(ICON_SPARKLE, 'Auto-Fill Form',  '#0a0a0a', '#fff');
+  const coverBtn  = actionBtn(ICON_DOC,     'Cover Letter',     '#1a7f5a', '#fff');
   row1.appendChild(fillBtn);
   row1.appendChild(coverBtn);
   wrap.appendChild(row1);
@@ -709,7 +710,7 @@ function buildActionsSection(sr: ShadowRoot, req: number): HTMLElement {
   // status
   const statusEl = el('div');
   statusEl.id = 'ow-status';
-  setStyles(statusEl, { fontSize: '11px', minHeight: '0', color: '#64748b' });
+  setStyles(statusEl, { fontSize: '11px', minHeight: '0', color: '#5a5750' });
   wrap.appendChild(statusEl);
 
   // wire buttons
@@ -728,6 +729,16 @@ function buildActionsSection(sr: ShadowRoot, req: number): HTMLElement {
     window.dispatchEvent(new CustomEvent('offlyn-tailor-resume'));
   });
 
+  // Listen for autofill completion to clear status
+  window.addEventListener('offlyn-autofill-done', ((e: CustomEvent) => {
+    const { success, filled, total, message } = e.detail ?? {};
+    if (success && filled > 0) {
+      setStatus(statusEl, message || `Filled ${filled}/${total} fields`, '#1a7f5a');
+    } else {
+      setStatus(statusEl, message || 'Fill failed', '#ef4444');
+    }
+  }) as EventListener);
+
   return wrap;
 }
 
@@ -740,7 +751,7 @@ function buildProfileSection(): HTMLElement {
   wrap.id = 'ow-profile-section';
   setStyles(wrap, {
     padding:       '8px 14px',
-    borderBottom:  '1px solid #f1f5f9',
+    borderBottom:  '1px solid #f4f3f0',
     display:       'flex',
     flexDirection: 'column',
     gap:           '0',
@@ -770,7 +781,7 @@ function buildProfileSection(): HTMLElement {
 
   const nameLabel = el('span');
   setStyles(nameLabel, {
-    fontSize: '12px', fontWeight: '600', color: '#1e293b',
+    fontSize: '12px', fontWeight: '600', color: '#0a0a0a',
     lineHeight: '16px',
     flex: '1', minWidth: '0', overflow: 'hidden',
     textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -778,7 +789,7 @@ function buildProfileSection(): HTMLElement {
   nameLabel.textContent = profileName;
   if (!isSetUp) {
     const badge = el('span');
-    setStyles(badge, { fontSize: '9px', color: '#94a3b8', fontWeight: '400', marginLeft: '4px' });
+    setStyles(badge, { fontSize: '9px', color: '#9e9b93', fontWeight: '400', marginLeft: '4px' });
     badge.textContent = '(needs setup)';
     nameLabel.appendChild(badge);
   }
@@ -788,7 +799,7 @@ function buildProfileSection(): HTMLElement {
   let arrow: HTMLElement | null = null;
   if (currentProfiles.length > 1) {
     arrow = el('span');
-    setStyles(arrow, { color: '#94a3b8', display: 'inline-flex', flexShrink: '0', cursor: 'pointer', transition: 'transform 0.2s' });
+    setStyles(arrow, { color: '#9e9b93', display: 'inline-flex', flexShrink: '0', cursor: 'pointer', transition: 'transform 0.2s' });
     setHTML(arrow, `<svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 5 7 9 11 5"/></svg>`);
     headerRow.appendChild(arrow);
   }
@@ -814,8 +825,8 @@ function buildProfileSection(): HTMLElement {
     dropdownEl = el('div');
     setStyles(dropdownEl, {
       display: 'none', flexDirection: 'column', gap: '1px',
-      marginTop: '4px', background: '#f8fafc', borderRadius: '6px',
-      padding: '3px', border: '1px solid #e2e8f0',
+      marginTop: '4px', background: '#f4f3f0', borderRadius: '6px',
+      padding: '3px', border: '1px solid #e2e0da',
     });
 
     let dropOpen = false;
@@ -863,10 +874,10 @@ function buildProfileSection(): HTMLElement {
 
       if (score !== undefined) {
         const scorePill = el('span');
-        const pillColor = isBestFit ? '#16a34a' : '#64748b';
+        const pillColor = isBestFit ? '#1a7f5a' : '#5a5750';
         setStyles(scorePill, {
           fontSize: '9px', fontWeight: '600', color: pillColor,
-          background: isBestFit ? '#dcfce7' : '#f1f5f9',
+          background: isBestFit ? '#dcfce7' : '#f4f3f0',
           padding: '1px 5px', borderRadius: '8px', flexShrink: '0',
           lineHeight: '1.4',
         });
@@ -877,14 +888,14 @@ function buildProfileSection(): HTMLElement {
       if (isBestFit) {
         const bestTag = el('span');
         setStyles(bestTag, {
-          fontSize: '8px', fontWeight: '600', color: '#16a34a',
+          fontSize: '8px', fontWeight: '600', color: '#1a7f5a',
           flexShrink: '0', letterSpacing: '0.02em',
         });
         bestTag.textContent = 'Best fit';
         item.appendChild(bestTag);
       } else if (!hasData && !isActive) {
         const setupTag = el('span');
-        setStyles(setupTag, { fontSize: '9px', color: '#94a3b8', flexShrink: '0' });
+        setStyles(setupTag, { fontSize: '9px', color: '#9e9b93', flexShrink: '0' });
         setupTag.textContent = 'Set up';
         item.appendChild(setupTag);
       }
@@ -913,7 +924,7 @@ function buildProfileSection(): HTMLElement {
       display: 'flex', alignItems: 'center', gap: '4px',
       padding: '5px 6px', borderRadius: '4px', border: 'none', background: 'transparent',
       cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', width: '100%',
-      fontSize: '10px', color: '#7c3aed', borderTop: '1px solid #e2e8f0', marginTop: '2px',
+      fontSize: '10px', color: '#7c3aed', borderTop: '1px solid #e2e0da', marginTop: '2px',
     });
     newProfileBtn.textContent = '+ New profile';
     newProfileBtn.addEventListener('click', (e) => {
@@ -940,7 +951,7 @@ function buildTailorSection(data: CompatData): HTMLElement {
   const matched = data.skills.matched;
   const total = data.skills.total;
   const matchPct = total > 0 ? Math.round((matched.length / total) * 100) : 0;
-  const pillColor = matchPct >= 70 ? '#16a34a' : matchPct >= 40 ? '#ca8a04' : '#dc2626';
+  const pillColor = matchPct >= 70 ? '#1a7f5a' : matchPct >= 40 ? '#ca8a04' : '#dc2626';
 
   let detailOpen = false;
   const detail = el('div');
@@ -950,7 +961,7 @@ function buildTailorSection(data: CompatData): HTMLElement {
   setStyles(toggle, {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     width: '100%', padding: '10px 14px', background: '#faf5ff',
-    border: 'none', borderTop: '1px solid #f1f5f9', cursor: 'pointer', textAlign: 'left',
+    border: 'none', borderTop: '1px solid #f4f3f0', cursor: 'pointer', textAlign: 'left',
   });
 
   const toggleLeft = el('div');
@@ -966,8 +977,8 @@ function buildTailorSection(data: CompatData): HTMLElement {
 
   const labelWrap = el('div');
   setStyles(labelWrap, { display: 'flex', flexDirection: 'column' });
-  labelWrap.appendChild(txt2('Resume Keywords', { fontSize: '12px', fontWeight: '600', color: '#1e293b', lineHeight: '1.2' }));
-  labelWrap.appendChild(txt2(`${matched.length}/${total} matched`, { fontSize: '10px', color: '#64748b', lineHeight: '1.2' }));
+  labelWrap.appendChild(txt2('Resume Keywords', { fontSize: '12px', fontWeight: '600', color: '#0a0a0a', lineHeight: '1.2' }));
+  labelWrap.appendChild(txt2(`${matched.length}/${total} matched`, { fontSize: '10px', color: '#5a5750', lineHeight: '1.2' }));
   toggleLeft.appendChild(labelWrap);
 
   const toggleRight = el('div');
@@ -983,7 +994,7 @@ function buildTailorSection(data: CompatData): HTMLElement {
   toggleRight.appendChild(pctBadge);
 
   const arrow = el('span');
-  setStyles(arrow, { display: 'inline-flex', color: '#94a3b8', transition: 'transform 0.2s', flexShrink: '0' });
+  setStyles(arrow, { display: 'inline-flex', color: '#9e9b93', transition: 'transform 0.2s', flexShrink: '0' });
   setHTML(arrow, `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 5 7 9 11 5"/></svg>`);
   toggleRight.appendChild(arrow);
 
@@ -1011,7 +1022,7 @@ function buildTailorSection(data: CompatData): HTMLElement {
   if (missing.length > 0) {
     const missingWrap = el('div');
     setStyles(missingWrap, { display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '2px' });
-    missingWrap.appendChild(txt2('Missing', { fontSize: '9px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }));
+    missingWrap.appendChild(txt2('Missing', { fontSize: '9px', fontWeight: '600', color: '#9e9b93', textTransform: 'uppercase', letterSpacing: '0.5px' }));
     const badges = el('div');
     setStyles(badges, { display: 'flex', flexWrap: 'wrap', gap: '3px' });
     missing.forEach(kw => {
@@ -1031,14 +1042,14 @@ function buildTailorSection(data: CompatData): HTMLElement {
   if (matched.length > 0) {
     const matchWrap = el('div');
     setStyles(matchWrap, { display: 'flex', flexDirection: 'column', gap: '4px' });
-    matchWrap.appendChild(txt2('Matched', { fontSize: '9px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }));
+    matchWrap.appendChild(txt2('Matched', { fontSize: '9px', fontWeight: '600', color: '#9e9b93', textTransform: 'uppercase', letterSpacing: '0.5px' }));
     const badges = el('div');
     setStyles(badges, { display: 'flex', flexWrap: 'wrap', gap: '3px' });
     matched.forEach(kw => {
       const b = el('span');
       setStyles(b, {
         padding: '2px 7px', borderRadius: '20px', fontSize: '10px', fontWeight: '500',
-        background: '#f0fdf4', color: '#16a34a', border: '1px solid #dcfce7',
+        background: '#f0fdf4', color: '#1a7f5a', border: '1px solid #dcfce7',
       });
       b.textContent = kw;
       badges.appendChild(b);
@@ -1082,9 +1093,9 @@ function buildCompatToggle(data: CompatData): { row: HTMLElement; arrow: HTMLEle
     justifyContent:  'space-between',
     width:           '100%',
     padding:         '11px 14px',
-    background:      '#f8fafc',
+    background:      '#f4f3f0',
     border:          'none',
-    borderTop:       '1px solid #f1f5f9',
+    borderTop:       '1px solid #f4f3f0',
     cursor:          'pointer',
     textAlign:       'left',
   });
@@ -1113,7 +1124,7 @@ function buildCompatToggle(data: CompatData): { row: HTMLElement; arrow: HTMLEle
   const arrow = el('span');
   setStyles(arrow, {
     display:    'inline-flex',
-    color:      '#94a3b8',
+    color:      '#9e9b93',
     transition: 'transform 0.2s',
     flexShrink: '0',
   });
@@ -1131,7 +1142,7 @@ function buildCompatToggle(data: CompatData): { row: HTMLElement; arrow: HTMLEle
 
 function buildCompatDetail(data: CompatData): HTMLElement {
   const wrap = el('div');
-  setStyles(wrap, { padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid #f1f5f9' });
+  setStyles(wrap, { padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid #f4f3f0' });
 
   // ── Skills ──
   wrap.appendChild(buildSkillsRow(data));
@@ -1139,7 +1150,7 @@ function buildCompatDetail(data: CompatData): HTMLElement {
   // ── Grouped detail rows (Experience / Education / Location / Salary) ──
   const detailGroup = el('div');
   setStyles(detailGroup, {
-    border: '1px solid #f1f5f9',
+    border: '1px solid #f4f3f0',
     borderRadius: '10px',
     overflow: 'hidden',
     display: 'flex', flexDirection: 'column',
@@ -1160,7 +1171,7 @@ function buildCompatDetail(data: CompatData): HTMLElement {
     },
     {
       bg: '#dcfce7',
-      svg: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
+      svg: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1a7f5a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
       label: 'Location', sub: data.location.required,
       score: data.location.score, ind: data.location.match ? 'check' : 'none' as 'check'|'warn'|'none',
     },
@@ -1179,7 +1190,7 @@ function buildCompatDetail(data: CompatData): HTMLElement {
     detailGroup.appendChild(rowEl);
     if (i < rows.length - 1) {
       const sep = el('div');
-      setStyles(sep, { height: '1px', background: '#f1f5f9', margin: '0' });
+      setStyles(sep, { height: '1px', background: '#f4f3f0', margin: '0' });
       detailGroup.appendChild(sep);
     }
   });
@@ -1217,12 +1228,12 @@ function buildSkillsRow(data: CompatData): HTMLElement {
   setStyles(badges, { display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '5px', marginTop: '2px' });
   data.skills.matched.forEach(s => {
     const b = badgeEl(s, '#dcfce7', '#15803d',
-      `<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round"><polyline points="1.5 5 4 7.5 8.5 2.5"/></svg>`);
+      `<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#1a7f5a" stroke-width="2.5" stroke-linecap="round"><polyline points="1.5 5 4 7.5 8.5 2.5"/></svg>`);
     badges.appendChild(b);
   });
   data.skills.missing.forEach(s => {
-    const b = badgeEl(s, '#f1f5f9', '#475569',
-      `<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="5" r="3.5"/><line x1="5" y1="3.5" x2="5" y2="5.5"/><circle cx="5" cy="7" r="0.5" fill="#94a3b8"/></svg>`);
+    const b = badgeEl(s, '#f4f3f0', '#475569',
+      `<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#9e9b93" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="5" r="3.5"/><line x1="5" y1="3.5" x2="5" y2="5.5"/><circle cx="5" cy="7" r="0.5" fill="#9e9b93"/></svg>`);
     badges.appendChild(b);
   });
   wrap.appendChild(badges);
@@ -1244,7 +1255,7 @@ function buildSimpleRow(
   const right = el('div');
   setStyles(right, { display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '4px', flexShrink: '0' });
   right.appendChild(txt2(`${score}%`, { fontSize: '13px', fontWeight: '600', color: scoreColor(score), whiteSpace: 'nowrap' }));
-  if (indicator === 'check') appendHTML(right, `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round"><polyline points="2 7 5.5 10.5 12 3.5"/></svg>`);
+  if (indicator === 'check') appendHTML(right, `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#1a7f5a" stroke-width="2.5" stroke-linecap="round"><polyline points="2 7 5.5 10.5 12 3.5"/></svg>`);
   if (indicator === 'warn')  appendHTML(right, `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round"><circle cx="7" cy="7" r="5.5"/><line x1="7" y1="4.5" x2="7" y2="7.5"/><circle cx="7" cy="9.5" r="0.6" fill="#d97706"/></svg>`);
 
   row.appendChild(left);
@@ -1269,7 +1280,7 @@ function buildAICard(html: string): HTMLElement {
   setStyles(sparkBox, { width: '28px', height: '28px', borderRadius: '8px', background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: '0' });
   setHTML(sparkBox, `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/></svg>`);
   head.appendChild(sparkBox);
-  head.appendChild(txt2('AI Recommendation', { fontSize: '12px', fontWeight: '600', color: '#1e293b' }));
+  head.appendChild(txt2('AI Recommendation', { fontSize: '12px', fontWeight: '600', color: '#0a0a0a' }));
   card.appendChild(head);
   const p = el('p');
   setStyles(p, { fontSize: '11px', color: '#475569', lineHeight: '1.6', margin: '0' });
@@ -1289,10 +1300,10 @@ function labelCol(label: string, sub: string, extraStyles: Record<string,string>
   const d = el('div');
   setStyles(d, { flex: '1', minWidth: '0', ...extraStyles });
   const l = el('p');
-  setStyles(l, { fontSize: '13px', fontWeight: '500', color: '#1e293b', margin: '0 0 1px 0', padding: '0', lineHeight: '1.3' });
+  setStyles(l, { fontSize: '13px', fontWeight: '500', color: '#0a0a0a', margin: '0 0 1px 0', padding: '0', lineHeight: '1.3' });
   l.textContent = label;
   const s = el('p');
-  setStyles(s, { fontSize: '11px', color: '#64748b', margin: '0', padding: '0', lineHeight: '1.3', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+  setStyles(s, { fontSize: '11px', color: '#5a5750', margin: '0', padding: '0', lineHeight: '1.3', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
   s.textContent = sub;
   d.appendChild(l);
   d.appendChild(s);
@@ -1327,7 +1338,7 @@ function row2Col(parent: HTMLElement, left: HTMLElement, right: HTMLElement): vo
 
 function progressBar(pct: number, color: string): HTMLElement {
   const track = el('div');
-  setStyles(track, { height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' });
+  setStyles(track, { height: '6px', background: '#e2e0da', borderRadius: '3px', overflow: 'hidden' });
   const fill = el('div');
   setStyles(fill, { height: '100%', width: `${pct}%`, background: color, borderRadius: '3px', transition: 'width 0.5s ease' });
   track.appendChild(fill);
@@ -1336,7 +1347,7 @@ function progressBar(pct: number, color: string): HTMLElement {
 
 function dividerEl(): HTMLElement {
   const d = el('div');
-  setStyles(d, { height: '1px', background: '#f1f5f9', margin: '0' });
+  setStyles(d, { height: '1px', background: '#f4f3f0', margin: '0' });
   return d;
 }
 
@@ -1370,8 +1381,8 @@ function actionBtn(svgHtml: string, label: string, bg: string, color: string): H
 
 function smallBtn(svgHtml: string, label: string, suffix?: string): HTMLElement {
   const b = el('button');
-  setStyles(b, { flex: '1', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '4px', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: '11px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' });
-  const html = svgHtml + escHtml(label) + (suffix ? ` <span style="font-size:9px;color:#94a3b8;font-weight:400">${escHtml(suffix)}</span>` : '');
+  setStyles(b, { flex: '1', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '4px', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e0da', background: '#fff', color: '#5a5750', fontSize: '11px', fontWeight: '500', cursor: 'pointer', fontFamily: 'inherit' });
+  const html = svgHtml + escHtml(label) + (suffix ? ` <span style="font-size:9px;color:#9e9b93;font-weight:400">${escHtml(suffix)}</span>` : '');
   setHTML(b, html);
   return b;
 }
@@ -1380,7 +1391,7 @@ function setStatus(el: HTMLElement, msg: string, color: string): void {
   el.textContent = msg;
   el.style.color = color;
   if (color !== '#2563eb') {
-    setTimeout(() => { el.textContent = ''; }, 3500);
+    setTimeout(() => { el.textContent = ''; el.style.color = '#5a5750'; }, 4000);
   }
 }
 
@@ -1441,7 +1452,7 @@ export function computeCompatibility(profile: UserProfile, pageText: string): Co
 
   let aiInsight = '';
   if (overall >= 85) {
-    aiInsight = `<strong style="color:#16a34a">Strong candidate!</strong> Profile aligns well.`;
+    aiInsight = `<strong style="color:#1a7f5a">Strong candidate!</strong> Profile aligns well.`;
     if (missing.length) aiInsight += ` Consider: <em>${missing.slice(0,2).map(cap).join(', ')}</em>.`;
   } else if (overall >= 65) {
     aiInsight = `<strong style="color:#d97706">Good fit</strong> with some gaps.`;
@@ -1466,10 +1477,10 @@ export function computeCompatibility(profile: UserProfile, pageText: string): Co
 // Score helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-function scoreColor(s: number)    { return s >= 80 ? '#16a34a' : s >= 60 ? '#d97706' : '#dc2626'; }
-function scoreDot(s: number)      { return s >= 80 ? '#16a34a' : s >= 60 ? '#f59e0b' : '#ef4444'; }
+function scoreColor(s: number)    { return s >= 80 ? '#1a7f5a' : s >= 60 ? '#d97706' : '#dc2626'; }
+function scoreDot(s: number)      { return s >= 80 ? '#1a7f5a' : s >= 60 ? '#f59e0b' : '#ef4444'; }
 function scoreGradient(s: number) {
-  return s >= 80 ? 'linear-gradient(135deg,#16a34a,#059669)'
+  return s >= 80 ? 'linear-gradient(135deg,#1a7f5a,#059669)'
        : s >= 60 ? 'linear-gradient(135deg,#d97706,#ea580c)'
        :           'linear-gradient(135deg,#dc2626,#e11d48)';
 }
@@ -1493,7 +1504,7 @@ function injectBaseCSS(sr: ShadowRoot): void {
     :host { all: initial; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; line-height: 1.4; }
     * { box-sizing: border-box; font-family: inherit; line-height: normal; }
     .ow-scrollbody::-webkit-scrollbar { width: 3px; }
-    .ow-scrollbody::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 2px; }
+    .ow-scrollbody::-webkit-scrollbar-thumb { background: #e2e0da; border-radius: 2px; }
     button { font-family: inherit; cursor: pointer; }
     p { margin: 0; }
     @keyframes ow-swivel {

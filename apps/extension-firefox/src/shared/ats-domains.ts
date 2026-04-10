@@ -242,6 +242,18 @@ export const JOB_URL_PATH_PATTERNS: readonly RegExp[] = [
   /\/publication\//i,
   /\/careers?\/.*apply/i,
   /\/recruitment\//i,
+  /\/careers?\/[^/]+\/[^/]+/i,  // 2+ segments after /careers/ (e.g. /careers/engineering/sre-role)
+  /\/(?:join-us|work-with-us|vacancies|opportunities)\/[^/]+/i,  // Alternative career terminology
+];
+
+// ── ATS query parameters (unambiguous signals that a company embeds an ATS) ──
+
+export const ATS_QUERY_PARAMS: readonly string[] = [
+  'gh_jid',          // Greenhouse job ID (e.g. databricks.com?gh_jid=8353049002)
+  'gh_src',          // Greenhouse source tracking
+  'lever_origin',    // Lever origin tracking
+  'lever_source',    // Lever source tracking
+  'ashby_jid',       // Ashby job ID
 ];
 
 // ── Helper functions ──
@@ -256,8 +268,21 @@ export function hasJobURLPath(url: string): boolean {
 }
 
 /**
- * Returns true if the URL belongs to a known ATS/job-board domain
- * OR its path matches job-related patterns.
+ * Returns true if the URL contains query parameters that indicate an embedded ATS.
+ * These are unambiguous signals (e.g. gh_jid for Greenhouse) that won't false-positive.
+ */
+export function hasATSQueryParams(searchString: string): boolean {
+  try {
+    const params = new URLSearchParams(searchString);
+    return ATS_QUERY_PARAMS.some(p => params.has(p));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Returns true if the URL belongs to a known ATS/job-board domain,
+ * its path matches job-related patterns, or it has ATS query parameters.
  * Used by the background script to decide when to inject content.js.
  */
 export function isJobURL(url: string): boolean {
@@ -265,6 +290,7 @@ export function isJobURL(url: string): boolean {
     const parsed = new URL(url);
     if (isATSDomain(parsed.hostname)) return true;
     if (hasJobURLPath(parsed.pathname)) return true;
+    if (hasATSQueryParams(parsed.search)) return true;
     return false;
   } catch {
     return false;

@@ -4,58 +4,93 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chat with your Resume — Offlyn Apply</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <script src="../shared/theme-init.js"></script>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-      --bg: #f8fafc;
-      --surface: #fff;
-      --border: #e2e8f0;
-      --text: #1a1a1a;
-      --text-muted: #64748b;
-      --text-faint: #94a3b8;
-      --accent: #1e293b;
-      --accent-hover: #334155;
-      --green: #16a34a;
-      --green-hover: #15803d;
-      --user-bubble: #1e293b;
-      --ai-bubble: #fff;
-      --ai-bubble-border: #e2e8f0;
-      --chip-bg: #f1f5f9;
-      --chip-border: #e2e8f0;
-      --chip-hover: #e2e8f0;
-      --chip-text: #334155;
-      --input-bg: #fff;
+      /* ── Core design tokens ── */
+      --black: #0a0a0a;
+      --white: #ffffff;
+      --off-white: #f9f8f6;
+      --green: #1a7f5a;
+      --green-light: #e6f4ee;
+      --green-mid: #2da870;
+      --gray-100: #f4f3f0;
+      --gray-200: #e8e6e1;
+      --gray-400: #9e9b93;
+      --gray-600: #5a5750;
+      --gray-800: #2c2b28;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --font-serif: 'Lora', Georgia, serif;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      
+      /* ── Chat-specific tokens ── */
+      --bg: var(--white);
+      --surface: var(--white);
+      --border: #e2e0da;
+      --text: var(--black);
+      --text-muted: var(--gray-600);
+      --text-faint: var(--gray-400);
+      --accent: var(--black);
+      --accent-hover: var(--gray-800);
+      --green-hover: var(--green-mid);
+      --user-bubble: var(--black);
+      --ai-bubble: var(--white);
+      --ai-bubble-border: #e2e0da;
+      --chip-bg: var(--gray-100);
+      --chip-border: #e2e0da;
+      --chip-hover: var(--gray-200);
+      --chip-text: var(--gray-800);
+      --input-bg: var(--white);
       --shadow-sm: 0 1px 3px rgba(0,0,0,.08);
       --shadow-md: 0 4px 16px rgba(0,0,0,.10);
     }
 
     html.dark {
-      --bg: #0f172a;
-      --surface: #1e293b;
-      --border: #334155;
-      --text: #f1f5f9;
-      --text-muted: #94a3b8;
-      --text-faint: #475569;
-      --accent: #e2e8f0;
-      --accent-hover: #f1f5f9;
-      --user-bubble: #334155;
-      --ai-bubble: #1e293b;
-      --ai-bubble-border: #334155;
-      --chip-bg: #1e293b;
-      --chip-border: #334155;
-      --chip-hover: #263448;
-      --chip-text: #cbd5e1;
-      --input-bg: #1e293b;
+      --black: #ffffff;
+      --white: #0a0a0a;
+      --off-white: #111111;
+      --green: #2da870;
+      --green-light: #1a3a2a;
+      --green-mid: #34d399;
+      --gray-100: #1a1a1a;
+      --gray-200: #2a2a2a;
+      --gray-400: #737373;
+      --gray-600: #a3a3a3;
+      --gray-800: #e5e5e5;
+      --border: #2a2a2a;
+      
+      --bg: var(--white);
+      --surface: var(--gray-100);
+      --text: var(--black);
+      --text-muted: var(--gray-600);
+      --text-faint: var(--gray-400);
+      --accent: var(--gray-800);
+      --accent-hover: var(--black);
+      --green-hover: var(--green-mid);
+      --user-bubble: var(--gray-200);
+      --ai-bubble: var(--gray-100);
+      --ai-bubble-border: var(--border);
+      --chip-bg: var(--gray-100);
+      --chip-border: var(--border);
+      --chip-hover: var(--gray-200);
+      --chip-text: var(--gray-800);
+      --input-bg: var(--gray-100);
     }
 
     html, body {
       height: 100%;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: var(--font-sans);
       font-size: 14px;
       color: var(--text);
       background: var(--bg);
+      -webkit-font-smoothing: antialiased;
     }
 
     /* ── Layout ───────────────────────────────────────────────── */
@@ -76,43 +111,54 @@
       align-items: center;
       gap: 12px;
       padding: 14px 20px;
-      background: linear-gradient(90deg, #1e293b 0%, #334155 100%);
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+    }
+    html.dark .header {
+      background: var(--green);
       border-bottom: 1px solid rgba(255,255,255,.08);
     }
     .header-back {
-      background: rgba(255,255,255,.1);
+      background: var(--gray-100);
       border: none;
-      border-radius: 8px;
+      border-radius: var(--radius-sm);
       width: 32px; height: 32px;
       display: flex; align-items: center; justify-content: center;
       cursor: pointer;
-      color: rgba(255,255,255,.8);
+      color: var(--gray-600);
       transition: background .15s, color .15s;
     }
-    .header-back:hover { background: rgba(255,255,255,.2); color: #fff; }
+    .header-back:hover { background: var(--gray-200); color: var(--black); }
+    html.dark .header-back { background: rgba(255,255,255,.1); color: rgba(255,255,255,.8); }
+    html.dark .header-back:hover { background: rgba(255,255,255,.2); color: #fff; }
     .header-icon {
       width: 34px; height: 34px;
-      background: rgba(255,255,255,.12);
-      border-radius: 9px;
+      background: var(--green-light);
+      border-radius: var(--radius-sm);
       display: flex; align-items: center; justify-content: center;
-      color: #fff;
+      color: var(--green);
       flex-shrink: 0;
     }
+    html.dark .header-icon { background: rgba(255,255,255,.12); color: #fff; }
     .header-text { flex: 1; }
     .header-title {
-      font-size: 15px; font-weight: 700; color: #fff; line-height: 1.2;
+      font-family: var(--font-serif);
+      font-size: 15px; font-weight: 500; color: var(--black); line-height: 1.2;
     }
+    html.dark .header-title { color: #fff; }
     .header-sub {
-      font-size: 11px; color: rgba(255,255,255,.55); margin-top: 1px;
+      font-size: 11px; color: var(--gray-600); margin-top: 1px;
     }
+    html.dark .header-sub { color: rgba(255,255,255,.55); }
     .header-badge {
       font-size: 11px; font-weight: 600;
       padding: 3px 8px;
       border-radius: 20px;
-      background: rgba(22,163,74,.25);
-      color: #4ade80;
-      border: 1px solid rgba(74,222,128,.2);
+      background: var(--green-light);
+      color: var(--green);
+      border: 1px solid var(--border);
     }
+    html.dark .header-badge { background: rgba(255,255,255,.2); color: #fff; border-color: rgba(255,255,255,.15); }
     .header-badge.loading {
       background: rgba(245,158,11,.15);
       color: #fbbf24;

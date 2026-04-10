@@ -4,21 +4,61 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Offlyn Apply</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <script src="../shared/theme-init.js"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* ── Design Tokens ── */
+    :root {
+      --black: #0a0a0a;
+      --white: #ffffff;
+      --off-white: #f9f8f6;
+      --green: #1a7f5a;
+      --green-light: #e6f4ee;
+      --green-mid: #2da870;
+      --gray-100: #f4f3f0;
+      --gray-200: #e8e6e1;
+      --gray-400: #9e9b93;
+      --gray-600: #5a5750;
+      --gray-800: #2c2b28;
+      --border: #e2e0da;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --font-serif: 'Lora', Georgia, serif;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    html.dark {
+      --black: #ffffff;
+      --white: #0a0a0a;
+      --off-white: #111111;
+      --green: #2da870;
+      --green-light: #1a3a2a;
+      --green-mid: #34d399;
+      --gray-100: #1a1a1a;
+      --gray-200: #2a2a2a;
+      --gray-400: #737373;
+      --gray-600: #a3a3a3;
+      --gray-800: #e5e5e5;
+      --border: #2a2a2a;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
       width: 320px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: var(--font-sans);
       font-size: 14px;
-      color: #1a1a1a;
-      background: #fff;
+      color: var(--black);
+      background: var(--white);
+      -webkit-font-smoothing: antialiased;
     }
 
     /* ── Header ─── */
     .header {
-      background: linear-gradient(90deg, #1e293b 0%, #334155 100%);
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
       padding: 14px 16px;
       display: flex;
       align-items: center;
@@ -30,33 +70,34 @@
       gap: 10px;
     }
     .header-logo {
-      height: 42px;
+      height: 36px;
       width: auto;
       object-fit: contain;
     }
     .header-title {
-      font-weight: 700; font-size: 16px; color: #fff; letter-spacing: .3px;
+      font-family: var(--font-serif);
+      font-weight: 500; font-size: 16px; color: var(--black); letter-spacing: .3px;
     }
     .header-toggle {
       position: relative;
       width: 42px; height: 24px;
-      background: rgba(255,255,255,.25);
+      background: var(--gray-200);
       border-radius: 12px;
       cursor: pointer;
       transition: background .2s;
     }
-    .header-toggle.active { background: #16a34a; }
+    .header-toggle.active { background: var(--green); }
     .header-toggle::after {
       content: '';
       position: absolute;
       width: 20px; height: 20px;
       border-radius: 50%;
-      background: #fff;
+      background: var(--white);
       top: 2px; left: 2px;
       transition: transform .2s;
       box-shadow: 0 1px 3px rgba(0,0,0,.2);
     }
-    .header-toggle.active::after { transform: translateX(18px); }
+    .header-toggle.active::after { transform: translateX(18px); background: var(--green); }
 
     /* ── Profile switcher ─── */
     .profile-switcher {
@@ -64,13 +105,13 @@
       align-items: center;
       gap: 8px;
       padding: 8px 16px;
-      background: #f8fafc;
-      border-bottom: 1px solid #e2e8f0;
+      background: var(--gray-100);
+      border-bottom: 1px solid var(--border);
       font-size: 12px;
       cursor: pointer;
       transition: background 0.15s;
     }
-    .profile-switcher:hover { background: #f1f5f9; }
+    .profile-switcher:hover { background: var(--gray-200); }
     .profile-dot {
       width: 10px; height: 10px;
       border-radius: 50%;
@@ -78,14 +119,14 @@
     }
     .profile-name {
       font-weight: 600;
-      color: #1e293b;
+      color: var(--black);
       flex: 1;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
     .profile-role-hint {
-      color: #94a3b8;
+      color: var(--gray-400);
       font-size: 11px;
       white-space: nowrap;
       overflow: hidden;
@@ -93,7 +134,7 @@
       max-width: 100px;
     }
     .profile-arrow {
-      color: #94a3b8;
+      color: var(--gray-400);
       font-size: 10px;
       flex-shrink: 0;
     }
@@ -146,18 +187,10 @@
     }
     .profile-dropdown-manage:hover { background: #faf5ff; }
 
-    html.dark .profile-switcher { background: #0a1220; border-bottom-color: #334155; }
-    html.dark .profile-switcher:hover { background: #1e293b; }
-    html.dark .profile-name { color: #f1f5f9; }
-    html.dark .profile-role-hint { color: #64748b; }
-    html.dark .profile-arrow { color: #64748b; }
-    html.dark .profile-dropdown { background: #1e293b; border-color: #334155; }
-    html.dark .profile-dropdown-item:hover { background: #263346; }
-    html.dark .profile-dropdown-item.active { background: #1e1338; }
-    html.dark .profile-dropdown-item .pdi-name { color: #f1f5f9; }
-    html.dark .profile-dropdown-item .pdi-role { color: #64748b; }
-    html.dark .profile-dropdown-manage { border-top-color: #334155; color: #a78bfa; }
-    html.dark .profile-dropdown-manage:hover { background: #1e1338; }
+    /* Profile switcher dark mode handled by tokens */
+    html.dark .profile-dropdown-item.active { background: var(--green-light); }
+    html.dark .profile-dropdown-manage { color: var(--green-mid); }
+    html.dark .profile-dropdown-manage:hover { background: var(--green-light); }
 
     /* ── Job detection bar ─── */
     .job-bar {
@@ -488,31 +521,10 @@
       box-shadow: none !important;
     }
 
-    /* ── Dark mode overrides ── */
-    html.dark body { background: #0f172a; color: #f1f5f9; }
-    html.dark .btn-secondary-action { background: #1e293b; color: #f1f5f9; border-color: #334155; }
-    html.dark .btn-secondary-action:hover { background: #263346; border-color: #475569; }
-    html.dark .divider { background: #334155; }
-    html.dark .nav-link { color: #cbd5e1; }
-    html.dark .nav-link:hover { background: #1e293b; color: #f1f5f9; }
-    html.dark .nav-link svg { color: #94a3b8; }
-    html.dark .stat-card { background: #1e293b; }
-    html.dark .stat-label { color: #94a3b8; }
-    html.dark .stat-num { color: #f1f5f9; }
-    html.dark .advanced-toggle { color: #94a3b8; }
-    html.dark .advanced-toggle:hover { color: #f1f5f9; }
-    html.dark .btn-adv { background: #1e293b; color: #cbd5e1; border-color: #334155; }
-    html.dark .btn-adv:hover { background: #263346; border-color: #475569; color: #f1f5f9; }
-    html.dark .toggle-row { color: #94a3b8; }
-    html.dark .mini-toggle { background: #334155; }
-    html.dark .footer { background: #0a1220; border-top-color: #334155; }
-    html.dark .footer-link { color: #94a3b8; }
-    html.dark .footer-link:hover { background: #1e293b; color: #f1f5f9; }
-    html.dark .footer-divider { background: #334155; }
-    html.dark .ollama-bar { background: #0a1220; border-top-color: #334155; color: #94a3b8; }
+    /* ── Dark mode overrides — mostly handled by tokens ── */
+    html.dark .mini-toggle { background: var(--gray-200); }
     .ollama-bar.clickable { cursor: pointer; }
-    .ollama-bar.clickable:hover { background: #f1f5f9; }
-    html.dark .ollama-bar.clickable:hover { background: #1e293b; }
+    .ollama-bar.clickable:hover { background: var(--gray-100); }
     html.dark #profile-warning { background: #1c1108; border-top-color: #d97706; color: #fbbf24; }
 
     /* ── New jobs banner ─── */
@@ -528,6 +540,54 @@
       transition: opacity 0.2s;
     }
     .new-jobs-banner:hover { opacity: 0.92; }
+
+    /* ── Badge notification banner ─── */
+    .badge-notification {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+      color: #fff;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .badge-notification .badge-icon {
+      width: 22px; height: 22px; border-radius: 6px;
+      background: rgba(255,255,255,.2);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-weight: 700; font-size: 13px;
+    }
+    .badge-notification .badge-text {
+      flex: 1;
+      font-weight: 500;
+    }
+    .badge-notification .badge-text strong { font-weight: 700; }
+    .badge-notification .badge-text small {
+      display: block;
+      font-weight: 400;
+      font-size: 10px;
+      opacity: 0.85;
+      margin-top: 1px;
+    }
+    .badge-notification .badge-action {
+      background: rgba(255,255,255,.25);
+      border: none; color: #fff;
+      cursor: pointer; padding: 4px 10px;
+      font-size: 11px; font-weight: 600;
+      border-radius: 5px;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .badge-notification .badge-action:hover { background: rgba(255,255,255,.4); }
+    .badge-notification .badge-dismiss {
+      background: none; border: none; color: rgba(255,255,255,.6);
+      cursor: pointer; padding: 2px; font-size: 14px; line-height: 1;
+      border-radius: 4px; transition: color 0.15s;
+      flex-shrink: 0;
+    }
+    .badge-notification .badge-dismiss:hover { color: #fff; }
     .new-jobs-icon {
       width: 22px; height: 22px; border-radius: 6px;
       background: rgba(255,255,255,.2);
@@ -562,7 +622,7 @@
     </div>
     <div style="display:flex;align-items:center;gap:6px;">
       <button id="dark-mode-toggle" class="dark-mode-toggle" aria-label="Toggle dark mode"></button>
-      <div class="header-toggle active" id="enabled-toggle" title="Enable / Disable" role="switch" aria-checked="true" aria-label="Enable or disable extension" tabindex="0"></div>
+      <div class="header-toggle active" id="toggle-enabled" title="Enable / Disable" role="switch" aria-checked="true" aria-label="Enable or disable extension" tabindex="0"></div>
     </div>
   </div>
 
@@ -582,6 +642,17 @@
 
   <!-- Profile completeness warning (shown only when profile is incomplete) -->
   <div id="profile-warning" style="display:none; background:#fff7ed; border-top:2px solid #f97316; padding:8px 12px; font-size:11px; color:#92400e; line-height:1.4;"></div>
+
+  <!-- Badge notification banner (permission issues, etc.) -->
+  <div class="badge-notification" id="badge-notification">
+    <div class="badge-icon" id="badge-notification-icon">!</div>
+    <div class="badge-text" id="badge-notification-text">
+      <strong>Job page detected</strong>
+      <small>Click "Grant" to enable autofill on this site</small>
+    </div>
+    <button class="badge-action" id="badge-grant-btn">Grant</button>
+    <button class="badge-dismiss" id="badge-dismiss-btn" title="Dismiss">&times;</button>
+  </div>
 
   <!-- New jobs notification banner -->
   <div class="new-jobs-banner" id="new-jobs-banner">
@@ -606,7 +677,7 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         Generate Cover Letter
       </button>
-      <button class="btn-secondary-action" id="find-jobs-btn">
+      <button class="btn-secondary-action" id="btn-jobs">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         Find Jobs
       </button>
@@ -704,6 +775,7 @@
   <textarea id="summary-text" style="display:none;"></textarea>
   <div id="error-text" style="display:none;"></div>
 
+  <script src="../shared/feature-tour.js"></script>
   <script src="popup.js"></script>
   <script src="../shared/dark-mode.js"></script>
 </body>

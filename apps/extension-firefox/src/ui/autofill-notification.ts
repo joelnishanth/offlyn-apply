@@ -1,6 +1,6 @@
 /**
  * Gentle Autofill Notification - shown when fields are detected on a page
- * Brand: navy #1e293b + green #16a34a
+ * Brand: navy #0a0a0a + green #1a7f5a
  */
 
 import { setHTML } from '../shared/html';
@@ -18,7 +18,7 @@ export function showAutofillNotification(fieldCount: number): void {
     <div class="offlyn-notif-content">
       <div class="offlyn-notif-icon">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-          <circle cx="9" cy="9" r="9" fill="#16a34a"/>
+          <circle cx="9" cy="9" r="9" fill="#1a7f5a"/>
           <path d="M5.5 9l2.5 2.5 4.5-4.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
@@ -42,23 +42,12 @@ export function showAutofillNotification(fieldCount: number): void {
   requestAnimationFrame(() => notification?.classList.add('show'));
 }
 
-export function hideAutofillNotification(): void {
-  if (autoHideTimeout) {
-    clearTimeout(autoHideTimeout);
-    autoHideTimeout = null;
-  }
-  if (notification) {
-    notification.classList.remove('show');
-    setTimeout(() => { notification?.remove(); notification = null; }, 250);
-  }
-}
-
 let shoppingNotification: HTMLElement | null = null;
 let shoppingAutoHideTimeout: number | null = null;
 
 /** Friendly amber notification shown on checkout/shopping pages where Offlyn helps with name+address only */
 export function showShoppingHelperNotification(): void {
-  if (shoppingNotification) return;
+  if (shoppingNotification) return; // Already shown
   ensureStyles();
   ensureShoppingStyles();
 
@@ -100,6 +89,17 @@ export function hideShoppingHelperNotification(): void {
   if (shoppingNotification) {
     shoppingNotification.classList.remove('show');
     setTimeout(() => { shoppingNotification?.remove(); shoppingNotification = null; }, 250);
+  }
+}
+
+export function hideAutofillNotification(): void {
+  if (autoHideTimeout) {
+    clearTimeout(autoHideTimeout);
+    autoHideTimeout = null;
+  }
+  if (notification) {
+    notification.classList.remove('show');
+    setTimeout(() => { notification?.remove(); notification = null; }, 250);
   }
 }
 
@@ -183,7 +183,7 @@ function ensureStyles(): void {
       gap: 10px;
       min-width: 280px;
       max-width: 360px;
-      border-left: 4px solid #16a34a;
+      border-left: 4px solid #1a7f5a;
       animation: offlyn-notif-pulse 2s ease-out 0.35s 3;
     }
     .offlyn-notif-icon {
@@ -205,7 +205,7 @@ function ensureStyles(): void {
     .offlyn-notif-title {
       font-weight: 600;
       font-size: 13px;
-      color: #1e293b;
+      color: #0a0a0a;
       line-height: 1.3;
       margin-bottom: 2px;
     }

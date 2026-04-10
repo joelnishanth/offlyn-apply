@@ -5,20 +5,61 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/png" sizes="48x48" href="../icons/icon-48.png">
   <title>Manage Profiles - Offlyn Apply</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <script src="../shared/theme-init.js"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* ── Design Tokens ── */
+    :root {
+      --black: #0a0a0a;
+      --white: #ffffff;
+      --off-white: #f9f8f6;
+      --green: #1a7f5a;
+      --green-light: #e6f4ee;
+      --green-mid: #2da870;
+      --gray-100: #f4f3f0;
+      --gray-200: #e8e6e1;
+      --gray-400: #9e9b93;
+      --gray-600: #5a5750;
+      --gray-800: #2c2b28;
+      --border: #e2e0da;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --font-serif: 'Lora', Georgia, serif;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    html.dark {
+      --black: #ffffff;
+      --white: #0a0a0a;
+      --off-white: #111111;
+      --green: #2da870;
+      --green-light: #1a3a2a;
+      --green-mid: #34d399;
+      --gray-100: #1a1a1a;
+      --gray-200: #2a2a2a;
+      --gray-400: #737373;
+      --gray-600: #a3a3a3;
+      --gray-800: #e5e5e5;
+      --border: #2a2a2a;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #f8fafc;
+      font-family: var(--font-sans);
+      background: var(--white);
       min-height: 100vh;
-      color: #1a1a1a;
+      color: var(--black);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
     }
 
     .header {
-      background: #fff;
-      border-bottom: 1px solid #e2e8f0;
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
       position: sticky;
       top: 0;
       z-index: 10;
@@ -46,9 +87,10 @@
     }
 
     .header-brand h1 {
+      font-family: var(--font-serif);
       font-size: 1.25em;
-      color: #1e293b;
-      font-weight: 600;
+      color: var(--black);
+      font-weight: 500;
     }
 
     .header-actions {
@@ -63,32 +105,32 @@
       gap: 6px;
       background: none;
       border: none;
-      color: #64748b;
+      color: var(--gray-600);
       font-size: 14px;
       font-weight: 500;
       cursor: pointer;
       padding: 6px 12px;
-      border-radius: 6px;
+      border-radius: var(--radius-sm);
       text-decoration: none;
       transition: background 0.15s, color 0.15s;
     }
 
     .btn-back:hover {
-      background: #f1f5f9;
-      color: #1e293b;
+      background: var(--gray-100);
+      color: var(--black);
     }
 
     .dark-mode-toggle {
       width: 34px; height: 34px;
       border-radius: 50%;
       background: transparent;
-      border: 1px solid #e2e8f0;
-      cursor: pointer; color: #64748b;
+      border: 1px solid var(--border);
+      cursor: pointer; color: var(--gray-600);
       display: inline-flex; align-items: center; justify-content: center;
       transition: all .15s;
       flex-shrink: 0;
     }
-    .dark-mode-toggle:hover { background: #f1f5f9; color: #1e293b; border-color: #cbd5e1; }
+    .dark-mode-toggle:hover { background: var(--gray-100); color: var(--black); border-color: var(--gray-200); }
 
     .container {
       max-width: 960px;
@@ -97,17 +139,18 @@
     }
 
     .section-title {
+      font-family: var(--font-serif);
       font-size: 1.1em;
-      font-weight: 600;
-      color: #334155;
+      font-weight: 500;
+      color: var(--gray-800);
       margin-bottom: 16px;
     }
 
     /* Active profile banner */
     .active-banner {
-      background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+      background: var(--green);
       color: #fff;
-      border-radius: 12px;
+      border-radius: var(--radius-md);
       padding: 20px 24px;
       margin-bottom: 24px;
       display: flex;
@@ -129,8 +172,9 @@
     }
 
     .active-banner-info h2 {
+      font-family: var(--font-serif);
       font-size: 1.2em;
-      font-weight: 700;
+      font-weight: 500;
       margin-bottom: 2px;
     }
 
@@ -159,22 +203,22 @@
     }
 
     .profile-card {
-      background: #fff;
-      border: 2px solid #e2e8f0;
-      border-radius: 12px;
+      background: var(--white);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-md);
       padding: 20px;
       transition: all 0.2s;
       position: relative;
     }
 
     .profile-card:hover {
-      border-color: #94a3b8;
+      border-color: var(--gray-400);
       box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
 
     .profile-card.active {
-      border-color: #7c3aed;
-      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(26, 127, 90, 0.15);
     }
 
     .profile-card-header {
@@ -200,7 +244,7 @@
     .profile-card-name {
       font-weight: 600;
       font-size: 1em;
-      color: #1e293b;
+      color: var(--black);
       outline: none;
       border-radius: 4px;
       padding: 1px 4px;
@@ -208,22 +252,22 @@
       transition: background 0.15s, box-shadow 0.15s;
     }
     .profile-card-name:hover {
-      background: rgba(124,58,237,0.06);
+      background: var(--green-light);
     }
     .profile-card-name:focus {
-      background: rgba(124,58,237,0.1);
-      box-shadow: 0 0 0 2px rgba(124,58,237,0.3);
+      background: var(--green-light);
+      box-shadow: 0 0 0 2px rgba(26,127,90,0.3);
     }
 
     .profile-card-role {
       font-size: 0.82em;
-      color: #64748b;
+      color: var(--gray-600);
       margin-top: 2px;
     }
 
     .profile-card-meta {
       font-size: 0.78em;
-      color: #94a3b8;
+      color: var(--gray-400);
       margin-bottom: 14px;
     }
 
@@ -235,7 +279,7 @@
     .profile-card-actions button {
       flex: 1;
       padding: 8px 10px;
-      border-radius: 8px;
+      border-radius: var(--radius-sm);
       font-size: 0.82em;
       font-weight: 600;
       cursor: pointer;
@@ -245,16 +289,16 @@
     }
 
     .btn-activate {
-      background: #7c3aed;
+      background: var(--green);
       color: #fff;
     }
-    .btn-activate:hover { background: #6d28d9; }
+    .btn-activate:hover { background: var(--green-mid); }
 
     .btn-edit-profile {
-      background: #f1f5f9;
-      color: #475569;
+      background: var(--gray-100);
+      color: var(--gray-600);
     }
-    .btn-edit-profile:hover { background: #e2e8f0; color: #1e293b; }
+    .btn-edit-profile:hover { background: var(--gray-200); color: var(--black); }
 
     .btn-delete-profile {
       background: #fef2f2;
@@ -430,43 +474,14 @@
 
     .btn-secondary:hover { background: #cbd5e1; }
 
-    /* Dark mode */
-    html.dark body { background: #0f172a; color: #f1f5f9; }
-    html.dark .header { background: #1e293b; border-bottom-color: #334155; }
-    html.dark .header-brand h1 { color: #f1f5f9; }
-    html.dark .dark-mode-toggle { border-color: #334155; color: #94a3b8; }
-    html.dark .dark-mode-toggle:hover { background: #334155; color: #f1f5f9; }
-    html.dark .btn-back { color: #94a3b8; }
-    html.dark .btn-back:hover { background: #334155; color: #f1f5f9; }
-    html.dark .section-title { color: #f1f5f9; }
-    html.dark .active-banner { background: linear-gradient(135deg, #6d28d9 0%, #4c1d95 100%); }
-    html.dark .profile-card { background: #1e293b; border-color: #334155; }
-    html.dark .profile-card:hover { border-color: #475569; }
-    html.dark .profile-card.active { border-color: #7c3aed; }
-    html.dark .profile-card-name { color: #f1f5f9; }
-    html.dark .profile-card-name:hover { background: rgba(124,58,237,0.15); }
-    html.dark .profile-card-name:focus { background: rgba(124,58,237,0.2); box-shadow: 0 0 0 2px rgba(124,58,237,0.4); }
-    html.dark .profile-card-role { color: #94a3b8; }
-    html.dark .profile-card-meta { color: #64748b; }
-    html.dark .btn-edit-profile { background: #334155; color: #cbd5e1; }
-    html.dark .btn-edit-profile:hover { background: #475569; color: #f1f5f9; }
+    /* Dark mode — mostly handled by CSS tokens */
     html.dark .btn-delete-profile { background: #2d1515; color: #f87171; }
     html.dark .btn-delete-profile:hover { background: #3d1515; }
-    html.dark .btn-onboarding { background: #162e1a; color: #4ade80; }
+    html.dark .btn-onboarding { background: var(--green-light); color: var(--green-mid); }
     html.dark .btn-onboarding:hover { background: #1a3d20; }
-    html.dark .active-tag { background: #162e1a; color: #4ade80; }
-    html.dark .profile-card-new { border-color: #334155; color: #64748b; background: #1e293b; }
-    html.dark .profile-card-new:hover { border-color: #7c3aed; color: #a78bfa; background: #1e1338; }
-    html.dark .modal-content { background: #1e293b; }
-    html.dark .modal-content h2 { color: #f1f5f9; }
-    html.dark .form-group label { color: #94a3b8; }
-    html.dark .form-group input,
-    html.dark .form-group select { background: #0f172a; border-color: #334155; color: #f1f5f9; }
-    html.dark .form-group input:focus,
-    html.dark .form-group select:focus { border-color: #7c3aed; }
-    html.dark .btn-secondary { background: #334155; color: #cbd5e1; }
-    html.dark .btn-secondary:hover { background: #475569; }
-    html.dark .color-swatch.selected { border-color: #f1f5f9; box-shadow: 0 0 0 2px #1e293b, 0 0 0 4px #f1f5f9; }
+    html.dark .active-tag { background: var(--green-light); color: var(--green-mid); }
+    html.dark .profile-card-new:hover { border-color: var(--green); background: var(--green-light); }
+    html.dark .color-swatch.selected { border-color: var(--gray-800); box-shadow: 0 0 0 2px var(--gray-100), 0 0 0 4px var(--gray-800); }
   </style>
 </head>
 <body>

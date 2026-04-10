@@ -4,53 +4,87 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Offlyn – Job detected</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <script src="../shared/theme-init.js"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* ── Design Tokens ── */
+    :root {
+      --black: #0a0a0a;
+      --white: #ffffff;
+      --off-white: #f9f8f6;
+      --green: #1a7f5a;
+      --green-light: #e6f4ee;
+      --green-mid: #2da870;
+      --gray-100: #f4f3f0;
+      --gray-200: #e8e6e1;
+      --gray-400: #9e9b93;
+      --gray-600: #5a5750;
+      --gray-800: #2c2b28;
+      --border: #e2e0da;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --font-serif: 'Lora', Georgia, serif;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    html.dark {
+      --black: #ffffff;
+      --white: #0a0a0a;
+      --off-white: #111111;
+      --green: #2da870;
+      --green-light: #1a3a2a;
+      --green-mid: #34d399;
+      --gray-100: #1a1a1a;
+      --gray-200: #2a2a2a;
+      --gray-400: #737373;
+      --gray-600: #a3a3a3;
+      --gray-800: #e5e5e5;
+      --border: #2a2a2a;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: var(--font-sans);
       font-size: 15px;
-      color: #1a1a1a;
-      background: #f0f4f0;
+      color: var(--black);
+      background: var(--off-white);
       min-height: 100vh;
       padding: 24px;
       display: flex;
       align-items: center;
       justify-content: center;
+      -webkit-font-smoothing: antialiased;
     }
     .card {
       max-width: 400px;
       width: 100%;
-      background: #fff;
-      border-radius: 12px;
+      background: var(--white);
+      border-radius: var(--radius-md);
       box-shadow: 0 4px 16px rgba(0,0,0,0.08);
       padding: 24px;
     }
-    .card h1 { font-size: 18px; margin-bottom: 8px; color: #1a3d1a; }
-    .card .company { color: #666; font-size: 14px; margin-bottom: 20px; }
-    .card .hostname { font-size: 12px; color: #999; margin-bottom: 20px; }
+    .card h1 { font-family: var(--font-serif); font-size: 18px; margin-bottom: 8px; color: var(--green); font-weight: 500; }
+    .card .company { color: var(--gray-600); font-size: 14px; margin-bottom: 20px; }
+    .card .hostname { font-size: 12px; color: var(--gray-400); margin-bottom: 20px; }
     .btn {
       display: inline-block;
       padding: 10px 20px;
-      background: #2e7d32;
+      background: var(--green);
       color: #fff;
       border: none;
-      border-radius: 8px;
+      border-radius: var(--radius-sm);
       font-size: 14px;
       cursor: pointer;
       text-decoration: none;
+      font-family: var(--font-sans);
     }
-    .btn:hover { background: #1b5e20; }
-    .btn.secondary { background: #1976d2; }
-    .btn.secondary:hover { background: #1565c0; }
+    .btn:hover { background: var(--green-mid); }
+    .btn.secondary { background: var(--gray-600); }
+    .btn.secondary:hover { background: var(--gray-800); }
     .actions { display: flex; gap: 12px; flex-wrap: wrap; }
-
-    /* Dark mode */
-    html.dark body { background: #0f172a; color: #e2e8f0; }
-    html.dark .card { background: #1e293b; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
-    html.dark .card h1 { color: #f1f5f9; }
-    html.dark .card .company { color: #94a3b8; }
-    html.dark .card .hostname { color: #64748b; }
   </style>
 </head>
 <body>

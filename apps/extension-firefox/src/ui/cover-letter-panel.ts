@@ -341,7 +341,7 @@ function injectStyles(): void {
 /* ── Header ── */
 .ocl-header {
   padding: 12px 16px;
-  background: linear-gradient(135deg, #1e2a3a 0%, #7cb342 100%);
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a7f5a 100%);
   color: #fff;
   display: flex;
   align-items: center;
@@ -379,13 +379,13 @@ function injectStyles(): void {
 .ocl-generating, .ocl-refining {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 16px; margin-bottom: 16px;
-  background: #f0f7e8; border-radius: 8px;
-  font-size: 13px; color: #1e2a3a;
+  background: #e6f4ee; border-radius: 8px;
+  font-size: 13px; color: #0a0a0a;
 }
 .ocl-spinner {
   width: 16px; height: 16px;
   border: 2px solid rgba(124, 179, 66, 0.3);
-  border-top-color: #7cb342;
+  border-top-color: #1a7f5a;
   border-radius: 50%;
   animation: oclSpin .7s linear infinite;
   flex-shrink: 0;
@@ -413,34 +413,34 @@ function injectStyles(): void {
 /* ── Refinement bar ── */
 .ocl-refine-bar {
   padding: 10px 20px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid #e2e0da;
   background: #f5f9f0;
   display: flex; align-items: center; gap: 8px;
   flex-shrink: 0;
 }
 .ocl-refine-label {
-  font-size: 12px; font-weight: 600; color: #1e2a3a;
+  font-size: 12px; font-weight: 600; color: #0a0a0a;
   flex-shrink: 0;
 }
 .ocl-refine-btn {
   padding: 5px 12px; border-radius: 6px;
   font-size: 12px; font-weight: 600;
   cursor: pointer; border: 1px solid rgba(124, 179, 66, 0.4);
-  background: #fff; color: #558b2f;
+  background: #fff; color: #1a7f5a;
   transition: all .15s; font-family: inherit;
 }
 .ocl-refine-btn:hover {
-  background: #558b2f; color: #fff; border-color: #558b2f;
+  background: #1a7f5a; color: #fff; border-color: #1a7f5a;
 }
 .ocl-refine-btn:disabled {
   opacity: .5; cursor: default;
-  background: #fff; color: #558b2f;
+  background: #fff; color: #1a7f5a;
 }
 
 /* ── Actions ── */
 .ocl-actions {
   padding: 12px 20px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid #e2e0da;
   background: #f9fafb;
   display: flex; flex-wrap: wrap; gap: 8px;
   flex-shrink: 0;
@@ -457,7 +457,7 @@ function injectStyles(): void {
 .ocl-btn:disabled { opacity: .5; cursor: default; }
 
 .ocl-btn-apply {
-  background: linear-gradient(135deg, #1e2a3a 0%, #7cb342 100%);
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a7f5a 100%);
   color: #fff; border: none;
 }
 .ocl-btn-apply:hover {
@@ -466,9 +466,9 @@ function injectStyles(): void {
 }
 .ocl-btn-regen {
   margin-left: auto;
-  color: #1e2a3a; border-color: rgba(124, 179, 66, 0.3);
+  color: #0a0a0a; border-color: rgba(124, 179, 66, 0.3);
 }
-.ocl-btn-regen:hover { background: #f0f7e8; }
+.ocl-btn-regen:hover { background: #e6f4ee; }
   `;
   document.head.appendChild(s);
 }

@@ -48,6 +48,7 @@ const injectedTabs = new Set<number>();
 /**
  * Inject content.js into a tab if not already injected.
  * Returns true if injection succeeded or was already done.
+ * Clears any "job detected" badge on successful injection.
  */
 async function ensureContentScript(tabId: number): Promise<boolean> {
   if (injectedTabs.has(tabId)) return true;
@@ -57,6 +58,8 @@ async function ensureContentScript(tabId: number): Promise<boolean> {
       files: ['content.js'],
     });
     injectedTabs.add(tabId);
+    // Clear the "job detected" badge since we successfully injected
+    try { chrome.action.setBadgeText({ text: '', tabId }); } catch {}
     return true;
   } catch {
     return false;
@@ -1582,8 +1585,15 @@ browser.runtime.onInstalled.addListener((details: { reason: string }) => {
 // Replaces the old manifest content_scripts <all_urls> entry.
 // Content.js is injected only into tabs whose URL matches a known ATS domain
 // or a job-related URL path pattern.
+// When a job URL is detected but we lack host permission, show a badge to nudge
+// the user to click the extension icon (which grants activeTab permission).
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  // Page is reloading — clear injection state so we re-inject on 'complete'
+  if (changeInfo.status === 'loading') {
+    injectedTabs.delete(tabId);
+  }
+
   const url = changeInfo.url || tab.url;
   if (!url) return;
 
@@ -1592,8 +1602,14 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   const isUrlChange = !!changeInfo.url;
   if (!isComplete && !isUrlChange) return;
 
+  // If URL is not a job page, clear any stale badge from SPA navigation
+  // (Chrome auto-clears on full navigation, but pushState doesn't trigger that)
+  if (!isJobURL(url)) {
+    try { chrome.action.setBadgeText({ text: '', tabId }); } catch {}
+    return;
+  }
+
   if (injectedTabs.has(tabId)) return;
-  if (!isJobURL(url)) return;
 
   try {
     await chrome.scripting.executeScript({
@@ -1601,9 +1617,17 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
       files: ['content.js'],
     });
     injectedTabs.add(tabId);
+    // Clear badge on successful injection
+    try { chrome.action.setBadgeText({ text: '', tabId }); } catch {}
     log('[Inject] Content script injected into tab', tabId, url);
   } catch (err) {
-    // Permission denied or tab not accessible
+    // No host permission for this domain -- show badge to prompt user click
+    // The badge is tab-specific so it won't conflict with the global scheduled-jobs badge
+    try {
+      chrome.action.setBadgeText({ text: '!', tabId });
+      chrome.action.setBadgeBackgroundColor({ color: '#f59e0b', tabId });
+    } catch {}
+    log('[Inject] Job page detected but no permission, badge shown:', url);
   }
 });
 

@@ -486,9 +486,9 @@ async function checkOllamaConnection(): Promise<void> {
 const HELPER_INSTALL_BASE =
   'https://raw.githubusercontent.com/joelnishanth/offlyn-apply/main/scripts/native-host';
 const HELPER_PKG_URL =
-  'https://github.com/joelnishanth/offlyn-apply/releases/download/v0.7.6/offlyn-helper-signed.pkg';
+  'https://github.com/joelnishanth/offlyn-apply/releases/download/v0.7.8/offlyn-helper-signed.pkg';
 const HELPER_WIN_BAT_URL =
-  'https://github.com/joelnishanth/offlyn-apply/releases/download/v0.7.6/offlyn-windows-installer.bat';
+  'https://github.com/joelnishanth/offlyn-apply/releases/download/v0.7.8/offlyn-windows-installer.bat';
 
 function detectOS(): 'mac' | 'windows' | 'linux' {
   const ua = navigator.userAgent.toLowerCase();

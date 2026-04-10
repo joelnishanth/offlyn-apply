@@ -3,7 +3,7 @@
  */
 
 import type { JobMeta, FieldSchema, PageClassification } from './types';
-import { ALL_DOMAINS } from './ats-domains';
+import { ALL_DOMAINS, hasATSQueryParams } from './ats-domains';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Trust / exclusion constants (shared by extractFormSchema and classifyPage)
@@ -218,6 +218,16 @@ export function classifyPage(): PageClassification {
     score += 1;
     signals.push('weak career URL');
   }
+
+  // ATS query parameters (gh_jid, lever_origin, etc.) are strong signals
+  // that an embedded ATS is powering this page
+  try {
+    const searchParams = new URL(url).search;
+    if (hasATSQueryParams(searchParams)) {
+      score += 2;
+      signals.push('ATS query params detected');
+    }
+  } catch { /* invalid URL, skip */ }
 
   // A real application form is required to reach JOB_APPLICATION_PAGE on a first-party page
   const forms = Array.from(document.querySelectorAll('form'));

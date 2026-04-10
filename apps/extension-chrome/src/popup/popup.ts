@@ -121,6 +121,53 @@ async function requestState(): Promise<void> {
   }
 }
 
+async function checkBadgeNotification(): Promise<void> {
+  try {
+    const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+    const tabId = tabs[0]?.id;
+    if (!tabId) return;
+
+    const badgeText = await chrome.action.getBadgeText({ tabId });
+    const bannerEl = document.getElementById('badge-notification');
+    if (!bannerEl) return;
+
+    if (badgeText === '!') {
+      const tabUrl = tabs[0]?.url || '';
+      let hostname = '';
+      try { hostname = new URL(tabUrl).hostname; } catch {}
+
+      const textEl = document.getElementById('badge-notification-text');
+      if (textEl) {
+        textEl.innerHTML = `<strong>Job page detected</strong><small>${hostname ? hostname + ' — ' : ''}Click "Grant" to enable autofill on this site</small>`;
+      }
+      bannerEl.style.display = 'flex';
+
+      document.getElementById('badge-grant-btn')?.addEventListener('click', async () => {
+        try {
+          const granted = await chrome.permissions.request({
+            origins: [new URL(tabUrl).origin + '/*'],
+          });
+          if (granted) {
+            await chrome.action.setBadgeText({ text: '', tabId });
+            bannerEl.style.display = 'none';
+            chrome.tabs.reload(tabId);
+            window.close();
+          }
+        } catch (e) {
+          log('Permission request failed:', e);
+        }
+      });
+
+      document.getElementById('badge-dismiss-btn')?.addEventListener('click', async () => {
+        await chrome.action.setBadgeText({ text: '', tabId });
+        bannerEl.style.display = 'none';
+      });
+    } else {
+      bannerEl.style.display = 'none';
+    }
+  } catch { /* non-critical */ }
+}
+
 async function checkScheduledJobs(): Promise<void> {
   try {
     const response = await browser.runtime.sendMessage({ kind: 'GET_SCHEDULED_RESULTS' }) as any;
@@ -511,6 +558,9 @@ async function init(): Promise<void> {
 
   // Poll every 3s — background will return fresh stats each time
   setInterval(() => requestState(), 3000);
+
+  // ── Badge notification banner (permission issues) ──
+  await checkBadgeNotification();
 
   // ── New jobs notification banner ──
   await checkScheduledJobs();

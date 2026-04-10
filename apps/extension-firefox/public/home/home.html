@@ -5,21 +5,62 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/png" sizes="48x48" href="../icons/icon-48.png">
   <title>Offlyn Apply</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <script src="../shared/theme-init.js"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* ── Design Tokens ── */
+    :root {
+      --black: #0a0a0a;
+      --white: #ffffff;
+      --off-white: #f9f8f6;
+      --green: #1a7f5a;
+      --green-light: #e6f4ee;
+      --green-mid: #2da870;
+      --gray-100: #f4f3f0;
+      --gray-200: #e8e6e1;
+      --gray-400: #9e9b93;
+      --gray-600: #5a5750;
+      --gray-800: #2c2b28;
+      --border: #e2e0da;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --font-serif: 'Lora', Georgia, serif;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    html.dark {
+      --black: #ffffff;
+      --white: #0a0a0a;
+      --off-white: #111111;
+      --green: #2da870;
+      --green-light: #1a3a2a;
+      --green-mid: #34d399;
+      --gray-100: #1a1a1a;
+      --gray-200: #2a2a2a;
+      --gray-400: #737373;
+      --gray-600: #a3a3a3;
+      --gray-800: #e5e5e5;
+      --border: #2a2a2a;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 50%, #faf5ff 100%);
-      color: #1e293b;
+      font-family: var(--font-sans);
+      background: var(--white);
+      color: var(--black);
       min-height: 100vh;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
     }
 
     /* ── Sticky Header ── */
     .site-header {
-      background: #fff;
-      border-bottom: 1px solid #e2e8f0;
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
       position: sticky;
       top: 0;
       z-index: 50;
@@ -43,13 +84,14 @@
       width: auto;
     }
     .header-brand-text h1 {
+      font-family: var(--font-serif);
       font-size: 17px;
-      font-weight: 600;
-      color: #1e293b;
+      font-weight: 500;
+      color: var(--black);
     }
     .header-brand-text p {
       font-size: 12px;
-      color: #64748b;
+      color: var(--gray-600);
       margin-top: 1px;
     }
     .header-right {
@@ -62,7 +104,7 @@
       align-items: center;
       gap: 6px;
       font-size: 13px;
-      color: #64748b;
+      color: var(--gray-600);
     }
     .ollama-chip.clickable { cursor: pointer; }
     .ollama-chip.clickable:hover { opacity: 0.75; text-decoration: underline; }
@@ -70,28 +112,28 @@
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: #94a3b8;
+      background: var(--gray-400);
       flex-shrink: 0;
     }
-    .status-dot.connected { background: #16a34a; }
+    .status-dot.connected { background: var(--green); }
     .status-dot.disconnected { background: #ef4444; }
     .btn-settings {
       display: inline-flex;
       align-items: center;
       gap: 6px;
       padding: 7px 14px;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      background: #fff;
-      color: #475569;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--white);
+      color: var(--gray-600);
       font-size: 13px;
       font-weight: 500;
       cursor: pointer;
       text-decoration: none;
       transition: all 0.15s;
     }
-    .btn-settings:hover { background: #f8fafc; border-color: #cbd5e1; }
-    .btn-settings svg { color: #64748b; }
+    .btn-settings:hover { background: var(--gray-100); border-color: var(--gray-200); }
+    .btn-settings svg { color: var(--gray-600); }
 
     /* ── Page Content ── */
     .page-content {
@@ -102,11 +144,11 @@
 
     /* ── Welcome Banner ── */
     .welcome-banner {
-      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-      border-radius: 20px;
+      background: var(--black);
+      border-radius: var(--radius-lg);
       padding: 36px 40px;
       margin-bottom: 32px;
-      color: #fff;
+      color: var(--white);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -114,12 +156,13 @@
       position: relative;
     }
     .welcome-banner-text h2 {
+      font-family: var(--font-serif);
       font-size: 24px;
-      font-weight: 700;
+      font-weight: 500;
       margin-bottom: 8px;
     }
     .welcome-banner-text p {
-      color: #94a3b8;
+      color: var(--gray-400);
       font-size: 14px;
       margin-bottom: 20px;
     }
@@ -132,10 +175,10 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      background: #16a34a;
+      background: var(--green);
       color: #fff;
       padding: 10px 20px;
-      border-radius: 10px;
+      border-radius: var(--radius-md);
       font-size: 14px;
       font-weight: 600;
       border: none;
@@ -143,7 +186,7 @@
       text-decoration: none;
       transition: background 0.15s;
     }
-    .btn-cta-primary:hover { background: #15803d; }
+    .btn-cta-primary:hover { background: var(--green-mid); }
     .btn-cta-outline {
       display: inline-flex;
       align-items: center;
@@ -151,7 +194,7 @@
       background: rgba(255,255,255,0.1);
       color: #fff;
       padding: 10px 20px;
-      border-radius: 10px;
+      border-radius: var(--radius-md);
       font-size: 14px;
       font-weight: 600;
       border: 1px solid rgba(255,255,255,0.2);
@@ -178,9 +221,9 @@
       margin-bottom: 32px;
     }
     .stat-card {
-      background: #fff;
-      border: 1px solid #e2e8f0;
-      border-radius: 14px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
       padding: 24px;
       transition: box-shadow 0.2s;
     }
@@ -188,29 +231,30 @@
     .stat-card-icon {
       width: 40px;
       height: 40px;
-      background: #dcfce7;
-      border-radius: 10px;
+      background: var(--green-light);
+      border-radius: var(--radius-md);
       display: flex;
       align-items: center;
       justify-content: center;
       margin-bottom: 12px;
-      color: #16a34a;
+      color: var(--green);
     }
     .stat-card-value {
+      font-family: var(--font-serif);
       font-size: 30px;
-      font-weight: 700;
-      color: #1e293b;
+      font-weight: 500;
+      color: var(--black);
       line-height: 1;
       margin-bottom: 4px;
     }
     .stat-card-label {
       font-size: 13px;
-      color: #64748b;
+      color: var(--gray-600);
       margin-bottom: 2px;
     }
     .stat-card-sub {
       font-size: 11px;
-      color: #94a3b8;
+      color: var(--gray-400);
     }
 
     /* ── Two-column layout ── */
@@ -223,9 +267,10 @@
 
     /* ── Section headings ── */
     .section-heading {
+      font-family: var(--font-serif);
       font-size: 18px;
-      font-weight: 600;
-      color: #1e293b;
+      font-weight: 500;
+      color: var(--black);
       margin-bottom: 16px;
     }
 
@@ -237,9 +282,9 @@
       margin-bottom: 28px;
     }
     .action-card {
-      background: #fff;
-      border: 1px solid #e2e8f0;
-      border-radius: 14px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
       padding: 24px;
       cursor: pointer;
       text-decoration: none;
@@ -254,7 +299,7 @@
     .action-card-icon {
       width: 48px;
       height: 48px;
-      border-radius: 12px;
+      border-radius: var(--radius-md);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -263,25 +308,25 @@
     .action-card-icon svg { width: 24px; height: 24px; color: #fff; }
     .icon-blue { background: linear-gradient(135deg, #3b82f6, #2563eb); }
     .icon-purple { background: linear-gradient(135deg, #a855f7, #7c3aed); }
-    .icon-green { background: linear-gradient(135deg, #22c55e, #16a34a); }
-    .icon-orange { background: linear-gradient(135deg, #f97316, #ea580c); }
+    .icon-green { background: var(--green); }
     .icon-indigo { background: linear-gradient(135deg, #6366f1, #4f46e5); }
-    .action-card h4 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
-    .action-card p { font-size: 12px; color: #64748b; line-height: 1.5; margin-bottom: 12px; }
+    .icon-orange { background: linear-gradient(135deg, #f97316, #ea580c); }
+    .action-card h4 { font-size: 15px; font-weight: 600; margin-bottom: 6px; color: var(--black); }
+    .action-card p { font-size: 12px; color: var(--gray-600); line-height: 1.5; margin-bottom: 12px; }
     .action-card-footer {
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
     .action-badge {
-      background: #f1f5f9;
-      color: #64748b;
+      background: var(--gray-100);
+      color: var(--gray-600);
       font-size: 11px;
       font-weight: 500;
       padding: 3px 8px;
       border-radius: 20px;
     }
-    .action-arrow { color: #94a3b8; }
+    .action-arrow { color: var(--gray-400); }
     .action-arrow svg { width: 16px; height: 16px; }
 
     /* ── Feature Cards ── */
@@ -291,9 +336,9 @@
       gap: 12px;
     }
     .feature-card {
-      background: #fff;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
       padding: 20px;
       text-align: center;
     }
@@ -309,19 +354,19 @@
     .feature-card-icon svg { width: 24px; height: 24px; }
     .feat-blue { background: #dbeafe; color: #2563eb; }
     .feat-purple { background: #ede9fe; color: #7c3aed; }
-    .feat-green { background: #dcfce7; color: #16a34a; }
-    .feature-card h4 { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
-    .feature-card p { font-size: 11px; color: #64748b; }
+    .feat-green { background: var(--green-light); color: var(--green); }
+    .feature-card h4 { font-size: 13px; font-weight: 600; margin-bottom: 4px; color: var(--black); }
+    .feature-card p { font-size: 11px; color: var(--gray-600); }
 
     /* ── Sidebar cards ── */
     .sidebar-card {
-      background: #fff;
-      border: 1px solid #e2e8f0;
-      border-radius: 14px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
       padding: 20px;
       margin-bottom: 16px;
     }
-    .sidebar-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+    .sidebar-card h3 { font-family: var(--font-serif); font-size: 15px; font-weight: 500; margin-bottom: 12px; color: var(--black); }
     .nav-grid-links {
       display: flex;
       flex-direction: column;
@@ -332,10 +377,10 @@
       align-items: center;
       gap: 10px;
       padding: 10px 12px;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      background: #fff;
-      color: #334155;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--white);
+      color: var(--gray-800);
       font-size: 13px;
       font-weight: 500;
       cursor: pointer;
@@ -343,15 +388,15 @@
       transition: all 0.15s;
       text-align: left;
     }
-    .nav-link-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
-    .nav-link-btn svg { width: 15px; height: 15px; color: #64748b; flex-shrink: 0; }
+    .nav-link-btn:hover { background: var(--gray-100); border-color: var(--gray-200); }
+    .nav-link-btn svg { width: 15px; height: 15px; color: var(--gray-600); flex-shrink: 0; }
 
     /* ── Privacy dark card ── */
     .privacy-card {
-      background: linear-gradient(135deg, #1e293b, #334155);
-      border-radius: 14px;
+      background: var(--black);
+      border-radius: var(--radius-md);
       padding: 24px;
-      color: #fff;
+      color: var(--white);
       text-align: center;
     }
     .privacy-icon {
@@ -365,19 +410,19 @@
       margin: 0 auto 12px;
     }
     .privacy-icon svg { width: 22px; height: 22px; }
-    .privacy-card h4 { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
-    .privacy-card p { font-size: 12px; color: #94a3b8; line-height: 1.5; }
+    .privacy-card h4 { font-family: var(--font-serif); font-size: 14px; font-weight: 500; margin-bottom: 6px; }
+    .privacy-card p { font-size: 12px; color: var(--gray-400); line-height: 1.5; }
 
     /* ── Footer ── */
     .site-footer {
-      border-top: 1px solid #e2e8f0;
+      border-top: 1px solid var(--border);
       text-align: center;
       padding: 20px 24px;
       margin-top: 32px;
     }
-    .site-footer p { font-size: 12px; color: #94a3b8; }
+    .site-footer p { font-size: 12px; color: var(--gray-400); }
     .site-footer a {
-      color: #16a34a;
+      color: var(--green);
       text-decoration: none;
     }
     .site-footer a:hover { text-decoration: underline; }
@@ -389,149 +434,34 @@
     }
 
     /* ── Coming Soon section ── */
-    .coming-soon-section {
-      margin-top: 48px;
-    }
-    .coming-soon-header {
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-    .coming-soon-subhead {
-      font-size: 13px;
-      color: #64748b;
-    }
-    .vote-all-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 16px;
-      background: #fff;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 500;
-      color: #475569;
-      text-decoration: none;
-      transition: all 0.15s;
-      white-space: nowrap;
-    }
-    .vote-all-btn:hover { background: #f8fafc; border-color: #cbd5e1; color: #1e293b; }
-    .vote-all-btn svg { color: #16a34a; }
-    .coming-soon-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-    }
-    .usecase-card {
-      background: #fafafa;
-      border: 1px dashed #cbd5e1;
-      border-radius: 14px;
-      padding: 22px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .usecase-card-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .usecase-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
+    .coming-soon-section { margin-top: 48px; }
+    .coming-soon-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+    .coming-soon-subhead { font-size: 13px; color: var(--gray-600); }
+    .vote-all-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; color: var(--gray-600); text-decoration: none; transition: all 0.15s; white-space: nowrap; }
+    .vote-all-btn:hover { background: var(--gray-100); border-color: var(--gray-200); color: var(--black); }
+    .vote-all-btn svg { color: var(--green); }
+    .coming-soon-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .usecase-card { background: var(--gray-100); border: 1px dashed var(--gray-200); border-radius: var(--radius-md); padding: 22px; display: flex; flex-direction: column; gap: 10px; }
+    .usecase-card-top { display: flex; align-items: center; justify-content: space-between; }
+    .usecase-icon { width: 44px; height: 44px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .uc-teal   { background: #ccfbf1; color: #0f766e; }
     .uc-amber  { background: #fef3c7; color: #b45309; }
     .uc-blue   { background: #dbeafe; color: #1d4ed8; }
     .uc-purple { background: #ede9fe; color: #6d28d9; }
-    .coming-soon-badge {
-      background: #f1f5f9;
-      border: 1px solid #e2e8f0;
-      color: #94a3b8;
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.05em;
-      padding: 3px 9px;
-      border-radius: 20px;
-      text-transform: uppercase;
-    }
-    .usecase-card h4 {
-      font-size: 14px;
-      font-weight: 600;
-      color: #334155;
-      margin: 0;
-      line-height: 1.3;
-    }
-    .usecase-dept {
-      font-size: 11px;
-      color: #94a3b8;
-      margin: 0;
-      line-height: 1.4;
-    }
-    .usecase-desc {
-      font-size: 12px;
-      color: #64748b;
-      line-height: 1.55;
-      margin: 0;
-      flex-grow: 1;
-    }
-    .usecase-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-    }
-    .uc-chip {
-      background: #e2e8f0;
-      color: #475569;
-      font-size: 10px;
-      font-weight: 500;
-      padding: 2px 8px;
-      border-radius: 12px;
-    }
-    .usecase-vote-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 12px;
-      font-weight: 500;
-      color: #16a34a;
-      text-decoration: none;
-      margin-top: 4px;
-      transition: color 0.15s;
-    }
-    .usecase-vote-btn:hover { color: #15803d; }
-
-    /* Dark mode overrides for coming-soon section */
-    html.dark .coming-soon-subhead { color: #94a3b8; }
-    html.dark .vote-all-btn { background: #1e293b; border-color: #334155; color: #94a3b8; }
-    html.dark .vote-all-btn:hover { background: #263346; color: #f1f5f9; }
-    html.dark .usecase-card { background: #172033; border-color: #334155; }
-    html.dark .usecase-card h4 { color: #cbd5e1; }
-    html.dark .usecase-dept { color: #64748b; }
-    html.dark .usecase-desc { color: #94a3b8; }
-    html.dark .coming-soon-badge { background: #1e293b; border-color: #334155; color: #64748b; }
-    html.dark .uc-chip { background: #263346; color: #64748b; }
+    .coming-soon-badge { background: var(--gray-100); border: 1px solid var(--border); color: var(--gray-400); font-size: 10px; font-weight: 600; letter-spacing: 0.05em; padding: 3px 9px; border-radius: 20px; text-transform: uppercase; }
+    .usecase-card h4 { font-size: 14px; font-weight: 600; color: var(--gray-800); margin: 0; line-height: 1.3; }
+    .usecase-dept { font-size: 11px; color: var(--gray-400); margin: 0; line-height: 1.4; }
+    .usecase-desc { font-size: 12px; color: var(--gray-600); line-height: 1.55; margin: 0; flex-grow: 1; }
+    .usecase-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+    .uc-chip { background: var(--gray-200); color: var(--gray-600); font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 12px; }
+    .usecase-vote-btn { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; color: var(--green); text-decoration: none; margin-top: 4px; transition: color 0.15s; }
+    .usecase-vote-btn:hover { color: var(--green-mid); }
     html.dark .uc-teal   { background: #0d2e2b; color: #2dd4bf; }
     html.dark .uc-amber  { background: #2d1f0a; color: #fbbf24; }
     html.dark .uc-blue   { background: #0f1f40; color: #60a5fa; }
     html.dark .uc-purple { background: #1e1040; color: #a78bfa; }
-
-    @media (max-width: 1200px) {
-      .coming-soon-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-    @media (max-width: 640px) {
-      .coming-soon-grid { grid-template-columns: 1fr; }
-      .coming-soon-header { align-items: flex-start; }
-    }
+    @media (max-width: 1200px) { .coming-soon-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px) { .coming-soon-grid { grid-template-columns: 1fr; } .coming-soon-header { align-items: flex-start; } }
 
     /* ── Profile completion (hidden, used by JS) ── */
     #profileBar { display: none; }
@@ -554,43 +484,17 @@
       width: 34px; height: 34px;
       border-radius: 50%;
       background: transparent;
-      border: 1px solid #e2e8f0;
-      cursor: pointer; color: #64748b;
+      border: 1px solid var(--border);
+      cursor: pointer; color: var(--gray-600);
       display: flex; align-items: center; justify-content: center;
       transition: all .15s;
       flex-shrink: 0;
     }
-    .dark-mode-toggle:hover { background: #f1f5f9; color: #1e293b; border-color: #cbd5e1; }
+    .dark-mode-toggle:hover { background: var(--gray-100); color: var(--black); border-color: var(--gray-200); }
 
-    /* ── Dark mode overrides ── */
-    html.dark body { background: #0f172a; color: #f1f5f9; }
-    html.dark .site-header { background: #1e293b; border-bottom-color: #334155; }
-    html.dark .header-brand-text h1 { color: #f1f5f9; }
-    html.dark .header-brand-text p { color: #94a3b8; }
-    html.dark .ollama-chip { color: #94a3b8; }
-    html.dark .btn-settings { background: #263346; border-color: #334155; color: #94a3b8; }
-    html.dark .btn-settings:hover { background: #334155; border-color: #475569; color: #f1f5f9; }
-    html.dark .dark-mode-toggle { border-color: #334155; color: #94a3b8; }
-    html.dark .dark-mode-toggle:hover { background: #334155; color: #f1f5f9; border-color: #475569; }
-    html.dark .quick-stat-card { background: #1e293b; border-color: #334155; }
-    html.dark .quick-stat-card .stat-label,
-    html.dark .quick-stat-card .label { color: #94a3b8; }
-    html.dark .quick-stat-card .stat-num,
-    html.dark .quick-stat-card .num { color: #f1f5f9; }
-    html.dark .action-card { background: #1e293b; border-color: #334155; }
-    html.dark .action-card:hover { background: #263346; }
-    html.dark .action-card h3 { color: #f1f5f9; }
-    html.dark .action-card p { color: #94a3b8; }
-    html.dark .feature-highlight { background: #1e293b; border-color: #334155; }
-    html.dark .feature-highlight h4 { color: #f1f5f9; }
-    html.dark .feature-highlight p { color: #94a3b8; }
-    html.dark .sidebar-section { background: #1e293b; border-color: #334155; }
-    html.dark .sidebar-section h3 { color: #f1f5f9; }
-    html.dark .sidebar-nav-link { color: #94a3b8; }
-    html.dark .sidebar-nav-link:hover { background: #263346; color: #f1f5f9; }
-    html.dark .privacy-badge { background: #162032; border-color: #334155; color: #94a3b8; }
-    html.dark .section-title { color: #f1f5f9; }
-    html.dark .section-subtitle { color: #94a3b8; }
+    /* ── Dark mode overrides — mostly handled by CSS tokens ── */
+    html.dark .action-card:hover { background: var(--gray-200); }
+    html.dark .nav-link-btn:hover { background: var(--gray-200); }
   </style>
 </head>
 <body>
@@ -723,7 +627,7 @@
             </div>
           </a>
 
-          <a class="action-card" href="../data/data.html" id="navDataExplorer">
+          <a class="action-card" id="navDataExplorer">
             <div class="action-card-icon icon-indigo">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
             </div>
@@ -801,7 +705,7 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
               Application Dashboard
             </a>
-            <a class="nav-link-btn" href="../data/data.html">
+            <a class="nav-link-btn" id="navDataExplorerSide">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
               Data Explorer
             </a>
@@ -848,107 +752,51 @@
           Vote for Priority
         </a>
       </div>
-
       <div class="coming-soon-grid">
-
-        <!-- DS-160 -->
         <div class="usecase-card">
           <div class="usecase-card-top">
-            <div class="usecase-icon uc-teal">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 15h0M2 9.5h20"/></svg>
-            </div>
+            <div class="usecase-icon uc-teal"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 15h0M2 9.5h20"/></svg></div>
             <span class="coming-soon-badge">Coming Soon</span>
           </div>
           <h4>DS-160</h4>
           <p class="usecase-dept">U.S. Department of State · Nonimmigrant Visa</p>
           <p class="usecase-desc">Auto-fill your US visa application with passport details, travel history, and family information.</p>
-          <div class="usecase-chips">
-            <span class="uc-chip">Personal Info</span>
-            <span class="uc-chip">Passport</span>
-            <span class="uc-chip">Travel History</span>
-            <span class="uc-chip">US Contacts</span>
-            <span class="uc-chip">Family</span>
-            <span class="uc-chip">Work &amp; Education</span>
-          </div>
-          <a class="usecase-vote-btn" href="https://docs.google.com/forms/d/e/1FAIpQLSdgVcHtZg7gE8cjWrO0biKMB_7Mvp1O90e8Ehwd6vMpXS6KDg/viewform?usp=header" target="_blank">
-            Vote to prioritize
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </a>
+          <div class="usecase-chips"><span class="uc-chip">Personal Info</span><span class="uc-chip">Passport</span><span class="uc-chip">Travel History</span><span class="uc-chip">US Contacts</span><span class="uc-chip">Family</span><span class="uc-chip">Work &amp; Education</span></div>
+          <a class="usecase-vote-btn" href="https://docs.google.com/forms/d/e/1FAIpQLSdgVcHtZg7gE8cjWrO0biKMB_7Mvp1O90e8Ehwd6vMpXS6KDg/viewform?usp=header" target="_blank">Vote to prioritize <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></a>
         </div>
-
-        <!-- DMV -->
         <div class="usecase-card">
           <div class="usecase-card-top">
-            <div class="usecase-icon uc-amber">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3h0M8 3h0M3 11h18M7 15h0M12 15h0M17 15h0"/><circle cx="7" cy="15" r="1" fill="currentColor"/><circle cx="12" cy="15" r="1" fill="currentColor"/><circle cx="17" cy="15" r="1" fill="currentColor"/></svg>
-            </div>
+            <div class="usecase-icon uc-amber"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3h0M8 3h0M3 11h18"/><circle cx="7" cy="15" r="1" fill="currentColor"/><circle cx="12" cy="15" r="1" fill="currentColor"/><circle cx="17" cy="15" r="1" fill="currentColor"/></svg></div>
             <span class="coming-soon-badge">Coming Soon</span>
           </div>
           <h4>DMV &amp; Driver's License</h4>
           <p class="usecase-dept">State Motor Vehicle Departments</p>
           <p class="usecase-desc">Renew your driver's license or ID card without re-typing the same personal details every time.</p>
-          <div class="usecase-chips">
-            <span class="uc-chip">Personal ID</span>
-            <span class="uc-chip">Address History</span>
-            <span class="uc-chip">Medical Info</span>
-            <span class="uc-chip">Vision Test</span>
-            <span class="uc-chip">Emergency Contact</span>
-          </div>
-          <a class="usecase-vote-btn" href="https://docs.google.com/forms/d/e/1FAIpQLSdgVcHtZg7gE8cjWrO0biKMB_7Mvp1O90e8Ehwd6vMpXS6KDg/viewform?usp=header" target="_blank">
-            Vote to prioritize
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </a>
+          <div class="usecase-chips"><span class="uc-chip">Personal ID</span><span class="uc-chip">Address History</span><span class="uc-chip">Medical Info</span><span class="uc-chip">Vision Test</span><span class="uc-chip">Emergency Contact</span></div>
+          <a class="usecase-vote-btn" href="https://docs.google.com/forms/d/e/1FAIpQLSdgVcHtZg7gE8cjWrO0biKMB_7Mvp1O90e8Ehwd6vMpXS6KDg/viewform?usp=header" target="_blank">Vote to prioritize <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></a>
         </div>
-
-        <!-- USCIS I-485 -->
         <div class="usecase-card">
           <div class="usecase-card-top">
-            <div class="usecase-icon uc-blue">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            </div>
+            <div class="usecase-icon uc-blue"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
             <span class="coming-soon-badge">Coming Soon</span>
           </div>
           <h4>USCIS I-485</h4>
           <p class="usecase-dept">U.S. Citizenship &amp; Immigration Services · Green Card</p>
           <p class="usecase-desc">Streamline your adjustment of status application with immigration history, biometrics, and family records.</p>
-          <div class="usecase-chips">
-            <span class="uc-chip">Personal Info</span>
-            <span class="uc-chip">Passport</span>
-            <span class="uc-chip">Immigration History</span>
-            <span class="uc-chip">Family</span>
-            <span class="uc-chip">Employment</span>
-            <span class="uc-chip">Biometrics</span>
-          </div>
-          <a class="usecase-vote-btn" href="https://docs.google.com/forms/d/e/1FAIpQLSdgVcHtZg7gE8cjWrO0biKMB_7Mvp1O90e8Ehwd6vMpXS6KDg/viewform?usp=header" target="_blank">
-            Vote to prioritize
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </a>
+          <div class="usecase-chips"><span class="uc-chip">Personal Info</span><span class="uc-chip">Passport</span><span class="uc-chip">Immigration History</span><span class="uc-chip">Family</span><span class="uc-chip">Employment</span><span class="uc-chip">Biometrics</span></div>
+          <a class="usecase-vote-btn" href="https://docs.google.com/forms/d/e/1FAIpQLSdgVcHtZg7gE8cjWrO0biKMB_7Mvp1O90e8Ehwd6vMpXS6KDg/viewform?usp=header" target="_blank">Vote to prioritize <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></a>
         </div>
-
-        <!-- KYC -->
         <div class="usecase-card">
           <div class="usecase-card-top">
-            <div class="usecase-icon uc-purple">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
-            </div>
+            <div class="usecase-icon uc-purple"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg></div>
             <span class="coming-soon-badge">Coming Soon</span>
           </div>
           <h4>KYC &amp; Identity Verification</h4>
           <p class="usecase-dept">Banks · Brokerages · Financial Services</p>
           <p class="usecase-desc">Skip repetitive KYC onboarding — auto-fill government ID, address proof, and tax info across financial platforms.</p>
-          <div class="usecase-chips">
-            <span class="uc-chip">Government ID</span>
-            <span class="uc-chip">Proof of Address</span>
-            <span class="uc-chip">Tax ID / SSN</span>
-            <span class="uc-chip">Beneficial Ownership</span>
-            <span class="uc-chip">Source of Funds</span>
-          </div>
-          <a class="usecase-vote-btn" href="https://docs.google.com/forms/d/e/1FAIpQLSdgVcHtZg7gE8cjWrO0biKMB_7Mvp1O90e8Ehwd6vMpXS6KDg/viewform?usp=header" target="_blank">
-            Vote to prioritize
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </a>
+          <div class="usecase-chips"><span class="uc-chip">Government ID</span><span class="uc-chip">Proof of Address</span><span class="uc-chip">Tax ID / SSN</span><span class="uc-chip">Beneficial Ownership</span><span class="uc-chip">Source of Funds</span></div>
+          <a class="usecase-vote-btn" href="https://docs.google.com/forms/d/e/1FAIpQLSdgVcHtZg7gE8cjWrO0biKMB_7Mvp1O90e8Ehwd6vMpXS6KDg/viewform?usp=header" target="_blank">Vote to prioritize <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></a>
         </div>
-
       </div>
     </div>
     <!-- ── end Coming Soon ──────────────────────────────────────────────────── -->

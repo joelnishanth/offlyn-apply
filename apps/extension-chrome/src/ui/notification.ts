@@ -1,6 +1,6 @@
 /**
  * Notification system - shows toast notifications to user
- * Brand: navy #1e293b + green #16a34a
+ * Brand: navy #0a0a0a + green #1a7f5a
  */
 
 import { setHTML } from '../shared/html';
@@ -71,7 +71,7 @@ export function showNotification(
     <div style="display:flex;align-items:flex-start;gap:10px;">
       <div style="flex-shrink:0;margin-top:1px;">${iconSvg}</div>
       <div style="flex:1;min-width:0;">
-        <div style="font-weight:600;font-size:13px;color:#1e293b;line-height:1.3;margin-bottom:3px;">${escapeHtml(title)}</div>
+        <div style="font-weight:600;font-size:13px;color:#0a0a0a;line-height:1.3;margin-bottom:3px;">${escapeHtml(title)}</div>
         <div style="font-size:12px;color:#64748b;line-height:1.4;">${escapeHtml(message)}</div>
       </div>
       <button class="offlyn-toast-close"
@@ -129,8 +129,8 @@ export function clearAllNotifications(): void {
 function getTypeStyle(type: NotificationType): { accent: string; iconSvg: string } {
   const styles = {
     success: {
-      accent: '#16a34a',
-      iconSvg: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="9" fill="#16a34a"/><path d="M5.5 9l2.5 2.5 4.5-4.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+      accent: '#1a7f5a',
+      iconSvg: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="9" fill="#1a7f5a"/><path d="M5.5 9l2.5 2.5 4.5-4.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
     },
     error: {
       accent: '#ef4444',
@@ -141,8 +141,8 @@ function getTypeStyle(type: NotificationType): { accent: string; iconSvg: string
       iconSvg: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 1.5l7.5 14H1.5L9 1.5z" fill="#f59e0b"/><path d="M9 7v3.5M9 12.5h.01" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>`,
     },
     info: {
-      accent: '#1e293b',
-      iconSvg: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="9" fill="#1e293b"/><path d="M9 8.5v4M9 5.5h.01" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>`,
+      accent: '#0a0a0a',
+      iconSvg: `<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="9" fill="#0a0a0a"/><path d="M9 8.5v4M9 5.5h.01" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>`,
     },
   };
   return styles[type];
@@ -212,7 +212,7 @@ export function showWorkdayBetaBanner(logoUrl?: string): void {
 
   const logoHtml = logoUrl
     ? `<img src="${logoUrl}" width="22" height="22" alt="Offlyn" style="border-radius:50%;flex-shrink:0;display:block;" />`
-    : `<svg width="22" height="22" viewBox="0 0 22 22" fill="none" style="flex-shrink:0;"><circle cx="11" cy="11" r="11" fill="#1e293b"/><text x="11" y="15.5" text-anchor="middle" font-size="11" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" fill="#fff">O</text></svg>`;
+    : `<svg width="22" height="22" viewBox="0 0 22 22" fill="none" style="flex-shrink:0;"><circle cx="11" cy="11" r="11" fill="#0a0a0a"/><text x="11" y="15.5" text-anchor="middle" font-size="11" font-weight="700" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" fill="#fff">O</text></svg>`;
 
   const banner = document.createElement('div');
   banner.id = 'offlyn-workday-beta-banner';
@@ -221,7 +221,7 @@ export function showWorkdayBetaBanner(logoUrl?: string): void {
       ${logoHtml}
       <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
         <div style="display:flex;align-items:center;gap:6px;">
-          <span style="font-size:12px;font-weight:700;color:#1e293b;letter-spacing:0.3px;line-height:1;">offlyn</span>
+          <span style="font-size:12px;font-weight:700;color:#0a0a0a;letter-spacing:0.3px;line-height:1;">offlyn</span>
           <span style="font-size:10px;font-weight:600;color:#fff;background:#f59e0b;border-radius:4px;padding:1px 5px;line-height:1.4;letter-spacing:0.4px;">BETA</span>
           <span style="font-size:11px;color:#64748b;font-weight:400;">· Workday</span>
         </div>
@@ -273,7 +273,7 @@ function ensureBetaBannerStyles(): void {
       align-items: center;
       background: #fff;
       border: 1px solid #e2e8f0;
-      border-left: 4px solid #1e293b;
+      border-left: 4px solid #0a0a0a;
       border-radius: 10px;
       padding: 10px 14px 10px 12px;
       max-width: 480px;
