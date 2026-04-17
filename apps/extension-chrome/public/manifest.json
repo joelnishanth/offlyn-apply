@@ -30,6 +30,7 @@
   "host_permissions": [
     "http://localhost:11434/*",
     "http://127.0.0.1:11434/*",
+    "*://web.whatsapp.com/*",
     "https://api.adzuna.com/*",
     "https://www.adzuna.com/*",
     "*://*.workday.com/*",

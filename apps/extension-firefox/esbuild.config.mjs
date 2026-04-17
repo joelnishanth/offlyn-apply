@@ -80,6 +80,7 @@ const pathMap = {
   'src/profiles/profiles.ts': 'dist/profiles/profiles.js',
   'src/resume-tailor/resume-tailor.ts': 'dist/resume-tailor/resume-tailor.js',
   'src/jobs/jobs.ts': 'dist/jobs/jobs.js',
+  'src/content-whatsapp.ts': 'dist/content-whatsapp.js',
 };
 
 async function build() {

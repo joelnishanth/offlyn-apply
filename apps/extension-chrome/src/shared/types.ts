@@ -85,7 +85,6 @@ export interface FillResult {
 export interface ExtensionSettings {
   enabled: boolean;
   dryRun: boolean;
-  whatsappTarget?: string; // Phone number in E.164 format (e.g., +15555550123)
   scheduledSearchEnabled: boolean;
   scheduledSearchIntervalHours: number; // 1 | 4 | 8 | 12 | 24
   notificationsEnabled: boolean;

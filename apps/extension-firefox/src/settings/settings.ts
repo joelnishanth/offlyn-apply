@@ -35,20 +35,6 @@ async function init(): Promise<void> {
     });
   }
 
-  // --- WhatsApp number ---
-  const whatsappInput = document.getElementById('input-whatsapp') as HTMLInputElement | null;
-  if (whatsappInput) {
-    whatsappInput.value = settings.whatsappTarget || '';
-    let debounce: ReturnType<typeof setTimeout>;
-    whatsappInput.addEventListener('input', () => {
-      clearTimeout(debounce);
-      debounce = setTimeout(async () => {
-        const val = whatsappInput.value.trim();
-        await setSettings({ whatsappTarget: val || undefined });
-      }, 600);
-    });
-  }
-
   // --- Job Discovery settings ---
   const scheduledToggle = document.getElementById('toggle-scheduled-search');
   const notifToggle = document.getElementById('toggle-notifications');

@@ -9,7 +9,6 @@ import type { GraphMeta } from './graph/types';
 const DEFAULT_SETTINGS: ExtensionSettings = {
   enabled: true,
   dryRun: false,
-  whatsappTarget: undefined,
   scheduledSearchEnabled: true,
   scheduledSearchIntervalHours: 8,
   notificationsEnabled: true,

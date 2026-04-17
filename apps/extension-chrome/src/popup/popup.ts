@@ -421,6 +421,7 @@ async function init(): Promise<void> {
     window.close();
   });
 
+
   // ── Footer links ──
   document.getElementById('home-btn')?.addEventListener('click', () => {
     browser.tabs.create({ url: browser.runtime.getURL('home/home.html') });

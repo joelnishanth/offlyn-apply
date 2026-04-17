@@ -8,7 +8,6 @@ import type { ExtensionSettings, TabJobInfo, JobApplication, DailySummary } from
 const DEFAULT_SETTINGS: ExtensionSettings = {
   enabled: true,
   dryRun: false,
-  whatsappTarget: undefined,
   scheduledSearchEnabled: true,
   scheduledSearchIntervalHours: 8,
   notificationsEnabled: true,

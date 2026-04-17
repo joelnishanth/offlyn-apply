@@ -5,7 +5,6 @@
 import type { ApplyEvent, TabJobInfo, JobApplication } from './shared/types';
 import { getSettings, setTabJobInfo, addJobApplication, getAllApplications } from './shared/storage';
 import { log, info, warn, error } from './shared/log';
-import { sendDailySummary } from './shared/whatsapp';
 import { mastraAgent as ollama } from './shared/mastra-agent';
 import { ragParser } from './shared/rag-parser';
 import { ParseValidator } from './shared/parse-validator';
@@ -515,16 +514,19 @@ browser.runtime.onMessage.addListener(async (message: unknown, sender: browser.r
       };
     }
     
-    // Handle SEND_DAILY_SUMMARY request
-    if (message.kind === 'SEND_DAILY_SUMMARY') {
-      const result = await sendDailySummary();
-      return {
-        kind: 'SUMMARY_SENT',
-        success: result.success,
-        error: result.error,
-      };
+    // ── Open & Apply (from WhatsApp Web overlay) ─────────────────────────────
+
+    if (message.kind === 'OPEN_AND_APPLY') {
+      try {
+        const url = (message as any).url as string;
+        const tab = await browser.tabs.create({ url, active: true });
+        return { ok: true, tabId: tab.id };
+      } catch (err) {
+        warn('[WA] OPEN_AND_APPLY failed:', err);
+        return { ok: false, error: String(err) };
+      }
     }
-    
+
     // Handle GET_CONNECTION_STATUS request
     if (message.kind === 'GET_CONNECTION_STATUS') {
       // Check connection on demand
@@ -1623,6 +1625,17 @@ browser.tabs.onUpdated.addListener(async (tabId: number, changeInfo: any, tab: a
   const isComplete = changeInfo.status === 'complete';
   const isUrlChange = !!changeInfo.url;
   if (!isComplete && !isUrlChange) return;
+
+  // Inject WhatsApp Web content script for ATS link detection
+  try {
+    const hostname = new URL(url).hostname;
+    if (hostname === 'web.whatsapp.com' && isComplete && !injectedTabs.has(tabId)) {
+      await browser.tabs.executeScript(tabId, { file: 'content-whatsapp.js' });
+      injectedTabs.add(tabId);
+      log('[Inject] WhatsApp Web content script injected into tab', tabId);
+      return;
+    }
+  } catch {}
 
   // If URL is not a job page, clear any stale badge from SPA navigation
   // (Firefox auto-clears on full navigation, but pushState doesn't trigger that)
