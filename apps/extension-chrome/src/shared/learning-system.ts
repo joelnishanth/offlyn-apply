@@ -92,6 +92,8 @@ export class LearningSystem {
         this.submittedValues = stored.submitted_values;
         console.log(`[Learning] Loaded ${this.submittedValues.length} submitted values`);
       }
+
+      await this.purgeContaminatedEntries();
     } catch (err) {
       console.warn('[Learning] Failed to load data:', err);
     }
@@ -133,6 +135,13 @@ export class LearningSystem {
 
       // Skip very short values for long-form fields (probably placeholder/partial)
       if (field.tagName === 'TEXTAREA' && value.trim().length < 10) continue;
+
+      // Skip UI artifact strings that leak from extension chrome
+      if (/^settings$/i.test(value.trim())) continue;
+
+      // Skip phone numbers for non-phone fields (cross-field contamination)
+      const fieldLabelLc = (field.label || '').toLowerCase();
+      if (/^\+\d/.test(value.trim()) && !fieldLabelLc.includes('phone') && field.type !== 'tel') continue;
 
       const sv: SubmittedValue = {
         fieldLabel: (field.label || '').toLowerCase().trim(),
@@ -608,6 +617,32 @@ export class LearningSystem {
     this.submittedValues = [];
     await this.save();
     console.log('[Learning] All learning data cleared');
+  }
+
+  async purgeContaminatedEntries(): Promise<number> {
+    const before = this.submittedValues.length;
+    this.submittedValues = this.submittedValues.filter(sv => {
+      const val = sv.value.trim();
+      if (/^settings$/i.test(val)) return false;
+      const labelLc = sv.fieldLabel.toLowerCase();
+      if (/^\+\d/.test(val) && !labelLc.includes('phone') && sv.fieldType !== 'tel') return false;
+      return true;
+    });
+
+    // Also purge patterns derived from contaminated values
+    for (const [key, pattern] of this.patterns) {
+      const pv = (pattern.preferredValue || '').trim();
+      if (/^settings$/i.test(pv) || (/^\+\d/.test(pv) && !key.includes('phone'))) {
+        this.patterns.delete(key);
+      }
+    }
+
+    const removed = before - this.submittedValues.length;
+    if (removed > 0) {
+      await this.save();
+      console.log(`[Learning] Purged ${removed} contaminated submitted values`);
+    }
+    return removed;
   }
 }
 

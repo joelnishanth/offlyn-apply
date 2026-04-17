@@ -241,7 +241,6 @@ export async function searchJobs(filters: JobSearchFilters): Promise<JobSearchRe
     ? [...adzuna.jobs, ...remotive.filter(j => isLocationRelevant(j.location, filters.location!)), ...arbeitnow.filter(j => isLocationRelevant(j.location, filters.location!))]
     : [...adzuna.jobs, ...remotive, ...arbeitnow];
   const allJobs = deduplicateJobs(locationFiltered);
-  const totalFromApis = adzuna.count + remotive.length + arbeitnow.length;
 
   if (allJobs.length === 0) {
     return generateMockResults(filters);
@@ -249,9 +248,9 @@ export async function searchJobs(filters: JobSearchFilters): Promise<JobSearchRe
 
   const result: JobSearchResult = {
     jobs: allJobs,
-    totalResults: totalFromApis,
+    totalResults: allJobs.length,
     page: filters.page ?? 1,
-    totalPages: Math.ceil(totalFromApis / (filters.resultsPerPage ?? 10)),
+    totalPages: 1,
   };
 
   cache.set(cacheKey, { data: result, ts: Date.now() });

@@ -27,6 +27,7 @@ import {
   setLastScheduledSearch, getLastScheduledSearch,
 } from './shared/job-preferences';
 import { isJobURL } from './shared/ats-domains';
+import { getOllamaConfig } from './shared/ollama-config';
 
 interface ConnectionState {
   connected: boolean;
@@ -983,6 +984,29 @@ ${profileContext}`;
       return { injected: false };
     }
 
+    // ── Ollama Proxy — route content-script calls through background (no CORS) ──
+    if (message.kind === 'OLLAMA_PROXY') {
+      const msg = message as { kind: string; method: string; path: string; body?: any };
+      const config = await getOllamaConfig();
+      const endpoint = config.endpoint || 'http://localhost:11434';
+      try {
+        const fetchOpts: RequestInit = {
+          method: msg.method || 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        };
+        if (msg.body !== undefined) {
+          fetchOpts.body = typeof msg.body === 'string' ? msg.body : JSON.stringify(msg.body);
+        }
+        const resp = await fetch(`${endpoint}${msg.path}`, fetchOpts);
+        const text = await resp.text();
+        let data: any;
+        try { data = JSON.parse(text); } catch { data = text; }
+        return { ok: resp.ok, status: resp.status, data };
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) };
+      }
+    }
+
     if (message.kind === 'CHECK_OLLAMA') {
       if (!connectionState.connected) {
         await checkOllamaConnection();
@@ -1003,6 +1027,65 @@ ${profileContext}`;
 // ── Cover letter generation via port-based streaming ────────────────────────
 
 chrome.runtime.onConnect.addListener((port) => {
+  // ── Model pulling via port (streaming progress for onboarding) ──────────
+  if (port.name === 'pull-model') {
+    port.onMessage.addListener(async (msg: any) => {
+      const model: string = msg.model;
+      if (!model) {
+        port.postMessage({ kind: 'error', error: 'No model specified' });
+        return;
+      }
+      const config = await getOllamaConfig();
+      const endpoint = config.endpoint || 'http://localhost:11434';
+      try {
+        const resp = await fetch(`${endpoint}/api/pull`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: model, stream: true }),
+        });
+        if (!resp.ok) {
+          port.postMessage({ kind: 'error', error: `HTTP ${resp.status}: ${resp.statusText}` });
+          return;
+        }
+        const reader = resp.body?.getReader();
+        if (!reader) {
+          port.postMessage({ kind: 'error', error: 'No response stream' });
+          return;
+        }
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const data = JSON.parse(line);
+              port.postMessage({
+                kind: 'progress',
+                model,
+                status: data.status,
+                completed: data.completed,
+                total: data.total,
+              });
+            } catch { /* partial JSON line — skip */ }
+          }
+        }
+        port.postMessage({ kind: 'done', model });
+      } catch (err) {
+        port.postMessage({
+          kind: 'error',
+          model,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    });
+    return;
+  }
+
   if (port.name === 'cover-letter-generate') {
     port.onMessage.addListener(async (msg: any) => {
       try {

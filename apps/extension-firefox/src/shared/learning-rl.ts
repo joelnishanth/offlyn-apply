@@ -143,6 +143,18 @@ function validateValueForField(
     return { valid: false, reason: 'Empty value' };
   }
 
+  // Reject UI artifact strings that leak from extension chrome
+  if (/^settings$/i.test(trimmed)) {
+    return { valid: false, reason: 'UI artifact string rejected' };
+  }
+
+  // Reject phone numbers for fields that are clearly not phone fields
+  const isPhoneLike = /^\+\d/.test(trimmed);
+  const isPhoneLabel = ['phone', 'mobile', 'tel', 'telephone', 'cell', 'fax'].some(t => label.includes(t));
+  if (isPhoneLike && !isPhoneLabel) {
+    return { valid: false, reason: 'Phone number in non-phone field (cross-field contamination)' };
+  }
+
   for (const rule of FIELD_VALIDATION_RULES) {
     // Check if any of the trigger substrings appear in the label
     if (rule.labelIncludes.some(sub => label.includes(sub))) {

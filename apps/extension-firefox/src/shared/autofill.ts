@@ -118,6 +118,24 @@ export function generateFillMappings(schema: FieldSchema[], profile: UserProfile
           source = 'profile';
         }
       }
+      // Reject phone numbers/codes for non-phone fields
+      else if (/^\+\d/.test(learnedValueStr) && !fieldLabelLower.includes('phone') && field.type !== 'tel') {
+        console.warn(`[Autofill] Rejecting learned phone number for non-phone field "${field.label}": "${value}". Falling back to profile.`);
+        value = matchFieldToProfile(field, profile);
+        source = 'profile';
+      }
+      // Reject UI artifact strings that leak from extension chrome (e.g. "Settings")
+      else if (/^settings$/i.test(learnedValueStr)) {
+        console.warn(`[Autofill] Rejecting learned UI artifact for "${field.label}": "${value}". Falling back to profile.`);
+        value = matchFieldToProfile(field, profile);
+        source = 'profile';
+      }
+      // Reject learned values for EEOC / self-ID fields — these need user consent
+      else if (isSelfIdField) {
+        console.warn(`[Autofill] Rejecting learned value for self-ID field "${field.label}": "${value}". Skipping.`);
+        value = null;
+        source = 'profile';
+      }
       // If valid, normalize and use
       else {
         // Normalize Yes/No values for dropdown fields (capitalize first letter)
@@ -225,6 +243,11 @@ export async function applyGraphEnhancement(
     /\bsalary\b/i,
     /\bcompensation\b/i,
     /cover letter/i,
+    /currently\s+employed/i,
+    /current\s+position/i,
+    /current\s+employer/i,
+    /current\s+company/i,
+    /current\s+(?:job\s+)?title/i,
   ];
 
   // Record provenance for already-filled fields (fire-and-forget)
@@ -297,10 +320,18 @@ export async function applyGraphEnhancement(
       if (result?.abstained) continue;
 
       if (result?.value && result.confidence >= 0.6) {
-        enhanced.push({ selector: field.selector, value: result.value });
-        console.log(
-          `[Autofill/Graph] Filled "${fieldLabel}" via ${result.source} (confidence: ${result.confidence.toFixed(2)})`
-        );
+        const graphVal = String(result.value).trim();
+        const graphLabelLower = fieldLabel.toLowerCase();
+        const isPhoneForNonPhone = /^\+\d/.test(graphVal) && !graphLabelLower.includes('phone');
+        const isUIArtifact = /^settings$/i.test(graphVal);
+        if (isPhoneForNonPhone || isUIArtifact) {
+          console.warn(`[Autofill/Graph] Rejecting graph value "${graphVal}" for "${fieldLabel}" (phone leak or UI artifact)`);
+        } else {
+          enhanced.push({ selector: field.selector, value: result.value });
+          console.log(
+            `[Autofill/Graph] Filled "${fieldLabel}" via ${result.source} (confidence: ${result.confidence.toFixed(2)})`
+          );
+        }
       }
 
       if (fieldLabel) {
@@ -564,17 +595,21 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
       }
     }
     
-    // Check if field is adjacent to / grouped with phone field
+    // Check if field is adjacent to / grouped with phone field.
+    // field is a FieldSchema object, so resolve the actual DOM element first.
     try {
-      const container = field.closest('form, .form-group, .field-group, [class*="phone"], [class*="contact"]');
-      if (container) {
-        const hasPhoneField = !!container.querySelector('[name*="phone"], [id*="phone"], [type="tel"], [placeholder*="phone"]');
-        if (hasPhoneField) {
-          // This is phone_country_code
-          const phoneData3 = profile.personal.phone;
-          const code = isPhoneDetails(phoneData3) ? phoneData3.countryCode : getCountryCode(phoneData3 as string);
-          console.log('[Autofill] 📞 Country field adjacent to phone, treating as country code:', code);
-          return code;
+      const domField = field.selector ? document.querySelector(field.selector) : null;
+      if (domField) {
+        // Only check narrow phone-specific containers, NOT the whole <form>
+        const container = domField.closest('.form-group, .field-group, [class*="phone"], [class*="contact"], [class*="tel"]');
+        if (container) {
+          const hasPhoneField = !!container.querySelector('[name*="phone"], [id*="phone"], [type="tel"], [placeholder*="phone"]');
+          if (hasPhoneField) {
+            const phoneData3 = profile.personal.phone;
+            const code = isPhoneDetails(phoneData3) ? phoneData3.countryCode : getCountryCode(phoneData3 as string);
+            console.log('[Autofill] 📞 Country field adjacent to phone, treating as country code:', code);
+            return code;
+          }
         }
       }
     } catch (e) {
@@ -1999,7 +2034,12 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
   
   // LinkedIn
   if (matchesAny([label, name, id], ['linkedin', 'linked-in'])) {
-    return profile.professional.linkedin || '';
+    let url = profile.professional.linkedin || '';
+    // Workday validates LinkedIn URLs and requires www. prefix
+    if (url && /^https?:\/\/linkedin\.com/i.test(url)) {
+      url = url.replace(/^(https?:\/\/)linkedin\.com/i, '$1www.linkedin.com');
+    }
+    return url;
   }
   
   // GitHub
@@ -2029,17 +2069,19 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
     }
   }
   
-  // Current job title — handles "current title", "most recent title", and
-  // parenthetical forms like "current (or most recent) title"
-  const titlePatterns = /current[\w\s()]*(?:role|title|position|job title)|most recent[\w\s()]*(?:title|role|position)|recent[\w\s()]*(?:title|role|position)/i;
+  // Current job title — handles "current title", "most recent title",
+  // parenthetical forms like "current (or most recent) title",
+  // and Greenhouse-style "title of your current position"
+  const titlePatterns = /current[\w\s()]*(?:role|title|position|job title)|most recent[\w\s()]*(?:title|role|position)|recent[\w\s()]*(?:title|role|position)|title of.*(?:current|your).*position/i;
   if ([label, name, id].some(t => titlePatterns.test(t || ''))) {
     const cur = (profile.work ?? []).find((w: any) => w.current);
     return cur?.title ?? (profile.professional as any)?.currentRole ?? null;
   }
 
-  // Current employer — handles "current employer", "most recent employer", and
-  // parenthetical forms like "current (or most recent) employer"
-  const employerPatterns = /current[\w\s()]*(?:company|employer|organization)|most recent[\w\s()]*(?:employer|company)|recent[\w\s()]*(?:employer|company)/i;
+  // Current employer — handles "current employer", "most recent employer",
+  // parenthetical forms like "current (or most recent) employer",
+  // and Greenhouse-style "where you are currently employed"
+  const employerPatterns = /current[\w\s()]*(?:company|employer|employed|organization)|most recent[\w\s()]*(?:employer|company)|recent[\w\s()]*(?:employer|company)|where.*currently employed/i;
   if ([label, name, id].some(t => employerPatterns.test(t || '')) &&
       !matchesAny([label, name, id], ['name', 'email'])) {
     const cur = (profile.work ?? []).find((w: any) => w.current);
@@ -2196,7 +2238,12 @@ function matchFieldToProfile(field: FieldSchema, profile: UserProfile): string |
   
   // Start Date / Availability
   if (matchesAny([label, name, id], ['start date', 'start a new role', 'when can you start', 'availability', 'available to start', 'earliest start date'])) {
-      const labelLower = (label || '').toLowerCase();
+    // Education start-year fields (type=number, id like "start-year--0") are NOT availability questions
+    if (field.type === 'number' || id.includes('start-year') || id.includes('start_year') || name.includes('start-year') || name.includes('start_year')) {
+      return null;
+    }
+
+    const labelLower = (label || '').toLowerCase();
     
     // Check if asking for a date
     if (labelLower.includes('when') || labelLower.includes('start') || labelLower.includes('available')) {

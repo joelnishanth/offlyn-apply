@@ -373,14 +373,21 @@ export function extractLabel(field: HTMLInputElement | HTMLSelectElement | HTMLT
     }
   }
   
-  // Strategy 7: Workday — [data-automation-id="formField"] → [data-automation-id="label"]
-  const workdayFormField = field.closest('[data-automation-id="formField"]');
+  // Strategy 7: Workday — [data-automation-id^="formField"] → [data-automation-id="label"]
+  const workdayFormField = field.closest('[data-automation-id^="formField"]');
   if (workdayFormField) {
     const workdayLabel = workdayFormField.querySelector('[data-automation-id="label"]');
     if (workdayLabel) {
       const text = getVisibleText(workdayLabel);
       if (text) return text;
     }
+  }
+  
+  // Strategy 7b: Workday buttons — extract label from aria-label (e.g. "State Select One")
+  if (field.tagName === 'BUTTON' && field.getAttribute('aria-haspopup') === 'listbox') {
+    const ariaLabel = field.getAttribute('aria-label') || '';
+    const cleanLabel = ariaLabel.replace(/\s*(Select One|Required)\s*/gi, '').trim();
+    if (cleanLabel) return cleanLabel;
   }
 
   // Strategy 8: Preceding sibling text (common pattern)
@@ -399,7 +406,7 @@ export function extractLabel(field: HTMLInputElement | HTMLSelectElement | HTMLT
 /**
  * Generate a stable CSS selector for a form field
  */
-export function generateSelector(field: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, form: HTMLFormElement | null): string {
+export function generateSelector(field: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | Element, form: HTMLFormElement | null): string {
   // Priority 1: ID
   if (field.id) {
     return `#${CSS.escape(field.id)}`;
@@ -652,6 +659,7 @@ export function extractFormSchema(form: HTMLFormElement | Document): FieldSchema
     '[role="checkbox"]',   // ARIA checkbox
     '[role="radio"]',      // ARIA radio
     '[role="textbox"]',    // ARIA textbox
+    'button[aria-haspopup="listbox"]',  // Workday-style dropdown buttons
     '[contenteditable="true"]',  // Contenteditable fields
     '[data-testid*="input"]',  // Common test IDs
     '[class*="input-field"]',  // Common class patterns
@@ -702,6 +710,32 @@ export function extractFormSchema(form: HTMLFormElement | Document): FieldSchema
       continue;
     }
     
+    // Handle Workday-style dropdown buttons (button[aria-haspopup="listbox"])
+    const isDropdownButton = field.tagName === 'BUTTON' && field.getAttribute('aria-haspopup') === 'listbox';
+    if (isDropdownButton) {
+      const btnText = field.textContent?.trim() || '';
+      const currentSelection = btnText.replace(label || '', '').replace(/required/i, '').trim() || null;
+      fields.push({
+        tagName: 'button',
+        type: 'autocomplete',
+        name: field.getAttribute('data-automation-id') || null,
+        id: field.id || null,
+        autocomplete: null,
+        required: /required/i.test(btnText) || field.getAttribute('aria-required') === 'true',
+        disabled: field.hasAttribute('disabled'),
+        multiple: false,
+        label,
+        selector: fieldSelector,
+        valuePreview: currentSelection,
+        trustTier: baseTier,
+        detectedFrom,
+        containerType: isATSHost ? 'ats_host' : 'application_form',
+        fillEligible: true,
+        learnEligible: true,
+      });
+      continue;
+    }
+
     // For checkboxes/radio, always include the value attribute
     let valuePreview: string | null = null;
     if (field instanceof HTMLInputElement && (field.type === 'checkbox' || field.type === 'radio')) {

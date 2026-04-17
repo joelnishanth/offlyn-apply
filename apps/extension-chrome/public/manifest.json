@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Offlyn Apply",
-  "version": "0.7.9",
+  "version": "0.8.2",
   "description": "AI-powered job application assistant - auto-fill forms, analyze job compatibility, and generate tailored cover letters with local AI",
 
   "icons": {
@@ -21,6 +21,10 @@
     "nativeMessaging",
     "alarms",
     "notifications"
+  ],
+
+  "optional_host_permissions": [
+    "*://*/*"
   ],
 
   "host_permissions": [

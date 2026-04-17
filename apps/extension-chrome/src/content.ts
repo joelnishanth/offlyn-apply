@@ -2631,6 +2631,109 @@ async function executeFillPlan(plan: FillPlan): Promise<void> {
           }
         }
       }
+      // Handle Workday-style dropdown buttons (button[aria-haspopup="listbox"])
+      else if (element instanceof HTMLButtonElement && element.getAttribute('aria-haspopup') === 'listbox') {
+        const valueStr = String(finalValue).trim();
+        if (!valueStr) {
+          result.failedSelectors.push(mapping.selector);
+          continue;
+        }
+        
+        console.log('[OA] Handling Workday dropdown button:', fieldSchema?.label, '→', valueStr);
+        
+        // Close any lingering dropdowns first
+        document.body.click();
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Snapshot existing listbox ids so we can find the NEW one after clicking
+        const existingListboxIds = new Set(
+          Array.from(document.querySelectorAll('[role="listbox"]')).map(lb => lb.id).filter(Boolean)
+        );
+        
+        // Click the button to open the dropdown
+        element.scrollIntoView({ block: 'center' });
+        await new Promise(resolve => setTimeout(resolve, 100));
+        element.focus();
+        element.click();
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        // Find the listbox: prefer aria-controls (set after click), then find newly appeared listbox
+        let listbox: Element | null = null;
+        const controlsId = element.getAttribute('aria-controls') || element.getAttribute('aria-owns');
+        if (controlsId) {
+          listbox = document.getElementById(controlsId);
+        }
+        if (!listbox) {
+          // Find the newly appeared listbox (not in our snapshot)
+          const allListboxes = Array.from(document.querySelectorAll('[role="listbox"]'));
+          for (const lb of allListboxes) {
+            if (lb.id && !existingListboxIds.has(lb.id) && lb.querySelectorAll('[role="option"]').length > 1) {
+              listbox = lb;
+              break;
+            }
+          }
+          // Last resort: biggest visible listbox with multiple options
+          if (!listbox) {
+            let maxOptions = 0;
+            for (const lb of allListboxes) {
+              const optCount = lb.querySelectorAll('[role="option"]').length;
+              const visible = lb.getBoundingClientRect().height > 0;
+              if (visible && optCount > maxOptions && optCount > 1) {
+                maxOptions = optCount;
+                listbox = lb;
+              }
+            }
+          }
+        }
+        
+        if (listbox) {
+          const options = Array.from(listbox.querySelectorAll('[role="option"]'));
+          console.log('[OA] Found', options.length, 'dropdown options for', fieldSchema?.label);
+          
+          const valLower = valueStr.toLowerCase();
+          let matched = false;
+          
+          // Pass 1: Exact match
+          for (const opt of options) {
+            const optText = (opt.textContent || '').trim().toLowerCase();
+            if (optText === valLower) {
+              (opt as HTMLElement).click();
+              console.log('[OA] ✓ Exact match dropdown option:', opt.textContent?.trim());
+              matched = true;
+              break;
+            }
+          }
+          
+          // Pass 2: Option contains our value or vice versa (but skip very short option texts)
+          if (!matched) {
+            for (const opt of options) {
+              const optText = (opt.textContent || '').trim().toLowerCase();
+              if (optText.length > 2 && (optText.includes(valLower) || (valLower.length > 4 && valLower.includes(optText)))) {
+                (opt as HTMLElement).click();
+                console.log('[OA] ✓ Contains-match dropdown option:', opt.textContent?.trim());
+                matched = true;
+                break;
+              }
+            }
+          }
+          
+          if (matched) {
+            result.filledCount++;
+            result.filledSelectors.push(mapping.selector);
+            highlightFieldAsSuccess(mapping.selector);
+            showFieldLabel(mapping.selector, `✓ ${fieldSchema?.label || ''}`);
+          } else {
+            console.warn('[OA] No matching option for', valueStr, 'in', options.length, 'options');
+            element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            result.failedSelectors.push(mapping.selector);
+          }
+        } else {
+          console.warn('[OA] Listbox not found for dropdown button:', fieldSchema?.label);
+          result.failedSelectors.push(mapping.selector);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
       // Handle regular autocomplete/dropdown fields (Lever, Greenhouse, Discord ATS, etc.)
       else if ((fieldType === 'autocomplete' || hasOptionsArray) && element instanceof HTMLInputElement) {
         console.log('[OA] Handling autocomplete/dropdown field:', mapping.selector);
@@ -3641,6 +3744,9 @@ function getFieldValue(element: Element): string {
     return element.value;
   } else if (element.getAttribute('contenteditable') === 'true') {
     return element.textContent || '';
+  } else if (element instanceof HTMLButtonElement && element.getAttribute('aria-haspopup') === 'listbox') {
+    const text = (element.textContent || '').trim();
+    return text === 'Select One' ? '' : text;
   }
   return '';
 }

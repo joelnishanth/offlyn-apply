@@ -1,6 +1,6 @@
 {
   "name": "offlyn-chrome-extension",
-  "version": "0.7.9",
+  "version": "0.8.2",
   "description": "AI-powered Chrome extension for job application auto-fill, compatibility analysis, and cover letter generation",
   "type": "module",
   "scripts": {

@@ -143,18 +143,25 @@ async function checkBadgeNotification(): Promise<void> {
       bannerEl.style.display = 'flex';
 
       document.getElementById('badge-grant-btn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('badge-grant-btn') as HTMLButtonElement | null;
         try {
-          const granted = await chrome.permissions.request({
-            origins: [new URL(tabUrl).origin + '/*'],
-          });
+          const origin = new URL(tabUrl).origin + '/*';
+          const granted = await chrome.permissions.request({ origins: [origin] });
           if (granted) {
             await chrome.action.setBadgeText({ text: '', tabId });
             bannerEl.style.display = 'none';
             chrome.tabs.reload(tabId);
             window.close();
+          } else if (btn) {
+            btn.textContent = 'Denied';
+            setTimeout(() => { btn.textContent = 'Grant'; }, 2000);
           }
         } catch (e) {
-          log('Permission request failed:', e);
+          error('Permission request failed:', e);
+          if (btn) {
+            btn.textContent = 'Error';
+            setTimeout(() => { btn.textContent = 'Grant'; }, 2000);
+          }
         }
       });
 

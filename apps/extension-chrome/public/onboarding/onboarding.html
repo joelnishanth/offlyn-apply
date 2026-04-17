@@ -1588,6 +1588,22 @@
     .ollama-state { display: none; }
     .ollama-state.active { display: block; }
 
+    /* One-click onboarding: shimmer polling indicator */
+    .ollama-progress-polling {
+      width: 100% !important;
+      background: linear-gradient(90deg, transparent 0%, var(--green-light) 30%, var(--green-mid) 50%, var(--green-light) 70%, transparent 100%) !important;
+      background-size: 200% 100% !important;
+      animation: ollamaShimmer 1.8s ease-in-out infinite !important;
+    }
+    @keyframes ollamaShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    @keyframes fadeInBanner { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    #btnOllamaDownload:hover {
+      background: #222 !important;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    }
+
     .ollama-spinner-wrap {
       display: flex;
       flex-direction: column;
@@ -1945,6 +1961,94 @@
     html.dark .skill-chip-container { background: var(--off-white); }
     html.dark .review-section { background: var(--gray-100); }
     html.dark .question-group { border-bottom-color: var(--border); }
+
+    /* ─── Mini-Games Shared ── */
+    .game-container { margin-top: 16px; animation: fadeInBanner 0.3s ease; }
+    .game-btn-small { background: var(--green); color: #fff; border: none; border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font-sans); }
+    .game-btn-small:disabled { opacity: 0.5; cursor: default; }
+    .game-btn-link { background: none; border: none; color: var(--gray-400); font-size: 12px; cursor: pointer; font-family: var(--font-sans); text-decoration: underline; }
+
+    /* ─── Trivia ── */
+    .game-trivia { background: var(--gray-100); border-radius: var(--radius-md); padding: 16px; }
+    .game-trivia-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 13px; font-weight: 600; color: var(--gray-600); }
+    .game-trivia-score { color: var(--green); font-weight: 700; }
+    .game-trivia-body { min-height: 120px; }
+    .game-trivia-q { font-size: 14px; font-weight: 600; color: var(--gray-800); margin-bottom: 10px; line-height: 1.5; }
+    .game-trivia-opts { display: grid; gap: 6px; }
+    .game-trivia-opt { text-align: left; background: var(--white); border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--gray-800); cursor: pointer; font-family: var(--font-sans); transition: all 0.15s; }
+    .game-trivia-opt:hover:not(:disabled) { border-color: var(--green); background: var(--green-light); }
+    .game-trivia-opt:disabled { cursor: default; opacity: 0.85; }
+    .game-trivia-opt.correct { border-color: var(--green); background: var(--green-light); color: var(--green); font-weight: 600; }
+    .game-trivia-opt.wrong { border-color: #ef4444; background: #fef2f2; color: #dc2626; }
+    .game-trivia-fact { font-size: 12px; color: var(--gray-600); margin-top: 10px; padding: 10px; background: var(--white); border-radius: 8px; border-left: 3px solid var(--green); line-height: 1.5; }
+    .game-trivia-next { margin-top: 10px; background: var(--green); color: #fff; border: none; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-sans); }
+    .game-trivia-final { text-align: center; padding: 16px 0; }
+    .game-trivia-final-score { font-size: 36px; font-weight: 700; color: var(--green); }
+    .game-trivia-again { margin-top: 10px; background: var(--green); color: #fff; border: none; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-sans); }
+
+    /* ─── Word Scramble ── */
+    .game-scramble { background: var(--gray-100); border-radius: var(--radius-md); padding: 16px; text-align: center; }
+    .game-scramble-score { font-size: 12px; font-weight: 700; color: var(--green); margin-bottom: 10px; }
+    .game-scramble-body { min-height: 100px; }
+    .game-scramble-letters { font-size: 28px; font-weight: 700; letter-spacing: 6px; color: var(--gray-800); margin-bottom: 6px; font-family: monospace; }
+    .game-scramble-hint { font-size: 12px; color: var(--gray-400); margin-bottom: 12px; }
+    .game-scramble-input { border: 1.5px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 14px; font-family: monospace; text-transform: uppercase; text-align: center; width: 140px; background: var(--white); color: var(--gray-800); }
+    .game-scramble-input:focus { outline: none; border-color: var(--green); }
+    .game-scramble-feedback { font-size: 12px; margin-top: 8px; font-weight: 600; min-height: 18px; }
+    .game-scramble-feedback.correct { color: var(--green); }
+    .game-scramble-feedback.wrong { color: #dc2626; }
+    .game-scramble-done { padding: 16px 0; }
+
+    /* ─── Memory Flip ── */
+    .game-memory { background: var(--gray-100); border-radius: var(--radius-md); padding: 16px; }
+    .game-memory-info { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--gray-600); margin-bottom: 10px; }
+    .game-memory-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; max-width: 320px; margin: 0 auto; }
+    .game-memory-card { width: 100%; aspect-ratio: 1; position: relative; cursor: pointer; perspective: 400px; }
+    .game-memory-front, .game-memory-back { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px; backface-visibility: hidden; transition: transform 0.35s ease; }
+    .game-memory-back svg { width: 22px; height: 22px; color: var(--gray-600); }
+    .game-memory-front { background: var(--green); color: #fff; font-weight: 700; font-size: 16px; transform: rotateY(0deg); }
+    .game-memory-back { background: var(--white); border: 1.5px solid var(--border); transform: rotateY(180deg); }
+    .game-memory-card.flipped .game-memory-front { transform: rotateY(180deg); }
+    .game-memory-card.flipped .game-memory-back { transform: rotateY(0deg); }
+    .game-memory-card.matched .game-memory-back { border-color: var(--green); background: var(--green-light); }
+    .game-memory-win { text-align: center; margin-top: 12px; font-size: 14px; font-weight: 600; color: var(--green); }
+
+    /* ─── 2048 ── */
+    .game-2048 { background: var(--gray-100); border-radius: var(--radius-md); padding: 16px; }
+    .game-2048-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .game-2048-score { font-size: 14px; font-weight: 700; color: var(--green); }
+    .game-2048-board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; max-width: 260px; margin: 0 auto; background: var(--gray-200); border-radius: 8px; padding: 4px; }
+    .game-2048-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-weight: 700; font-size: 16px; font-family: var(--font-sans); background: var(--white); color: var(--gray-800); transition: all 0.1s; }
+    .game-2048-cell.v0 { background: var(--gray-100); color: transparent; }
+    .game-2048-cell.v2 { background: #eee4da; color: #776e65; }
+    .game-2048-cell.v4 { background: #ede0c8; color: #776e65; }
+    .game-2048-cell.v8 { background: #f2b179; color: #f9f6f2; }
+    .game-2048-cell.v16 { background: #f59563; color: #f9f6f2; }
+    .game-2048-cell.v32 { background: #f67c5f; color: #f9f6f2; }
+    .game-2048-cell.v64 { background: #f65e3b; color: #f9f6f2; }
+    .game-2048-cell.v128 { background: #edcf72; color: #f9f6f2; font-size: 14px; }
+    .game-2048-cell.v256 { background: #edcc61; color: #f9f6f2; font-size: 14px; }
+    .game-2048-cell.v512 { background: #edc850; color: #f9f6f2; font-size: 14px; }
+    .game-2048-cell.v1024 { background: #edc53f; color: #f9f6f2; font-size: 12px; }
+    .game-2048-cell.v2048 { background: #edc22e; color: #f9f6f2; font-size: 12px; }
+    .game-2048-msg { text-align: center; margin-top: 8px; font-size: 14px; font-weight: 700; color: var(--green); }
+
+    /* ─── Dino Runner ── */
+    .game-dino { background: var(--gray-100); border-radius: var(--radius-md); padding: 12px; text-align: center; }
+    .game-dino-hud { font-size: 12px; font-weight: 600; color: var(--gray-600); margin-bottom: 6px; }
+    .game-dino-canvas { border-radius: 8px; width: 100%; max-width: 400px; cursor: pointer; }
+
+    /* ─── Game Picker ── */
+    .game-picker { margin-top: 16px; }
+    .game-picker-title { font-size: 13px; font-weight: 600; color: var(--gray-600); text-align: center; margin-bottom: 10px; }
+    .game-picker-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .game-picker-card { background: var(--gray-100); border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 14px 10px; cursor: pointer; text-align: center; font-family: var(--font-sans); transition: all 0.15s; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .game-picker-card:hover { border-color: var(--green); background: var(--green-light); }
+    .game-picker-icon { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; color: var(--green); }
+    .game-picker-icon svg { width: 24px; height: 24px; }
+    .game-picker-name { font-size: 13px; font-weight: 600; color: var(--gray-800); }
+    .game-picker-desc { font-size: 11px; color: var(--gray-400); }
+    .game-picker-area { min-height: 50px; }
   </style>
   <script src="../pdf.worker.min.js"></script>
   <script src="pdf.min.js"></script>
@@ -2090,8 +2194,11 @@
               <div class="tip-carousel-text" id="tipCarouselText">Your data never leaves your device &mdash; all AI processing happens locally.</div>
             </div>
           </div>
+
+          <!-- Game picker container (shown during resume parsing) -->
+          <div id="parseGameContainer" class="game-container" style="display:none;"></div>
           
-          <a class="skip-link" id="skipUploadBtn">Skip for now</a>
+          <!-- Resume upload is required — no skip option -->
         </div>
         
         <div class="button-group" style="margin-top: 24px;">
@@ -2106,175 +2213,137 @@
         </div>
       </div>
       
-      <!-- Step 1: Ollama AI Setup -->
+      <!-- Step 1: Ollama AI Setup (one-click redesign) -->
       <div id="step-ollama" class="step active">
         <div class="content-card">
           <h2 class="step-title">Supercharge Your Applications with Local AI</h2>
           <p class="step-subtitle">Offlyn uses on-device AI — your data never leaves your computer.</p>
-          <p style="font-size:13px;color:#475569;margin:0 0 16px;line-height:1.6;">We believe AI should work for you privately. Offlyn runs AI models directly on your device so your resume, work history, and personal info stay 100% yours. Once downloaded, the model runs fully offline — no data is ever sent to a server and there is no per-query cost.</p>
 
-          <!-- State: Checking -->
-          <div id="ollamaChecking" class="ollama-state active">
-            <div class="ollama-spinner-wrap">
-              <div class="ollama-spinner"></div>
-              <span>Testing connection to Ollama...</span>
+          <!-- Success banner (hidden until models pulled) -->
+          <div id="ollamaSuccessBanner" style="display:none;text-align:center;padding:24px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;margin-bottom:16px;animation:fadeInBanner 0.3s ease;">
+            <div style="width:48px;height:48px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <h3 style="font-size:16px;font-weight:600;color:#15803d;margin-bottom:4px;">AI is ready on your device</h3>
+            <p style="font-size:13px;color:#6b7280;margin:0;">Ollama running with llama3.2 and nomic-embed-text — everything stays local.</p>
+          </div>
+
+          <!-- Download button area (visible initially) -->
+          <div id="ollamaDownloadArea" style="text-align:center;margin-bottom:24px;">
+            <button id="btnOllamaDownload" style="display:inline-flex;align-items:center;gap:14px;background:#000;color:#fff;border:none;border-radius:10px;padding:16px 36px;font-size:16px;font-weight:600;cursor:pointer;font-family:var(--font-sans);transition:all 0.2s;">
+              <span style="width:32px;height:32px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;">
+                <svg fill="#000" fill-rule="evenodd" height="20" viewBox="0 0 24 24" width="20" xmlns="http://www.w3.org/2000/svg"><path d="M7.905 1.09c.216.085.411.225.588.41.295.306.544.744.734 1.263.191.522.315 1.1.362 1.68a5.054 5.054 0 012.049-.636l.051-.004c.87-.07 1.73.087 2.48.474.101.053.2.11.297.17.05-.569.172-1.134.36-1.644.19-.52.439-.957.733-1.264a1.67 1.67 0 01.589-.41c.257-.1.53-.118.796-.042.401.114.745.368 1.016.737.248.337.434.769.561 1.287.23.934.27 2.163.115 3.645l.053.04.026.019c.757.576 1.284 1.397 1.563 2.35.435 1.487.216 3.155-.534 4.088l-.018.021.002.003c.417.762.67 1.567.724 2.4l.002.03c.064 1.065-.2 2.137-.814 3.19l-.007.01.01.024c.472 1.157.62 2.322.438 3.486l-.006.039a.651.651 0 01-.747.536.648.648 0 01-.54-.742c.167-1.033.01-2.069-.48-3.123a.643.643 0 01.04-.617l.004-.006c.604-.924.854-1.83.8-2.72-.046-.779-.325-1.544-.8-2.273a.644.644 0 01.18-.886l.009-.006c.243-.159.467-.565.58-1.12a4.229 4.229 0 00-.095-1.974c-.205-.7-.58-1.284-1.105-1.683-.595-.454-1.383-.673-2.38-.61a.653.653 0 01-.632-.371c-.314-.665-.772-1.141-1.343-1.436a3.288 3.288 0 00-1.772-.332c-1.245.099-2.343.801-2.67 1.686a.652.652 0 01-.61.425c-1.067.002-1.893.252-2.497.703-.522.39-.878.935-1.066 1.588a4.07 4.07 0 00-.068 1.886c.112.558.331 1.02.582 1.269l.008.007c.212.207.257.53.109.785-.36.622-.629 1.549-.673 2.44-.05 1.018.186 1.902.719 2.536l.016.019a.643.643 0 01.095.69c-.576 1.236-.753 2.252-.562 3.052a.652.652 0 01-1.269.298c-.243-1.018-.078-2.184.473-3.498l.014-.035-.008-.012a4.339 4.339 0 01-.598-1.309l-.005-.019a5.764 5.764 0 01-.177-1.785c.044-.91.278-1.842.622-2.59l.012-.026-.002-.002c-.293-.418-.51-.953-.63-1.545l-.005-.024a5.352 5.352 0 01.093-2.49c.262-.915.777-1.701 1.536-2.269.06-.045.123-.09.186-.132-.159-1.493-.119-2.73.112-3.67.127-.518.314-.95.562-1.287.27-.368.614-.622 1.015-.737.266-.076.54-.059.797.042zm4.116 9.09c.936 0 1.8.313 2.446.855.63.527 1.005 1.235 1.005 1.94 0 .888-.406 1.58-1.133 2.022-.62.375-1.451.557-2.403.557-1.009 0-1.871-.259-2.493-.734-.617-.47-.963-1.13-.963-1.845 0-.707.398-1.417 1.056-1.946.668-.537 1.55-.849 2.485-.849zm0 .896a3.07 3.07 0 00-1.916.65c-.461.37-.722.835-.722 1.25 0 .428.21.829.61 1.134.455.347 1.124.548 1.943.548.799 0 1.473-.147 1.932-.426.463-.28.7-.686.7-1.257 0-.423-.246-.89-.683-1.256-.484-.405-1.14-.643-1.864-.643zm.662 1.21l.004.004c.12.151.095.37-.056.49l-.292.23v.446a.375.375 0 01-.376.373.375.375 0 01-.376-.373v-.46l-.271-.218a.347.347 0 01-.052-.49.353.353 0 01.494-.051l.215.172.22-.174a.353.353 0 01.49.051zm-5.04-1.919c.478 0 .867.39.867.871a.87.87 0 01-.868.871.87.87 0 01-.867-.87.87.87 0 01.867-.872zm8.706 0c.48 0 .868.39.868.871a.87.87 0 01-.868.871.87.87 0 01-.867-.87.87.87 0 01.867-.872zM7.44 2.3l-.003.002a.659.659 0 00-.285.238l-.005.006c-.138.189-.258.467-.348.832-.17.692-.216 1.631-.124 2.782.43-.128.899-.208 1.404-.237l.01-.001.019-.034c.046-.082.095-.161.148-.239.123-.771.022-1.692-.253-2.444-.134-.364-.297-.65-.453-.813a.628.628 0 00-.107-.09L7.44 2.3zm9.174.04l-.002.001a.628.628 0 00-.107.09c-.156.163-.32.45-.453.814-.29.794-.387 1.776-.23 2.572l.058.097.008.014h.03a5.184 5.184 0 011.466.212c.086-1.124.038-2.043-.128-2.722-.09-.365-.21-.643-.349-.832l-.004-.006a.659.659 0 00-.285-.239h-.004z"></path></svg>
+              </span>
+              Download Ollama <span id="ollamaOsLabel" style="font-weight:400;opacity:0.6;font-size:13px;">(macOS)</span>
+            </button>
+            <p style="margin-top:10px;font-size:12px;color:var(--gray-400);">Free &middot; ~300 MB &middot; Takes under a minute</p>
+            <button id="btnAlreadyHaveOllama" style="display:inline-block;margin-top:10px;font-size:12px;color:var(--green);cursor:pointer;background:none;border:none;font-family:var(--font-sans);text-decoration:underline;text-underline-offset:2px;">I already have Ollama installed</button>
+          </div>
+
+          <!-- Progress bar (hidden until install starts) -->
+          <div id="ollamaProgressSection" style="display:none;margin-bottom:24px;">
+            <div style="background:var(--gray-200);border-radius:20px;height:8px;overflow:hidden;margin-bottom:8px;">
+              <div id="ollamaProgressFill" style="height:100%;width:0%;background:linear-gradient(90deg,var(--green),var(--green-mid));border-radius:20px;transition:width 0.4s ease;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;">
+              <span id="ollamaProgressLabel" style="color:var(--gray-600);">Waiting for Ollama...</span>
+              <span id="ollamaProgressPct" style="color:var(--green);font-weight:600;"></span>
+            </div>
+            <button id="ollamaCancelPolling" style="display:none;margin-top:10px;font-size:12px;color:var(--gray-500);cursor:pointer;background:none;border:none;font-family:var(--font-sans);text-decoration:underline;">← Go back to download</button>
+          </div>
+
+          <!-- Privacy notice (always visible) -->
+          <div class="ollama-privacy-notice">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span><strong>100% Private</strong> — All AI processing happens on your device. No data is sent to external servers.</span>
+          </div>
+
+          <!-- Mini tutorial (shows during install) -->
+          <div id="ollamaMiniTutorial" style="display:none;margin-top:20px;">
+            <h3 style="font-family:var(--font-serif);font-size:15px;font-weight:500;color:var(--gray-600);margin-bottom:14px;text-align:center;">While you wait — here's what you're unlocking</h3>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div style="background:var(--gray-100);border-radius:10px;padding:18px 16px;">
+                <div style="width:32px;height:32px;border-radius:8px;background:var(--green-light);display:flex;align-items:center;justify-content:center;margin-bottom:10px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </div>
+                <h4 style="font-size:13px;font-weight:600;margin-bottom:4px;">AI Resume Parsing</h4>
+                <p style="font-size:12px;color:var(--gray-600);line-height:1.5;margin:0;">Upload your resume and AI extracts all your details automatically</p>
+              </div>
+              <div style="background:var(--gray-100);border-radius:10px;padding:18px 16px;">
+                <div style="width:32px;height:32px;border-radius:8px;background:var(--green-light);display:flex;align-items:center;justify-content:center;margin-bottom:10px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <h4 style="font-size:13px;font-weight:600;margin-bottom:4px;">One-Click Auto-Fill</h4>
+                <p style="font-size:12px;color:var(--gray-600);line-height:1.5;margin:0;">Fill any job application form from Workday to Greenhouse</p>
+              </div>
+              <div style="background:var(--gray-100);border-radius:10px;padding:18px 16px;">
+                <div style="width:32px;height:32px;border-radius:8px;background:var(--green-light);display:flex;align-items:center;justify-content:center;margin-bottom:10px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </div>
+                <h4 style="font-size:13px;font-weight:600;margin-bottom:4px;">AI Cover Letters</h4>
+                <p style="font-size:12px;color:var(--gray-600);line-height:1.5;margin:0;">Tailored to each job description, generated 100% locally</p>
+              </div>
+              <div style="background:var(--gray-100);border-radius:10px;padding:18px 16px;">
+                <div style="width:32px;height:32px;border-radius:8px;background:var(--green-light);display:flex;align-items:center;justify-content:center;margin-bottom:10px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </div>
+                <h4 style="font-size:13px;font-weight:600;margin-bottom:4px;">Smart Job Search</h4>
+                <p style="font-size:12px;color:var(--gray-600);line-height:1.5;margin:0;">Find matching jobs across multiple boards in one place</p>
+              </div>
             </div>
           </div>
 
-          <!-- State: Connected -->
-          <div id="ollamaConnected" class="ollama-state">
-            <div class="ollama-status-card success" id="ollamaConnectedCard">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              <div class="ollama-status-body">
-                <h3>Ollama Connected</h3>
-                <p class="ollama-status-meta">
-                  Version: <span id="ollamaVersion">–</span><br>
-                  Endpoint: <span id="ollamaEndpoint">http://localhost:11434</span><br>
-                  Model: <span id="ollamaModel">llama3.2</span>
-                </p>
+          <!-- Trivia game container (shown during model download) -->
+          <div id="triviaGameContainer" class="game-container" style="display:none;"></div>
+
+          <!-- Advanced setup fallback (collapsible, holds the old native helper flow) -->
+          <details id="ollamaAdvancedFallback" style="display:none;margin-top:16px;">
+            <summary style="cursor:pointer;font-size:12px;color:var(--gray-400);text-decoration:underline;text-underline-offset:2px;list-style:none;text-align:center;">Having trouble? Advanced setup</summary>
+            <div style="margin-top:12px;padding:16px;background:var(--gray-100);border-radius:10px;">
+              <!-- Sub-state A: helper not installed -->
+              <div id="helperNotInstalled" class="ollama-setup-substate">
+                <div class="setup-oneliner-card">
+                  <h3 style="font-size:14px;font-weight:700;color:#1e2a3a;margin-bottom:6px;">Step 1 of 2 — Install the Offlyn Helper (one-time)</h3>
+                  <div id="helperInstallInstructions"></div>
+                  <p style="font-size:12px;color:#64748b;margin-bottom:14px;">After the installer finishes, come back and click below.</p>
+                  <button class="btn btn-secondary" id="checkHelperBtn" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:8px 16px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    I Installed It — Check Again
+                  </button>
+                  <p id="helperErrorHint" style="font-size:11px;color:#dc2626;margin-top:8px;word-break:break-word;"></p>
+                </div>
               </div>
-            </div>
-
-            <!-- CORS Warning — shown when Ollama reachable but origin is blocked -->
-            <div class="ollama-cors-warning" id="ollamaCorsWarning">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              <div style="flex:1;">
-                <h4>CORS Blocked — AI calls will fail</h4>
-                <p style="margin-bottom:12px;">Ollama is running but blocking requests from this extension. Click below to fix it automatically — no terminal needed.</p>
-
-                <button class="btn btn-primary" id="runCorsFixBtn" style="display:inline-flex;align-items:center;gap:8px;font-size:13px;padding:9px 16px;margin-bottom:10px;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                  Fix CORS Automatically
-                </button>
-
-                <!-- Reuses the same progress log element -->
-                <div id="corsFixProgressLog" style="display:none;margin-top:8px;background:#0f1117;border-radius:8px;padding:12px 14px;max-height:160px;overflow-y:auto;font-family:monospace;font-size:12px;color:#a3e635;line-height:1.6;"></div>
-
-                <button class="btn btn-secondary" id="retestAfterCorsBtn" style="font-size:13px;padding:8px 14px;display:inline-flex;align-items:center;gap:6px;margin-top:10px;">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                  Re-test Connection
-                </button>
-
-                <details style="margin-top:12px;">
-                  <summary style="cursor:pointer;font-size:12px;font-weight:600;color:#92400e;list-style:none;">▶ Manual fix (advanced)</summary>
-                  <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px;">
-                    <div>
-                      <p style="font-size:12px;color:#78350f;margin-bottom:5px;"><strong>macOS / Linux</strong> — permanent fix:</p>
-                      <div class="cors-fix-cmd"><code>echo 'export OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*"' &gt;&gt; ~/.zshrc &amp;&amp; source ~/.zshrc</code><button class="btn-copy-cmd" data-copy='echo '"'"'export OLLAMA_ORIGINS="chrome-extension://*,moz-extension://*"'"'"' >> ~/.zshrc && source ~/.zshrc'>Copy</button></div>
-                    </div>
-                    <div>
-                      <p style="font-size:12px;color:#78350f;margin-bottom:5px;"><strong>Windows (PowerShell)</strong>:</p>
-                      <div class="cors-fix-cmd"><code>[System.Environment]::SetEnvironmentVariable('OLLAMA_ORIGINS','chrome-extension://*,moz-extension://*','User')</code><button class="btn-copy-cmd" data-copy="[System.Environment]::SetEnvironmentVariable('OLLAMA_ORIGINS','chrome-extension://*,moz-extension://*','User')">Copy</button></div>
-                    </div>
+              <!-- Sub-state B: helper installed, ready to run setup -->
+              <div id="helperInstalled" class="ollama-setup-substate" style="display:none;">
+                <div class="setup-oneliner-card" style="border-color:#22c55e20;background:#f0fdf4;">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span style="font-size:13px;font-weight:600;color:#15803d;">Offlyn Helper ready</span>
                   </div>
-                </details>
+                  <h3 style="font-size:14px;font-weight:700;color:#1e2a3a;margin-bottom:6px;">Step 2 of 2 — Install AI</h3>
+                  <p style="font-size:13px;color:#475569;margin-bottom:8px;">One click installs everything — Ollama, the AI models, and CORS config.</p>
+                  <button class="btn btn-primary" id="runSetupBtn" style="display:inline-flex;align-items:center;gap:8px;font-size:14px;padding:10px 20px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    Install AI (Free, ~2.5 GB)
+                  </button>
+                </div>
+                <div id="setupProgressLog" style="display:none;margin-top:12px;background:#0f1117;border-radius:8px;padding:12px 14px;max-height:220px;overflow-y:auto;font-family:monospace;font-size:12px;color:#a3e635;line-height:1.6;"></div>
               </div>
-            </div>
-
-            <div class="ollama-privacy-notice">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              <span><strong>100% Private</strong> — All AI processing happens on your device. No data is sent to external servers.</span>
-            </div>
-
-            <details class="ollama-advanced" id="ollamaAdvanced">
-              <summary>Advanced Configuration</summary>
-              <div class="adv-body">
-                <div class="form-group">
-                  <label class="profile-label">Custom Ollama Endpoint</label>
-                  <input type="url" id="customOllamaEndpoint" class="profile-input" value="http://localhost:11434" placeholder="http://localhost:11434">
-                  <small style="font-size:12px;color:#94a3b8;margin-top:4px;display:block;">Change only if running Ollama on a custom port or remote server</small>
-                </div>
-                <div class="form-group">
-                  <label class="profile-label">Chat Model</label>
-                  <input type="text" id="customChatModel" class="profile-input" value="llama3.2" placeholder="llama3.2">
-                  <small style="font-size:12px;color:#94a3b8;margin-top:4px;display:block;">e.g. <code>llama3.2</code>, <code>llama3.2:1b</code>, <code>mistral</code></small>
-                </div>
-                <div class="form-group">
-                  <label class="profile-label">Embedding Model</label>
-                  <input type="text" id="customEmbeddingModel" class="profile-input" value="nomic-embed-text" placeholder="nomic-embed-text">
-                  <small style="font-size:12px;color:#94a3b8;margin-top:4px;display:block;">Used for semantic search and smart matching</small>
-                </div>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                  <button class="btn btn-secondary" id="testCustomEndpointBtn" style="flex:1;min-width:140px;">Test Custom Config</button>
-                  <button class="btn" id="resetOllamaDefaultsBtn" style="flex:1;min-width:100px;background:#f9fafb;border:1px solid #e5e7eb;color:#6b7280;">Reset to Default</button>
-                </div>
-                <div id="advTestResult" class="adv-test-result"></div>
-              </div>
-            </details>
-          </div>
-
-          <!-- State: Not Installed -->
-          <div id="ollamaNotInstalled" class="ollama-state">
-            <div class="ollama-status-card error">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              <div class="ollama-status-body">
-                <h3>Ollama Not Detected</h3>
-                <p class="ollama-status-meta">Ollama enables AI-powered resume parsing, cover letter generation, and smart field suggestions — running 100% on your device.</p>
-              </div>
-            </div>
-
-            <!-- Sub-state A: helper not installed -->
-            <div id="helperNotInstalled" class="ollama-setup-substate">
-              <div class="setup-oneliner-card">
-                <h3 style="font-size:14px;font-weight:700;color:#1e2a3a;margin-bottom:6px;">Step 1 of 2 — Install the Offlyn Helper (one-time)</h3>
-                <div id="helperInstallInstructions"></div>
-
-                <p style="font-size:12px;color:#64748b;margin-bottom:14px;">
-                  After the installer finishes, come back and click below.
-                </p>
-
-                <button class="btn btn-secondary" id="checkHelperBtn" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:8px 16px;">
+              <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <button class="btn btn-secondary" id="retryOllamaBtn" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:8px 16px;">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                  I Installed It — Check Again
+                  Test Connection
                 </button>
-                <p id="helperErrorHint" style="font-size:11px;color:#dc2626;margin-top:8px;word-break:break-word;"></p>
+                <a href="#" id="showTroubleshootingBtn" style="font-size:13px;color:#558b2f;text-decoration:none;">Manual setup / Troubleshooting &rarr;</a>
               </div>
             </div>
-
-            <!-- Sub-state B: helper installed, ready to run setup -->
-            <div id="helperInstalled" class="ollama-setup-substate" style="display:none;">
-              <div class="setup-oneliner-card" style="border-color:#22c55e20;background:#f0fdf4;">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span style="font-size:13px;font-weight:600;color:#15803d;">Offlyn Helper ready</span>
-                </div>
-                <h3 style="font-size:14px;font-weight:700;color:#1e2a3a;margin-bottom:6px;">Step 2 of 2 — Install AI</h3>
-                <p style="font-size:13px;color:#475569;margin-bottom:8px;">One click installs everything — Ollama, the AI models, and CORS config. Takes about 5 minutes depending on your connection.</p>
-                <details style="margin-bottom:12px;">
-                  <summary style="font-size:12px;color:#64748b;cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:4px;">▶ How does this work?</summary>
-                  <p style="font-size:12px;color:#64748b;margin:6px 0 0;line-height:1.6;">The Offlyn Helper runs a setup script that downloads <strong>Ollama</strong> (the AI runtime) and pulls two models: <code>llama3.2</code> for text understanding and <code>nomic-embed-text</code> for semantic search. Everything runs locally — no cloud, no account needed.</p>
-                </details>
-                <button class="btn btn-primary" id="runSetupBtn" style="display:inline-flex;align-items:center;gap:8px;font-size:14px;padding:10px 20px;">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                  Install AI (Free, ~2.5 GB)
-                </button>
-              </div>
-
-              <!-- Live progress log (hidden until setup starts) -->
-              <div id="setupProgressLog" style="display:none;margin-top:12px;background:#0f1117;border-radius:8px;padding:12px 14px;max-height:220px;overflow-y:auto;font-family:monospace;font-size:12px;color:#a3e635;line-height:1.6;"></div>
-            </div>
-
-            <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-              <button class="btn btn-secondary" id="retryOllamaBtn" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:8px 16px;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                Test Connection
-              </button>
-              <a href="#" id="showTroubleshootingBtn" style="font-size:13px;color:#558b2f;text-decoration:none;">Manual setup / Troubleshooting →</a>
-            </div>
-          </div>
+          </details>
         </div>
 
         <div class="button-group" style="margin-top:24px;">
-          <button id="backFromOllamaBtn" class="btn btn-secondary" style="display:none;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-            Back
-          </button>
-          <button id="continueWithOllamaBtn" class="btn btn-primary" style="display:none;">
+          <button id="continueWithOllamaBtn" class="btn btn-primary" style="flex:1;" disabled>
             Continue with AI Features
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-          <button id="skipOllamaBtn" class="btn btn-secondary" style="display:none;">
-            Skip AI Features
           </button>
         </div>
         <p id="ollamaErrorMsg" style="display:none; color:#ef4444; font-size:13px; margin-top:10px;"></p>
@@ -2409,25 +2478,25 @@
               <div class="form-group narrow">
                 <label class="profile-label">Country Code <span class="required">*</span></label>
                 <select id="piPhoneCountryCode" name="phoneCountryCode" class="profile-input" required>
-                  <option value="+1">🇺🇸 United States (+1)</option>
-                  <option value="+1-CA">🇨🇦 Canada (+1)</option>
-                  <option value="+44">🇬🇧 United Kingdom (+44)</option>
-                  <option value="+91">🇮🇳 India (+91)</option>
-                  <option value="+86">🇨🇳 China (+86)</option>
-                  <option value="+81">🇯🇵 Japan (+81)</option>
-                  <option value="+49">🇩🇪 Germany (+49)</option>
-                  <option value="+33">🇫🇷 France (+33)</option>
-                  <option value="+61">🇦🇺 Australia (+61)</option>
-                  <option value="+55">🇧🇷 Brazil (+55)</option>
-                  <option value="+52">🇲🇽 Mexico (+52)</option>
-                  <option value="+65">🇸🇬 Singapore (+65)</option>
-                  <option value="+82">🇰🇷 South Korea (+82)</option>
-                  <option value="+34">🇪🇸 Spain (+34)</option>
-                  <option value="+39">🇮🇹 Italy (+39)</option>
-                  <option value="+31">🇳🇱 Netherlands (+31)</option>
-                  <option value="+46">🇸🇪 Sweden (+46)</option>
-                  <option value="+41">🇨🇭 Switzerland (+41)</option>
-                  <option value="+971">🇦🇪 UAE (+971)</option>
+                  <option value="+1">United States (+1)</option>
+                  <option value="+1-CA">Canada (+1)</option>
+                  <option value="+44">United Kingdom (+44)</option>
+                  <option value="+91">India (+91)</option>
+                  <option value="+86">China (+86)</option>
+                  <option value="+81">Japan (+81)</option>
+                  <option value="+49">Germany (+49)</option>
+                  <option value="+33">France (+33)</option>
+                  <option value="+61">Australia (+61)</option>
+                  <option value="+55">Brazil (+55)</option>
+                  <option value="+52">Mexico (+52)</option>
+                  <option value="+65">Singapore (+65)</option>
+                  <option value="+82">South Korea (+82)</option>
+                  <option value="+34">Spain (+34)</option>
+                  <option value="+39">Italy (+39)</option>
+                  <option value="+31">Netherlands (+31)</option>
+                  <option value="+46">Sweden (+46)</option>
+                  <option value="+41">Switzerland (+41)</option>
+                  <option value="+971">UAE (+971)</option>
                   <option value="+other">Other</option>
                 </select>
               </div>

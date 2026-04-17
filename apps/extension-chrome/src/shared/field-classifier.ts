@@ -381,17 +381,29 @@ Rules:
 
 async function classifyWithLLM(label: string): Promise<ClassificationResult | null> {
   try {
-    // Dynamic import to keep this module usable in tests without browser globals
-    const { ollama } = await import('./ollama-client');
-    if (!ollama) return null;
+    const b = (globalThis as any).chrome ?? (globalThis as any).browser;
+    if (!b?.runtime?.sendMessage) return null;
 
-    const raw = await (ollama as any).chat([
-      { role: 'system', content: LLM_CLASSIFY_SYSTEM },
-      { role: 'user',   content: `Field label: "${label}"` },
-    ], { temperature: 0, timeout: 5000 });
+    const resp = await b.runtime.sendMessage({
+      kind: 'OLLAMA_PROXY',
+      method: 'POST',
+      path: '/v1/chat/completions',
+      body: {
+        model: 'llama3.2',
+        messages: [
+          { role: 'system', content: LLM_CLASSIFY_SYSTEM },
+          { role: 'user',   content: `Field label: "${label}"` },
+        ],
+        stream: false,
+        temperature: 0,
+      },
+    });
 
-    if (!raw) return null;
-    const parsed = JSON.parse(raw.trim());
+    if (!resp?.ok) return null;
+    const content = resp.data?.choices?.[0]?.message?.content;
+    if (!content) return null;
+
+    const parsed = JSON.parse(content.trim());
     if (typeof parsed !== 'object' || !parsed.promptType) return null;
 
     return {

@@ -1,5 +1,6 @@
 /**
- * Ollama service for intelligent field analysis and matching
+ * Ollama service for intelligent field analysis and matching.
+ * All calls route through the background script via OLLAMA_PROXY to avoid CORS.
  */
 
 export interface OllamaResponse {
@@ -16,7 +17,19 @@ export interface EmbeddingResponse {
   embedding: number[];
 }
 
-const OLLAMA_BASE_URL = 'http://localhost:11434';
+const getBrowser = () => (globalThis as any).chrome ?? (globalThis as any).browser;
+
+async function ollamaProxy(method: string, path: string, body?: any): Promise<any> {
+  const b = getBrowser();
+  if (!b?.runtime?.sendMessage) {
+    throw new Error('Extension runtime not available');
+  }
+  const resp = await b.runtime.sendMessage({ kind: 'OLLAMA_PROXY', method, path, body });
+  if (!resp?.ok) {
+    throw new Error(resp?.error || `Ollama request failed: ${method} ${path}`);
+  }
+  return resp.data;
+}
 
 /**
  * Check if Ollama is available.
@@ -24,16 +37,12 @@ const OLLAMA_BASE_URL = 'http://localhost:11434';
  */
 export async function checkOllamaConnection(): Promise<boolean> {
   try {
-    const browser = (globalThis as any).chrome ?? (globalThis as any).browser;
-    if (browser?.runtime?.sendMessage) {
-      const resp = await browser.runtime.sendMessage({ kind: 'CHECK_OLLAMA' });
+    const b = getBrowser();
+    if (b?.runtime?.sendMessage) {
+      const resp = await b.runtime.sendMessage({ kind: 'CHECK_OLLAMA' });
       return !!resp?.connected;
     }
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    });
-    return response.ok;
+    return false;
   } catch (err) {
     console.warn('Ollama not available:', err);
     return false;
@@ -48,24 +57,13 @@ export async function analyzeFieldsWithOllama(
   model: string = 'llama3.2'
 ): Promise<OllamaResponse | null> {
   try {
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        prompt,
-        stream: false,
-        format: 'json'
-      })
+    const data = await ollamaProxy('POST', '/api/generate', {
+      model,
+      prompt,
+      stream: false,
+      format: 'json',
     });
 
-    if (!response.ok) {
-      throw new Error(`Ollama API error: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    
-    // Parse the JSON response from Ollama
     try {
       const parsed = JSON.parse(data.response);
       return parsed;
@@ -87,20 +85,10 @@ export async function getEmbedding(
   model: string = 'nomic-embed-text'
 ): Promise<number[] | null> {
   try {
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/embeddings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        prompt: text
-      })
+    const data: EmbeddingResponse = await ollamaProxy('POST', '/api/embeddings', {
+      model,
+      prompt: text,
     });
-
-    if (!response.ok) {
-      throw new Error(`Ollama embeddings API error: ${response.statusText}`);
-    }
-
-    const data: EmbeddingResponse = await response.json();
     return data.embedding;
   } catch (err) {
     console.error('Error getting embedding:', err);
@@ -284,50 +272,15 @@ Respond with ONLY the value, nothing else. No quotes, no explanation, no preambl
   }
 
   try {
-    const useStreaming = typeof onChunk === 'function';
-
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'llama3.2',
-        prompt,
-        stream: useStreaming
-      })
+    // Content scripts cannot stream via fetch to localhost (CORS), so use
+    // the non-streaming proxy path and skip onChunk for now.
+    const data = await ollamaProxy('POST', '/api/generate', {
+      model: 'llama3.2',
+      prompt,
+      stream: false,
     });
 
-    if (!response.ok) return null;
-
-    let value: string;
-
-    if (useStreaming && response.body) {
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulated = '';
-
-      while (true) {
-        const { done, value: chunk } = await reader.read();
-        if (done) break;
-
-        const text = decoder.decode(chunk, { stream: true });
-        for (const line of text.split('\n').filter(Boolean)) {
-          try {
-            const obj = JSON.parse(line);
-            if (obj.response) {
-              accumulated += obj.response;
-              // Stream the raw partial so the caller can show live progress;
-              // full cleanup happens after generation finishes.
-              onChunk!(accumulated);
-            }
-          } catch { /* partial JSON — ignore */ }
-        }
-      }
-
-      value = accumulated.trim();
-    } else {
-      const data = await response.json();
-      value = data.response?.trim() || '';
-    }
+    let value: string = data?.response?.trim() || '';
 
     if (value === 'UNKNOWN' || !value) return null;
 

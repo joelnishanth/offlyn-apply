@@ -15,6 +15,7 @@ import { setHTML, clearEl } from '../shared/html';
 import { classifyParseError } from '../shared/error-classify';
 import { extractPagesText } from '../shared/pdf-extract';
 import mammoth from 'mammoth';
+import { mountTriviaGame, destroyTriviaGame, mountGamePicker, destroyGamePicker, destroyAllGames } from './games';
 
 // PDF.js is loaded via CDN in the HTML
 declare const pdfjsLib: any;
@@ -390,94 +391,212 @@ function hideStatus(): void {
   }
 }
 
-// ── Ollama Setup Step ──────────────────────────────────────────────────────
+// ── Ollama Setup Step (one-click redesign) ─────────────────────────────────
 
-type OllamaUIState = 'checking' | 'connected' | 'not-installed';
+type OllamaSetupState = 'welcome' | 'installing' | 'ready';
 
-function showOllamaUIState(state: OllamaUIState): void {
-  (['checking', 'connected', 'not-installed'] as OllamaUIState[]).forEach(s => {
-    const id = s === 'not-installed' ? 'ollamaNotInstalled' : s === 'checking' ? 'ollamaChecking' : 'ollamaConnected';
-    document.getElementById(id)?.classList.toggle('active', s === state);
-  });
+let ollamaPollingTimer: ReturnType<typeof setInterval> | null = null;
+let ollamaPollingStartTime = 0;
 
-  // Show/hide action buttons depending on state
+function showOllamaSetupState(state: OllamaSetupState): void {
+  const downloadArea = document.getElementById('ollamaDownloadArea');
+  const progressSection = document.getElementById('ollamaProgressSection');
+  const miniTutorial = document.getElementById('ollamaMiniTutorial');
+  const successBanner = document.getElementById('ollamaSuccessBanner');
+  const advancedFallback = document.getElementById('ollamaAdvancedFallback');
   const continueBtn = document.getElementById('continueWithOllamaBtn') as HTMLButtonElement | null;
-  const skipBtn = document.getElementById('skipOllamaBtn') as HTMLButtonElement | null;
 
-  if (continueBtn) continueBtn.style.display = state === 'connected' ? '' : 'none';
-  if (skipBtn) skipBtn.style.display = state !== 'checking' ? '' : 'none';
+  const triviaContainer = document.getElementById('triviaGameContainer');
+
+  if (state === 'welcome') {
+    if (downloadArea) downloadArea.style.display = '';
+    if (progressSection) progressSection.style.display = 'none';
+    if (miniTutorial) miniTutorial.style.display = 'none';
+    if (successBanner) successBanner.style.display = 'none';
+    if (advancedFallback) advancedFallback.style.display = 'none';
+    if (continueBtn) continueBtn.disabled = true;
+    destroyTriviaGame();
+    if (triviaContainer) triviaContainer.style.display = 'none';
+  } else if (state === 'installing') {
+    if (downloadArea) downloadArea.style.display = 'none';
+    if (progressSection) progressSection.style.display = '';
+    if (miniTutorial) miniTutorial.style.display = '';
+    if (successBanner) successBanner.style.display = 'none';
+    if (advancedFallback) advancedFallback.style.display = '';
+    if (continueBtn) continueBtn.disabled = true;
+    if (triviaContainer) { triviaContainer.style.display = ''; mountTriviaGame(triviaContainer); }
+  } else if (state === 'ready') {
+    if (downloadArea) downloadArea.style.display = 'none';
+    if (progressSection) progressSection.style.display = 'none';
+    if (miniTutorial) miniTutorial.style.display = 'none';
+    if (successBanner) successBanner.style.display = '';
+    if (advancedFallback) advancedFallback.style.display = 'none';
+    if (continueBtn) continueBtn.disabled = false;
+    destroyTriviaGame();
+    if (triviaContainer) triviaContainer.style.display = 'none';
+  }
+}
+
+function setProgressPolling(): void {
+  const fill = document.getElementById('ollamaProgressFill');
+  const label = document.getElementById('ollamaProgressLabel');
+  const pct = document.getElementById('ollamaProgressPct');
+  if (fill) { fill.classList.add('ollama-progress-polling'); fill.style.width = ''; }
+  if (label) label.textContent = 'Waiting for Ollama installation...';
+  if (pct) pct.textContent = '';
+}
+
+function setProgressReal(percent: number, labelText: string): void {
+  const fill = document.getElementById('ollamaProgressFill');
+  const label = document.getElementById('ollamaProgressLabel');
+  const pct = document.getElementById('ollamaProgressPct');
+  if (fill) { fill.classList.remove('ollama-progress-polling'); fill.style.width = `${percent}%`; }
+  if (label) label.textContent = labelText;
+  if (pct) pct.textContent = `${Math.round(percent)}%`;
+}
+
+function stopPolling(): void {
+  if (ollamaPollingTimer) {
+    clearInterval(ollamaPollingTimer);
+    ollamaPollingTimer = null;
+  }
+}
+
+async function pullModelsViaPort(): Promise<void> {
+  const config = await getOllamaConfig();
+  const models = [config.chatModel || 'llama3.2', config.embeddingModel || 'nomic-embed-text'];
+  let overallProgress = 0;
+  const modelWeight = 100 / models.length;
+
+  for (let i = 0; i < models.length; i++) {
+    const model = models[i];
+    setProgressReal(overallProgress, `Pulling ${model}...`);
+
+    await new Promise<void>((resolve, reject) => {
+      const port = browser.runtime.connect({ name: 'pull-model' });
+      let settled = false;
+      port.postMessage({ model });
+
+      port.onMessage.addListener((msg: any) => {
+        if (msg.kind === 'progress') {
+          let modelPct = 0;
+          if (msg.total && msg.total > 0) {
+            modelPct = (msg.completed || 0) / msg.total * 100;
+          }
+          const total = overallProgress + (modelPct / 100) * modelWeight;
+          setProgressReal(Math.min(total, 99), `Pulling ${model}... ${msg.status || ''}`);
+        } else if (msg.kind === 'done') {
+          settled = true;
+          overallProgress += modelWeight;
+          setProgressReal(overallProgress, `${model} ready`);
+          port.disconnect();
+          resolve();
+        } else if (msg.kind === 'error') {
+          settled = true;
+          port.disconnect();
+          reject(new Error(msg.error || `Failed to pull ${model}`));
+        }
+      });
+
+      port.onDisconnect.addListener(() => {
+        if (!settled) reject(new Error(`Connection lost while pulling ${model}`));
+      });
+    });
+  }
+}
+
+function startOllamaPolling(): void {
+  stopPolling();
+  ollamaPollingStartTime = Date.now();
+  let pollCount = 0;
+  setProgressPolling();
+
+  const cancelBtn = document.getElementById('ollamaCancelPolling');
+  if (cancelBtn) {
+    cancelBtn.style.display = 'none';
+    cancelBtn.onclick = () => {
+      stopPolling();
+      showOllamaSetupState('welcome');
+    };
+  }
+
+  ollamaPollingTimer = setInterval(async () => {
+    pollCount++;
+    try {
+      const resp = await browser.runtime.sendMessage({ kind: 'CHECK_OLLAMA' }) as { connected?: boolean };
+      if (resp?.connected) {
+        stopPolling();
+        if (cancelBtn) cancelBtn.style.display = 'none';
+        setProgressReal(15, 'Ollama detected! Pulling models...');
+
+        try {
+          await pullModelsViaPort();
+          setProgressReal(100, 'All set!');
+
+          const config = await getOllamaConfig();
+          config.enabled = true;
+          config.lastChecked = Date.now();
+          await saveOllamaConfig(config);
+
+          setTimeout(() => showOllamaSetupState('ready'), 500);
+        } catch (pullErr) {
+          console.error('[Ollama Setup] Model pull failed:', pullErr);
+          setProgressReal(15, `Model pull failed: ${pullErr instanceof Error ? pullErr.message : String(pullErr)}. Retrying...`);
+          setTimeout(() => startOllamaPolling(), 5000);
+        }
+        return;
+      }
+    } catch {
+      // Extension context might be reloading
+    }
+
+    const elapsed = Date.now() - ollamaPollingStartTime;
+    const label = document.getElementById('ollamaProgressLabel');
+
+    if (elapsed > 120_000) {
+      // 2 min — stop polling, show full fallback
+      stopPolling();
+      if (label) label.textContent = 'Ollama not detected. Try the Advanced setup below, or go back to download it.';
+      if (cancelBtn) cancelBtn.style.display = '';
+      const fallback = document.getElementById('ollamaAdvancedFallback');
+      if (fallback) fallback.style.display = '';
+    } else if (elapsed > 30_000) {
+      // 30s — show hints + go-back button
+      if (label) label.textContent = `Still looking for Ollama... Make sure it's running. (check ${pollCount})`;
+      if (cancelBtn) cancelBtn.style.display = '';
+    } else if (elapsed > 9_000) {
+      // 9s — update label so it doesn't feel stuck
+      if (label) label.textContent = `Looking for Ollama... (check ${pollCount})`;
+      if (cancelBtn) cancelBtn.style.display = '';
+    }
+  }, 3000);
 }
 
 async function checkOllamaConnection(): Promise<void> {
-  showOllamaUIState('checking');
   console.log('[Ollama Setup] Checking connection...');
-
-  const config = await getOllamaConfig();
-  const result = await testOllamaConnection(config.endpoint);
-
-  if (result.success) {
-    console.log('[Ollama Setup] Connected, version:', result.version, 'corsBlocked:', result.corsBlocked);
-
-    // Update UI labels
-    const versionEl = document.getElementById('ollamaVersion');
-    const endpointEl = document.getElementById('ollamaEndpoint');
-    const modelEl = document.getElementById('ollamaModel');
-    if (versionEl) versionEl.textContent = `v${result.version}`;
-    if (endpointEl) endpointEl.textContent = config.endpoint;
-    if (modelEl) modelEl.textContent = config.chatModel;
-
-    // Pre-fill advanced config inputs
-    const epInput = document.getElementById('customOllamaEndpoint') as HTMLInputElement | null;
-    const chatInput = document.getElementById('customChatModel') as HTMLInputElement | null;
-    const embInput = document.getElementById('customEmbeddingModel') as HTMLInputElement | null;
-    if (epInput) epInput.value = config.endpoint;
-    if (chatInput) chatInput.value = config.chatModel;
-    if (embInput) embInput.value = config.embeddingModel;
-
-    showOllamaUIState('connected');
-
-    // If CORS is blocked, show warning and disable Continue (only Skip available)
-    const corsWarning = document.getElementById('ollamaCorsWarning');
-    const connectedCard = document.getElementById('ollamaConnectedCard');
-    const continueBtn = document.getElementById('continueWithOllamaBtn') as HTMLButtonElement | null;
-
-    if (result.corsBlocked) {
-      corsWarning?.classList.add('visible');
-      // Turn the success card amber to signal "reachable but not usable"
-      if (connectedCard) {
-        connectedCard.style.background = '#fffbeb';
-        connectedCard.style.borderColor = '#fde68a';
-        const icon = connectedCard.querySelector('svg');
-        if (icon) (icon as SVGElement).style.color = '#d97706';
-        const heading = connectedCard.querySelector('h3');
-        if (heading) { heading.textContent = 'Ollama Reachable — CORS Blocked'; heading.style.color = '#92400e'; }
-      }
-      // Block the Continue button so user can't proceed with broken AI
-      if (continueBtn) {
-        continueBtn.disabled = true;
-        continueBtn.title = 'Fix the CORS issue first, then Re-test Connection';
+  try {
+    const resp = await browser.runtime.sendMessage({ kind: 'CHECK_OLLAMA' }) as { connected?: boolean };
+    if (resp?.connected) {
+      // Already connected — pull models and go to ready
+      showOllamaSetupState('installing');
+      setProgressReal(15, 'Ollama detected! Pulling models...');
+      try {
+        await pullModelsViaPort();
+        setProgressReal(100, 'All set!');
+        const config = await getOllamaConfig();
+        config.enabled = true;
+        config.lastChecked = Date.now();
+        await saveOllamaConfig(config);
+        setTimeout(() => showOllamaSetupState('ready'), 500);
+      } catch (pullErr) {
+        console.error('[Ollama Setup] Model pull failed:', pullErr);
+        showOllamaSetupState('welcome');
       }
     } else {
-      // Clean / green state — make sure warning is hidden, card is green
-      corsWarning?.classList.remove('visible');
-      if (connectedCard) {
-        connectedCard.style.background = '';
-        connectedCard.style.borderColor = '';
-        const icon = connectedCard.querySelector('svg');
-        if (icon) (icon as SVGElement).style.color = '';
-        const heading = connectedCard.querySelector('h3');
-        if (heading) { heading.textContent = 'Ollama Connected'; heading.style.color = ''; }
-      }
-      if (continueBtn) {
-        continueBtn.disabled = false;
-        continueBtn.title = '';
-      }
+      showOllamaSetupState('welcome');
     }
-  } else {
-    console.log('[Ollama Setup] Connection failed:', result.error);
-    showOllamaUIState('not-installed');
-    // Determine whether the native helper is already installed and update sub-state
-    checkNativeHelper().then(installed => updateHelperSubstate(installed));
+  } catch {
+    showOllamaSetupState('welcome');
   }
 }
 
@@ -637,7 +756,70 @@ function updateHelperSubstate(helperInstalled: boolean): void {
   if (installed) installed.style.display = helperInstalled ? '' : 'none';
 }
 
+function getOllamaDownloadUrl(): string {
+  const os = detectOS();
+  if (os === 'mac') return 'https://ollama.com/download/Ollama-darwin.zip';
+  if (os === 'windows') return 'https://ollama.com/download/OllamaSetup.exe';
+  return ''; // Linux uses terminal command
+}
+
 function setupOllamaStepListeners(): void {
+  // Set OS label on download button
+  const osLabel = document.getElementById('ollamaOsLabel');
+  const os = detectOS();
+  if (osLabel) {
+    osLabel.textContent = os === 'mac' ? '(macOS)' : os === 'windows' ? '(Windows)' : '(Linux)';
+  }
+
+  // For Linux, replace the download button with a terminal command
+  if (os === 'linux') {
+    const area = document.getElementById('ollamaDownloadArea');
+    if (area) {
+      area.innerHTML = `
+        <p style="font-size:14px;font-weight:600;margin-bottom:8px;">Run this in your terminal:</p>
+        <div style="background:#1e293b;border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:10px;max-width:480px;margin:0 auto 10px;">
+          <code style="flex:1;font-size:13px;color:#e2e8f0;font-family:monospace;">curl -fsSL https://ollama.com/install.sh | sh</code>
+          <button id="copyLinuxCmd" style="background:#334155;border:none;color:#e2e8f0;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;">Copy</button>
+        </div>
+        <button id="btnAlreadyHaveOllama" style="display:inline-block;margin-top:10px;font-size:12px;color:var(--green);cursor:pointer;background:none;border:none;font-family:var(--font-sans);text-decoration:underline;">I already have Ollama installed</button>
+      `;
+      document.getElementById('copyLinuxCmd')?.addEventListener('click', () => {
+        navigator.clipboard.writeText('curl -fsSL https://ollama.com/install.sh | sh').then(() => {
+          const btn = document.getElementById('copyLinuxCmd');
+          if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy'; }, 1500); }
+        }).catch(() => {});
+      });
+    }
+  }
+
+  // Download Ollama button — trigger download and start polling
+  document.getElementById('btnOllamaDownload')?.addEventListener('click', () => {
+    const url = getOllamaDownloadUrl();
+    if (url) {
+      // chrome.tabs.create is safer from extension pages than window.open
+      try {
+        (globalThis as any).chrome?.tabs?.create?.({ url });
+      } catch {
+        window.open(url, '_blank');
+      }
+    }
+    showOllamaSetupState('installing');
+    startOllamaPolling();
+  });
+
+  // "I already have Ollama" — skip download, go straight to polling/pull
+  document.getElementById('btnAlreadyHaveOllama')?.addEventListener('click', () => {
+    showOllamaSetupState('installing');
+    startOllamaPolling();
+  });
+
+  // "Go back to download" — cancel polling and return to welcome
+  document.getElementById('ollamaCancelPolling')?.addEventListener('click', () => {
+    stopPolling();
+    showOllamaSetupState('welcome');
+  });
+
+  // Populate native helper instructions for the fallback section
   populateHelperInstructions();
 
   // Copy helper install command
@@ -645,11 +827,7 @@ function setupOllamaStepListeners(): void {
     const cmd = getHelperInstallCommand();
     navigator.clipboard.writeText(cmd).then(() => {
       const btn = document.getElementById('copyHelperCmd');
-      if (btn) {
-        const orig = btn.textContent;
-        btn.textContent = 'Copied!';
-        setTimeout(() => { btn.textContent = orig; }, 1500);
-      }
+      if (btn) { const orig = btn.textContent; btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = orig; }, 1500); }
     }).catch(() => {});
   });
 
@@ -658,100 +836,18 @@ function setupOllamaStepListeners(): void {
     const btn = document.getElementById('checkHelperBtn') as HTMLButtonElement | null;
     if (btn) { btn.disabled = true; btn.textContent = 'Checking...'; }
     const installed = await checkNativeHelper();
-    if (btn) { btn.disabled = false; btn.textContent = 'Helper Installed — Check Again'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'I Installed It — Check Again'; }
     updateHelperSubstate(installed);
   });
 
-  // "Set Up AI" button — triggers the full setup script via native messaging
+  // "Set Up AI" button — triggers setup via native helper
   document.getElementById('runSetupBtn')?.addEventListener('click', () => {
     const btn = document.getElementById('runSetupBtn') as HTMLButtonElement | null;
     if (btn) { btn.disabled = true; btn.textContent = 'Setting up...'; }
-
     runSetupViaHelper('setupProgressLog', (ok) => {
-      if (btn) { btn.disabled = false; btn.textContent = 'Set Up AI'; }
-      if (ok) {
-        checkOllamaConnection();
-      } else {
-        const logEl = document.getElementById('setupProgressLog');
-        if (logEl) appendToLog(logEl, '✗ Setup failed — see log above', true);
-      }
-    });
-  });
-
-  // "Fix CORS Automatically" button — reuses the same setup script (idempotent)
-  document.getElementById('runCorsFixBtn')?.addEventListener('click', async () => {
-    const btn = document.getElementById('runCorsFixBtn') as HTMLButtonElement | null;
-    if (btn) { btn.disabled = true; btn.textContent = 'Checking...'; }
-
-    const helperReady = await checkNativeHelper();
-
-    if (!helperReady) {
-      const corsWrap = document.getElementById('runCorsFixBtn')?.parentElement;
-      if (corsWrap) {
-        const os = detectOS();
-        if (os === 'mac') {
-          corsWrap.innerHTML = `
-            <p style="font-size:13px;color:#92400e;margin-bottom:10px;">
-              <strong>To fix CORS automatically</strong>, install the Offlyn Helper first — it configures Ollama permissions in one step.
-            </p>
-            <a href="${HELPER_PKG_URL}"
-               target="_blank"
-               class="btn btn-primary"
-               style="display:inline-flex;align-items:center;gap:8px;font-size:13px;padding:9px 16px;text-decoration:none;margin-bottom:10px;">
-              ${DOWNLOAD_SVG}
-              Download for Mac
-            </a>
-            <p style="font-size:12px;color:#78350f;">After the installer finishes, click <strong>Re-test Connection</strong> below.</p>
-          `;
-        } else if (os === 'windows') {
-          corsWrap.innerHTML = `
-            <p style="font-size:13px;color:#92400e;margin-bottom:10px;">
-              <strong>To fix CORS automatically</strong>, install the Offlyn Helper first — it configures Ollama permissions in one step.
-            </p>
-            <a href="${HELPER_WIN_BAT_URL}"
-               target="_blank"
-               class="btn btn-primary"
-               style="display:inline-flex;align-items:center;gap:8px;font-size:13px;padding:9px 16px;text-decoration:none;margin-bottom:10px;">
-              ${DOWNLOAD_SVG}
-              Download for Windows (.bat)
-            </a>
-            <p style="font-size:12px;color:#78350f;">After the installer finishes, click <strong>Re-test Connection</strong> below.</p>
-          `;
-        } else {
-          const cmd = getHelperInstallCommand();
-          const hint = getHelperTerminalHint();
-          corsWrap.innerHTML = `
-            <p style="font-size:13px;color:#92400e;margin-bottom:10px;">
-              <strong>To fix CORS automatically</strong>, install the Offlyn Helper first — it configures Ollama permissions in one step.
-            </p>
-            <p style="font-size:12px;color:#78350f;margin-bottom:8px;">${hint}</p>
-            <div style="background:#1e293b;border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-              <code style="flex:1;font-size:12px;color:#e2e8f0;word-break:break-all;font-family:monospace;">${cmd}</code>
-              <button id="copyCorsFixCmd" style="background:#334155;border:none;color:#e2e8f0;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap;">Copy</button>
-            </div>
-            <p style="font-size:12px;color:#78350f;">After setup completes, click <strong>Re-test Connection</strong> below.</p>
-          `;
-          document.getElementById('copyCorsFixCmd')?.addEventListener('click', () => {
-            navigator.clipboard.writeText(cmd).then(() => {
-              const copyBtn = document.getElementById('copyCorsFixCmd');
-              if (copyBtn) { const orig = copyBtn.textContent; copyBtn.textContent = 'Copied!'; setTimeout(() => { if (copyBtn) copyBtn.textContent = orig; }, 1500); }
-            }).catch(() => {});
-          });
-        }
-      }
-      return;
-    }
-
-    if (btn) { btn.disabled = true; btn.textContent = 'Fixing...'; }
-    runSetupViaHelper('corsFixProgressLog', (ok) => {
-      if (btn) { btn.disabled = false; btn.textContent = 'Fix CORS Automatically'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Install AI (Free, ~2.5 GB)'; }
       if (ok) checkOllamaConnection();
     });
-  });
-
-  // Back button — AI Setup is now Step 1, nothing to go back to
-  document.getElementById('backFromOllamaBtn')?.addEventListener('click', () => {
-    // Step 1 has no previous step; do nothing or close
   });
 
   // Continue with AI Features
@@ -759,17 +855,11 @@ function setupOllamaStepListeners(): void {
     const errEl = document.getElementById('ollamaErrorMsg') as HTMLElement | null;
     if (errEl) errEl.style.display = 'none';
     try {
-      const epInput = (document.getElementById('customOllamaEndpoint') as HTMLInputElement | null)?.value.trim() || DEFAULT_OLLAMA_CONFIG.endpoint;
-      const chatModel = (document.getElementById('customChatModel') as HTMLInputElement | null)?.value.trim() || DEFAULT_OLLAMA_CONFIG.chatModel;
-      const embModel = (document.getElementById('customEmbeddingModel') as HTMLInputElement | null)?.value.trim() || DEFAULT_OLLAMA_CONFIG.embeddingModel;
-
-      const config = await getOllamaConfig() ?? { ...DEFAULT_OLLAMA_CONFIG };
+      const config = await getOllamaConfig();
       config.enabled = true;
-      config.endpoint = epInput;
-      config.chatModel = chatModel;
-      config.embeddingModel = embModel;
       config.lastChecked = Date.now();
       await saveOllamaConfig(config);
+      stopPolling();
       showStep('step-upload');
     } catch (err) {
       if (errEl) {
@@ -779,55 +869,9 @@ function setupOllamaStepListeners(): void {
     }
   });
 
-  // Skip AI Features
-  const doSkip = async () => {
-    const config = await getOllamaConfig();
-    config.enabled = false;
-    await saveOllamaConfig(config);
-    showStep('step-upload');
-  };
-
-  document.getElementById('skipOllamaBtn')?.addEventListener('click', doSkip);
-
-  // Retry / Test Connection button (not-installed state)
+  // Retry / Test Connection button (fallback section)
   document.getElementById('retryOllamaBtn')?.addEventListener('click', () => {
     checkOllamaConnection();
-  });
-
-  // Re-test button inside CORS warning banner
-  document.getElementById('retestAfterCorsBtn')?.addEventListener('click', () => {
-    checkOllamaConnection();
-  });
-
-  // Test custom endpoint
-  document.getElementById('testCustomEndpointBtn')?.addEventListener('click', async () => {
-    const epInput = (document.getElementById('customOllamaEndpoint') as HTMLInputElement | null)?.value.trim();
-    const resultEl = document.getElementById('advTestResult');
-    if (!epInput || !resultEl) return;
-
-    resultEl.textContent = 'Testing...';
-    resultEl.className = 'adv-test-result visible';
-
-    const result = await testOllamaConnection(epInput);
-    if (result.success) {
-      resultEl.textContent = `Connected! Ollama v${result.version}`;
-      resultEl.className = 'adv-test-result visible ok';
-    } else {
-      resultEl.textContent = `Failed: ${result.error}`;
-      resultEl.className = 'adv-test-result visible fail';
-    }
-  });
-
-  // Reset to defaults
-  document.getElementById('resetOllamaDefaultsBtn')?.addEventListener('click', () => {
-    const epInput = document.getElementById('customOllamaEndpoint') as HTMLInputElement | null;
-    const chatInput = document.getElementById('customChatModel') as HTMLInputElement | null;
-    const embInput = document.getElementById('customEmbeddingModel') as HTMLInputElement | null;
-    if (epInput) epInput.value = DEFAULT_OLLAMA_CONFIG.endpoint;
-    if (chatInput) chatInput.value = DEFAULT_OLLAMA_CONFIG.chatModel;
-    if (embInput) embInput.value = DEFAULT_OLLAMA_CONFIG.embeddingModel;
-    const resultEl = document.getElementById('advTestResult');
-    if (resultEl) { resultEl.className = 'adv-test-result'; resultEl.textContent = ''; }
   });
 
   // Show troubleshooting modal
@@ -841,10 +885,9 @@ function setupOllamaStepListeners(): void {
   document.getElementById('closeTroubleshootingBtn')?.addEventListener('click', closeModal);
   document.getElementById('tsOverlay')?.addEventListener('click', closeModal);
 
-  // Skip from troubleshooting modal
-  document.getElementById('skipFromTroubleshootingBtn')?.addEventListener('click', async () => {
+  // Close troubleshooting modal via skip button (AI setup is required, just close)
+  document.getElementById('skipFromTroubleshootingBtn')?.addEventListener('click', () => {
     closeModal();
-    await doSkip();
   });
 
   // Copy buttons (command snippets)
@@ -2566,7 +2609,6 @@ async function init(): Promise<void> {
   const uploadArea = document.getElementById('uploadArea');
   const fileInput = document.getElementById('fileInput') as HTMLInputElement;
   const parseBtn = document.getElementById('parseBtn') as HTMLButtonElement;
-  const skipUploadBtn = document.getElementById('skipUploadBtn');
   const backBtn = document.getElementById('backBtn');
   const saveBtn = document.getElementById('saveBtn');
   const doneBtn = document.getElementById('doneBtn');
@@ -2606,15 +2648,6 @@ async function init(): Promise<void> {
     });
   }
   
-  // Skip upload button - go directly to personal info
-  if (skipUploadBtn) {
-    skipUploadBtn.addEventListener('click', () => {
-      extractedProfile = createEmptyProfile();
-      renderProfilePreview(extractedProfile);
-      showStep('step-review');
-    });
-  }
-  
   // Parse button
   if (parseBtn) {
     parseBtn.addEventListener('click', async () => {
@@ -2635,9 +2668,13 @@ async function init(): Promise<void> {
         updateProgress('extract', 50, 'Text extraction complete');
         setFriendlyStatus('Analyzing your resume content...');
 
-        // Stage 3: Parse with AI — start listening for background progress
+        // Stage 3: Parse with AI — show games while waiting
         startProgressListener();
+        const parseGameContainer = document.getElementById('parseGameContainer');
+        if (parseGameContainer) { parseGameContainer.style.display = ''; mountGamePicker(parseGameContainer); }
         const profile = await parseResume(resumeText);
+        destroyGamePicker();
+        if (parseGameContainer) parseGameContainer.style.display = 'none';
         stopProgressListener();
         profile.resumeText = resumeText;
         
@@ -2662,6 +2699,9 @@ async function init(): Promise<void> {
         renderProfilePreview(profile);
         showStep('step-review');
       } catch (err) {
+        destroyGamePicker();
+        const parseGameContainer = document.getElementById('parseGameContainer');
+        if (parseGameContainer) parseGameContainer.style.display = 'none';
         stopProgressListener();
         hideProgress();
         showStatus('error', err instanceof Error ? err.message : 'Failed to parse resume');

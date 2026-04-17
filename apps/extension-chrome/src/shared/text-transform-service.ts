@@ -1,5 +1,6 @@
 /**
  * Text Transform Service — uses Ollama to rewrite selected text.
+ * All calls route through the background script via OLLAMA_PROXY to avoid CORS.
  *
  * Actions:
  *   professional-fix  — fix grammar, tone, and make it polished
@@ -7,7 +8,19 @@
  *   shorten           — condense the text while keeping key points
  */
 
-const OLLAMA_BASE_URL = 'http://localhost:11434';
+const getBrowser = () => (globalThis as any).chrome ?? (globalThis as any).browser;
+
+async function ollamaProxy(method: string, path: string, body?: any): Promise<any> {
+  const b = getBrowser();
+  if (!b?.runtime?.sendMessage) {
+    throw new Error('Extension runtime not available');
+  }
+  const resp = await b.runtime.sendMessage({ kind: 'OLLAMA_PROXY', method, path, body });
+  if (!resp?.ok) {
+    throw new Error(resp?.error || `Ollama request failed: ${method} ${path}`);
+  }
+  return resp.data;
+}
 
 export type TransformAction = 'professional-fix' | 'expand' | 'shorten';
 
@@ -22,27 +35,16 @@ export async function transformText(
   const prompt = buildPrompt(text, action);
 
   try {
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'llama3.2',
-        prompt,
-        stream: false,
-      }),
+    const data = await ollamaProxy('POST', '/api/generate', {
+      model: 'llama3.2',
+      prompt,
+      stream: false,
     });
 
-    if (!response.ok) {
-      console.error('[TextTransform] Ollama API error:', response.statusText);
-      return null;
-    }
-
-    const data = await response.json();
     let result = (data.response || '').trim();
 
     if (!result) return null;
 
-    // Clean common LLM artifacts
     result = cleanResponse(result, action);
 
     return result || null;

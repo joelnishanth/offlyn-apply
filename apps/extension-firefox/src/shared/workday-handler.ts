@@ -19,7 +19,8 @@
  */
 
 import type { UserProfile } from './profile';
-import { setReactInputValue, fillWithHumanTyping } from './react-input';
+import { setReactInputValue } from './react-input';
+import { showWarning } from '../ui/notification';
 
 // ── Workday detection ────────────────────────────────────────────────────────
 
@@ -127,15 +128,24 @@ async function waitForInlineFormWithLabel(
 ): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const ffs = Array.from(document.querySelectorAll('[data-automation-id="formField"]'));
-    for (const ff of ffs) {
-      const label = ff.querySelector('[data-automation-id="label"]')?.textContent?.trim() ?? '';
-      const input = ff.querySelector(
-        'input:not([type="hidden"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]), textarea'
-      );
-      if (labelPattern.test(label) && input) return true;
-    }
+    if (checkFormFieldLabel(labelPattern)) return true;
     await sleep(200);
+  }
+  return false;
+}
+
+function checkFormFieldLabel(labelPattern: RegExp): boolean {
+  const ffs = Array.from(document.querySelectorAll('[data-automation-id^="formField"]'));
+  for (const ff of ffs) {
+    const input = ff.querySelector(
+      'input:not([type="hidden"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]), textarea'
+    ) as HTMLInputElement | HTMLTextAreaElement | null;
+    if (!input) continue;
+    const label =
+      ff.querySelector('[data-automation-id="label"]')?.textContent?.trim() ??
+      (input.labels?.[0]?.textContent?.trim()) ??
+      input.getAttribute('aria-label') ?? '';
+    if (labelPattern.test(label)) return true;
   }
   return false;
 }
@@ -146,14 +156,7 @@ async function waitForInlineFormWithLabel(
  * Label-based detection is more reliable than ID-prefix matching.
  */
 function isInlineFormOpenByLabel(labelPattern: RegExp): boolean {
-  const ffs = Array.from(document.querySelectorAll('[data-automation-id="formField"]'));
-  return ffs.some(ff => {
-    const label = ff.querySelector('[data-automation-id="label"]')?.textContent?.trim() ?? '';
-    const input = ff.querySelector(
-      'input:not([type="hidden"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]), textarea'
-    );
-    return labelPattern.test(label) && !!input;
-  });
+  return checkFormFieldLabel(labelPattern);
 }
 
 /**
@@ -162,10 +165,11 @@ function isInlineFormOpenByLabel(labelPattern: RegExp): boolean {
  * data-automation-id attributes on the input itself.
  */
 function findSkillsInput(): HTMLInputElement | null {
-  // Method 1: formField whose label contains "skill"
-  const ffs = Array.from(document.querySelectorAll('[data-automation-id="formField"]'));
+  const ffs = Array.from(document.querySelectorAll('[data-automation-id^="formField"]'));
   for (const ff of ffs) {
-    const label = ff.querySelector('[data-automation-id="label"]')?.textContent?.trim() ?? '';
+    const label =
+      ff.querySelector('[data-automation-id="label"]')?.textContent?.trim() ??
+      ff.querySelector('label')?.textContent?.trim() ?? '';
     if (/skill/i.test(label)) {
       const input = ff.querySelector(
         'input[type="text"], input:not([type="hidden"]):not([type="submit"]):not([type="checkbox"])'
@@ -189,20 +193,22 @@ function findSkillsInput(): HTMLInputElement | null {
  */
 function findEducationFormContainer(): Element | null {
   // ID-based (works when Workday uses "education-{hash}--" prefix)
-  const byId = findInlineFormContainer('education');
+  const byId = findInlineFormContainer('education', true);
   if (byId) return byId;
 
   // Label-based: find the School/Degree formField and walk up to the section
-  const ffs = Array.from(document.querySelectorAll('[data-automation-id="formField"]'));
+  const ffs = Array.from(document.querySelectorAll('[data-automation-id^="formField"]'));
   const anchor = ffs.find(ff => {
-    const label = ff.querySelector('[data-automation-id="label"]')?.textContent?.trim() ?? '';
+    const label =
+      ff.querySelector('[data-automation-id="label"]')?.textContent?.trim() ??
+      ff.querySelector('label')?.textContent?.trim() ?? '';
     return /school|university|college|institution|degree/i.test(label);
   });
   if (!anchor) return null;
 
   let el: Element | null = anchor;
   while (el && el !== document.body) {
-    if (el.querySelectorAll('[data-automation-id="formField"]').length >= 2) {
+    if (el.querySelectorAll('[data-automation-id^="formField"]').length >= 2) {
       return el.parentElement ?? el;
     }
     el = el.parentElement;
@@ -221,17 +227,40 @@ function findEducationFormContainer(): Element | null {
  * This function finds the closest ancestor that wraps ALL the inline form
  * fields for a given prefix (e.g. "workExperience").
  */
-function findInlineFormContainer(idPrefix: string): Element | null {
-  // A reliable sentinel field (present in every WE form)
-  const sentinel = document.querySelector(`[id*="${idPrefix}-"][id*="--"]`);
-  if (!sentinel) return null;
+function findInlineFormContainer(idPrefix: string, preferLast = false): Element | null {
+  const allFields = Array.from(document.querySelectorAll(`[id*="${idPrefix}-"][id*="--"]`));
+  if (!allFields.length) return null;
 
-  // Walk up until we reach a container that holds >= 2 inline fields
+  // Extract unique entry hashes (e.g., "workExperience-11", "workExperience-12")
+  // Each Workday inline form entry uses a unique hash in its field IDs.
+  const hashes = new Set<string>();
+  for (const f of allFields) {
+    const match = f.id.match(new RegExp(`(${idPrefix}-[^-]+)--`));
+    if (match) hashes.add(match[1]);
+  }
+  const hashArr = Array.from(hashes);
+  const targetHash = preferLast ? hashArr[hashArr.length - 1] : hashArr[0];
+
+  if (targetHash) {
+    // Scope to fields belonging to this specific entry only
+    const scopedFields = allFields.filter(f => f.id.startsWith(targetHash + '--'));
+    if (scopedFields.length) {
+      const sentinel = scopedFields[0];
+      let el: Element | null = sentinel;
+      while (el && el !== document.body) {
+        const ownFields = el.querySelectorAll(`[id^="${targetHash}--"]`).length;
+        if (ownFields >= 2) return el.parentElement ?? el;
+        el = el.parentElement;
+      }
+      return sentinel.parentElement;
+    }
+  }
+
+  // Fallback: original behavior
+  const sentinel = preferLast ? allFields[allFields.length - 1] : allFields[0];
   let el: Element | null = sentinel;
   while (el && el !== document.body) {
     if (el.querySelectorAll(`[id*="${idPrefix}-"][id*="--"]`).length >= 2) {
-      // One more level up gives us the section wrapper that also includes
-      // the Save button and section heading.
       return el.parentElement ?? el;
     }
     el = el.parentElement;
@@ -299,43 +328,49 @@ async function saveInlineForm(container: Element | null): Promise<boolean> {
  * "Add" button until we find a heading that matches the pattern.
  */
 async function clickAddInSection(sectionHeadingPattern: RegExp): Promise<boolean> {
-  // Broader selector: exact "Add" text, aria-label containing "Add", or data-automation-id containing "add"
   const allAddBtns = Array.from(document.querySelectorAll(
     'button, [role="button"]'
   )).filter(b => {
     const text = b.textContent?.trim() ?? '';
     const aria = b.getAttribute('aria-label') ?? '';
     const autoId = b.getAttribute('data-automation-id') ?? '';
-    return /^add$/i.test(text) ||
+    return /^add(\s+another)?$/i.test(text) ||
            /\badd\b/i.test(aria) ||
            /\badd\b/i.test(autoId);
   }) as HTMLElement[];
 
   for (const btn of allAddBtns) {
-    let el: Element | null = btn.parentElement;
-    let depth = 0;
-    while (el && el !== document.body && depth < 15) {
-      const headings = el.querySelectorAll(
-        'h2, h3, h4, [class*="title"], [data-automation-id*="title"], [data-automation-id*="heading"], legend'
-      );
-      for (const h of headings) {
-        if (sectionHeadingPattern.test(h.textContent?.trim() ?? '')) {
-          btn.click();
-          await sleep(900);
-          return true;
-        }
-      }
-      if (sectionHeadingPattern.test(el.textContent?.trim() ?? '') &&
-          el.querySelectorAll('button').length <= 5) {
-        btn.click();
-        await sleep(900);
-        return true;
-      }
-      el = el.parentElement;
-      depth++;
+    // Find the nearest preceding section heading by walking backwards through
+    // siblings and then up. This prevents matching a heading from a different
+    // section (e.g., "Education" heading when looking at a WE "Add Another" button).
+    const nearestHeading = findNearestPrecedingHeading(btn);
+    if (nearestHeading && sectionHeadingPattern.test(nearestHeading)) {
+      btn.click();
+      await sleep(900);
+      return true;
     }
   }
   return false;
+}
+
+function findNearestPrecedingHeading(el: HTMLElement): string {
+  let node: Node | null = el;
+  for (let depth = 0; depth < 10 && node; depth++) {
+    let sibling = node.previousSibling;
+    while (sibling) {
+      if (sibling instanceof HTMLElement) {
+        if (/^h[1-6]$/i.test(sibling.tagName)) {
+          return sibling.textContent?.trim() ?? '';
+        }
+        // Check last heading child if it's a wrapper div
+        const innerHeading = sibling.querySelector('h1, h2, h3, h4, h5, h6');
+        if (innerHeading) return innerHeading.textContent?.trim() ?? '';
+      }
+      sibling = sibling.previousSibling;
+    }
+    node = (node as HTMLElement).parentElement;
+  }
+  return '';
 }
 
 // ── Field fill helpers ────────────────────────────────────────────────────────
@@ -386,17 +421,119 @@ function getLabelForInput(input: HTMLInputElement | HTMLTextAreaElement): string
 }
 
 /**
- * Fill a single input using human-like typing (preferred, triggers Workday's
- * form-state listeners) with a fallback to the native setter.
+ * Type into an input using character-by-character keyboard events to trigger
+ * Workday's autocomplete/API search. Unlike setReactInputValue (which sets the
+ * value in bulk and only dispatches a final input event), this fires keydown/
+ * input/keyup per character, which Workday's debounced search handlers require.
+ */
+async function typeForAutocomplete(
+  input: HTMLInputElement | HTMLTextAreaElement,
+  value: string
+): Promise<void> {
+  input.focus();
+  // Clear existing value
+  const nativeSetter = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype, 'value'
+  )?.set ?? Object.getOwnPropertyDescriptor(
+    HTMLTextAreaElement.prototype, 'value'
+  )?.set;
+  if (nativeSetter) nativeSetter.call(input, '');
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  await sleep(50);
+
+  for (const char of value) {
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: char, bubbles: true }));
+    const current = input.value + char;
+    if (nativeSetter) nativeSetter.call(input, current);
+    const tracker = (input as any)._valueTracker;
+    if (tracker) tracker.setValue(current.slice(0, -1));
+    input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: char }));
+    input.dispatchEvent(new KeyboardEvent('keyup', { key: char, bubbles: true }));
+    await sleep(30);
+  }
+}
+
+/**
+ * Fill a spinbutton input using character-by-character keyboard events.
+ *
+ * Workday's spinbutton React components ignore bulk value changes via native
+ * property setters. They only recognise values entered through actual keyboard
+ * interaction (focus → type digits → blur). Puppeteer's `keyboard.type()` works
+ * because it dispatches CDP-level events; from a content script we must emulate
+ * the same sequence with synthetic DOM events + native setter for each keystroke.
+ */
+async function fillSpinbutton(
+  input: HTMLInputElement,
+  value: string
+): Promise<void> {
+  const nativeSetter = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype, 'value'
+  )?.set;
+
+  input.focus();
+  input.select();
+  await sleep(50);
+
+  // Set the full value at once via native setter — avoids the stale-read bug
+  // where React re-renders between character typings and `input.value` returns
+  // an unexpected intermediate value.
+  if (nativeSetter) nativeSetter.call(input, value);
+  const tracker = (input as any)._valueTracker;
+  if (tracker) tracker.setValue('');
+  await sleep(30);
+
+  // Dispatch keyboard events for each digit to trigger Workday's keydown
+  // handlers (which update the React component's internal state).
+  for (const char of value) {
+    const keyCode = char.charCodeAt(0);
+    input.dispatchEvent(new KeyboardEvent('keydown', {
+      key: char, code: `Digit${char}`, keyCode, which: keyCode, bubbles: true, cancelable: true
+    }));
+    input.dispatchEvent(new KeyboardEvent('keypress', {
+      key: char, code: `Digit${char}`, keyCode, charCode: keyCode, which: keyCode, bubbles: true, cancelable: true
+    }));
+    input.dispatchEvent(new KeyboardEvent('keyup', {
+      key: char, code: `Digit${char}`, keyCode, which: keyCode, bubbles: true
+    }));
+    await sleep(30);
+  }
+
+  // Commit: input → change → blur
+  input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  input.blur();
+  await sleep(100);
+}
+
+/**
+ * Fill a single input using native setter (bulk) with a fallback to re-querying
+ * the element by ID after React re-renders.
+ *
+ * Human-like typing is incompatible with Workday's React inline forms: each
+ * keystroke triggers a state update → re-render → element disconnect. Instead,
+ * set the full value at once via the native property descriptor setter.
  */
 async function fillInput(
   input: HTMLInputElement | HTMLTextAreaElement,
   value: string
 ): Promise<void> {
-  const ok = await fillWithHumanTyping(input, value);
+  // For spinbutton inputs, delegate to the keyboard-based filler
+  if (input.role === 'spinbutton' || input.getAttribute('role') === 'spinbutton') {
+    await fillSpinbutton(input as HTMLInputElement, value);
+    return;
+  }
+
+  const elementId = input.id;
+  let ok = setReactInputValue(input, value);
+  if (!ok && elementId) {
+    await sleep(200);
+    const fresh = document.getElementById(elementId) as HTMLInputElement | HTMLTextAreaElement | null;
+    if (fresh) {
+      ok = setReactInputValue(fresh, value);
+    }
+  }
   if (!ok) {
-    // Human typing can fail if React remounts the element; native setter as backstop
-    setReactInputValue(input, value);
+    console.warn(`[Workday] fillInput failed for "${elementId || '(no id)'}"`);
   }
 }
 
@@ -458,12 +595,14 @@ async function fillFieldByLabel(
     )
   ) as (HTMLInputElement | HTMLTextAreaElement)[];
 
+  wdLog(`[Workday] Strategy B: ${inputs.length} inputs, pattern=${labelPattern}`);
   for (const input of inputs) {
     const labelText = getLabelForInput(input);
     if (!labelText || !labelPattern.test(labelText)) continue;
 
-    console.log(`[Workday] Filling "${labelText}" with "${value.substring(0, 30)}"`);
+    wdLog(`[Workday] Filling "${labelText}" (id=${input.id}) with "${value.substring(0, 30)}"`);
     await fillInput(input, value);
+    wdLog(`[Workday] After fillInput: value="${input.value}"`);
     return true;
   }
 
@@ -475,9 +614,15 @@ async function tickCheckboxByLabel(
   labelPattern: RegExp,
   checked: boolean
 ): Promise<boolean> {
-  const checkboxes = Array.from(
+  // Search in container first, then fall back to document-wide search
+  let checkboxes = Array.from(
     container.querySelectorAll('input[type="checkbox"]')
   ) as HTMLInputElement[];
+  if (!checkboxes.length) {
+    checkboxes = Array.from(
+      document.querySelectorAll('input[type="checkbox"]')
+    ) as HTMLInputElement[];
+  }
 
   for (const cb of checkboxes) {
     const labelText =
@@ -486,10 +631,19 @@ async function tickCheckboxByLabel(
       cb.closest('label')?.textContent?.trim() ??
       cb.parentElement?.textContent?.trim() ?? '';
     if (!labelPattern.test(labelText)) continue;
-    if (cb.checked !== checked) cb.click();
-    await sleep(100);
+    if (cb.checked !== checked) {
+      // Workday checkboxes may be React-controlled; use _valueTracker invalidation
+      const tracker = (cb as any)._valueTracker;
+      if (tracker) tracker.setValue(String(!checked));
+      cb.click();
+      cb.dispatchEvent(new Event('change', { bubbles: true }));
+      cb.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    await sleep(200);
+    wdLog(`[Workday] Checkbox "${labelText}" → ${checked ? 'checked' : 'unchecked'}`);
     return true;
   }
+  wdLog(`[Workday] Checkbox matching /${labelPattern.source}/ not found (${checkboxes.length} checkboxes checked)`);
   return false;
 }
 
@@ -500,23 +654,23 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-function parseMonthYear(dateStr: string): { month: string; year: string } | null {
+function parseMonthYear(dateStr: string): { month: string; monthNum: string; year: string } | null {
   if (!dateStr) return null;
   // ISO: "2022-04"
   const iso = dateStr.match(/^(\d{4})-(\d{2})/);
   if (iso) {
-    const idx = parseInt(iso[2], 10) - 1;
-    return { month: MONTH_NAMES[idx] ?? iso[2], year: iso[1] };
+    const num = parseInt(iso[2], 10);
+    return { month: MONTH_NAMES[num - 1] ?? iso[2], monthNum: String(num), year: iso[1] };
   }
   // Slash: "04/2022"
   const slash = dateStr.match(/^(\d{1,2})\/(\d{4})/);
   if (slash) {
-    const idx = parseInt(slash[1], 10) - 1;
-    return { month: MONTH_NAMES[idx] ?? slash[1], year: slash[2] };
+    const num = parseInt(slash[1], 10);
+    return { month: MONTH_NAMES[num - 1] ?? slash[1], monthNum: String(num), year: slash[2] };
   }
   // Year only: "2022"
   const yr = dateStr.match(/^(\d{4})$/);
-  if (yr) return { month: '', year: yr[1] };
+  if (yr) return { month: '', monthNum: '', year: yr[1] };
   return null;
 }
 
@@ -530,39 +684,47 @@ async function fillDateWidget(
   container: ParentNode,
   dateLabelPattern: RegExp,
   month: string,
-  year: string
+  year: string,
+  monthNum?: string
 ): Promise<void> {
-  // Try: look for a formField whose label matches and drill into its month/year inputs
+  // Strategy A: formField containers (exact or starts-with)
   const formFields = Array.from(
-    container.querySelectorAll('[data-automation-id="formField"]')
+    container.querySelectorAll('[data-automation-id^="formField"]')
   ) as Element[];
 
   for (const ff of formFields) {
-    const lbl = ff.querySelector('[data-automation-id="label"]')?.textContent?.trim() ?? '';
+    const lbl =
+      ff.querySelector('[data-automation-id="label"]')?.textContent?.trim() ??
+      ff.querySelector('label')?.textContent?.trim() ?? '';
     if (!dateLabelPattern.test(lbl)) continue;
 
-    // Month combobox / input
-    const monthEl = ff.querySelector(
-      '[data-automation-id*="month"] input, input[placeholder*="MM"], input[aria-label*="Month" i]'
+    // Month: use data-automation-id selectors first (stable), then role-based fallback
+    const monthEl = (
+      ff.querySelector('input[data-automation-id="dateSectionMonth-input"]') ??
+      ff.querySelector('input[role="spinbutton"][aria-label*="Month" i]') ??
+      ff.querySelector('[data-automation-id*="month"] input, input[placeholder*="MM"], input[aria-label*="Month" i]')
     ) as HTMLInputElement | null;
-    if (monthEl && month) await fillInput(monthEl, month);
+    if (monthEl && (monthNum || month)) {
+      await fillInput(monthEl, monthNum || month);
+    }
 
-    // Year input
-    const yearEl = ff.querySelector(
-      '[data-automation-id*="year"] input, input[placeholder*="YYYY"], input[aria-label*="Year" i]'
+    // Year: use data-automation-id selectors first (stable), then role-based fallback
+    const yearEl = (
+      ff.querySelector('input[data-automation-id="dateSectionYear-input"]') ??
+      ff.querySelector('input[role="spinbutton"][aria-label*="Year" i]') ??
+      ff.querySelector('[data-automation-id*="year"] input, input[placeholder*="YYYY"], input[aria-label*="Year" i]')
     ) as HTMLInputElement | null;
     if (yearEl && year) await fillInput(yearEl, year);
 
     return;
   }
 
-  // Fallback: look for inputs by partial id match within the container scope
+  // Strategy B: fallback by partial ID match
   const el = container as Element;
-
   const monthInput = el.querySelector(
     `[id*="startDate-month"], [id*="fromDate-month"], [aria-label*="Month" i]`
   ) as HTMLInputElement | null;
-  if (monthInput && month) await fillInput(monthInput, month);
+  if (monthInput && (monthNum || month)) await fillInput(monthInput, monthNum || month);
 
   const yearInput = el.querySelector(
     `[id*="startDate-year"], [id*="fromDate-year"], [aria-label*="Year" i]`
@@ -575,21 +737,27 @@ async function fillDateWidget(
 async function fillOpenWorkExperienceForm(
   entry: UserProfile['work'][number]
 ): Promise<boolean> {
-  const container = findInlineFormContainer('workExperience');
+  const container = findInlineFormContainer('workExperience', true);
   if (!container) {
-    console.warn('[Workday] Could not find open Work Experience form container');
+    wdLog('[Workday] Could not find open Work Experience form container');
     return false;
   }
   const scope = container as ParentNode;
 
-  console.log('[Workday] Filling open Work Experience form');
-  if (entry.title?.trim()) await fillFieldByLabel(scope, /job title|position|title/i, entry.title);
-  if (entry.company?.trim()) await fillFieldByLabel(scope, /company|employer|organization/i, entry.company);
+  wdLog(`[Workday] Filling WE form. title="${entry.title}", company="${entry.company}"`);
+  if (entry.title?.trim()) {
+    const ok = await fillFieldByLabel(scope, /job title|position|title/i, entry.title);
+    wdLog(`[Workday] fillFieldByLabel(job title) => ${ok}`);
+  }
+  if (entry.company?.trim()) {
+    const ok = await fillFieldByLabel(scope, /company|employer|organization/i, entry.company);
+    wdLog(`[Workday] fillFieldByLabel(company) => ${ok}`);
+  }
   // Location intentionally left blank — profile city may differ from job location
 
   const start = parseMonthYear(entry.startDate);
   if (start?.month) {
-    await fillDateWidget(scope, /start date|from/i, start.month, start.year);
+    await fillDateWidget(scope, /start date|from/i, start.month, start.year, start.monthNum);
   } else if (start?.year) {
     await fillFieldByLabel(scope, /start.*year/i, start.year);
   }
@@ -599,7 +767,7 @@ async function fillOpenWorkExperienceForm(
   } else {
     const end = parseMonthYear(entry.endDate);
     if (end?.month) {
-      await fillDateWidget(scope, /end date|to\b/i, end.month, end.year);
+      await fillDateWidget(scope, /end date|to\b/i, end.month, end.year, end.monthNum);
     } else if (end?.year) {
       await fillFieldByLabel(scope, /end.*year/i, end.year);
     }
@@ -614,6 +782,11 @@ async function fillOpenWorkExperienceForm(
 
 // ── Autocomplete-aware field fill (for Field of Study, etc.) ─────────────────
 
+/**
+ * Fill a Workday autocomplete/typeahead field. Tries exact match first,
+ * then tokenized partial match, then falls back to selecting the first option
+ * whose text contains any token from the target value.
+ */
 async function fillFieldByAutocompleteLabel(
   container: ParentNode,
   labelPattern: RegExp,
@@ -621,42 +794,85 @@ async function fillFieldByAutocompleteLabel(
 ): Promise<boolean> {
   if (!value?.trim()) return false;
 
-  const formFields = Array.from(container.querySelectorAll('[data-automation-id="formField"]')) as Element[];
+  const formFields = Array.from(
+    container.querySelectorAll('[data-automation-id^="formField"]')
+  ) as Element[];
   for (const ff of formFields) {
-    const labelEl = ff.querySelector('[data-automation-id="label"]');
-    if (!labelEl) continue;
-    if (!labelPattern.test(labelEl.textContent?.trim() ?? '')) continue;
+    const labelText =
+      ff.querySelector('[data-automation-id="label"]')?.textContent?.trim() ??
+      ff.querySelector('label')?.textContent?.trim() ?? '';
+    if (!labelText || !labelPattern.test(labelText)) continue;
 
     const combo = ff.querySelector('[role="combobox"]') as HTMLElement | null;
-    const textInput = (combo ? ff.querySelector('input') : ff.querySelector('input:not([type="hidden"])')) as HTMLInputElement | null;
-    if (!textInput) continue;
+    const textInput = (combo
+      ? ff.querySelector('input')
+      : ff.querySelector('input:not([type="hidden"])')
+    ) as HTMLInputElement | null;
+    if (!textInput) { wdLog(`[Workday] Autocomplete "${labelText}" — no input found`); continue; }
 
-    textInput.focus();
-    setReactInputValue(textInput, value);
-    await sleep(500);
+    wdLog(`[Workday] Autocomplete "${labelText}" — typing "${value}" (combo=${!!combo})`);
+    await typeForAutocomplete(textInput, value);
 
-    let options = Array.from(document.querySelectorAll('[role="option"]')) as HTMLElement[];
-    if (options.length === 0) {
-      const token = value.split(/\s+/)[0];
-      setReactInputValue(textInput, token);
-      await sleep(500);
+    // Poll for autocomplete options (Workday can take 1-2s for API-backed searches)
+    const getOwnedOptions = (): HTMLElement[] => {
+      const ownedId = combo?.getAttribute('aria-controls') ?? combo?.getAttribute('aria-owns')
+        ?? textInput.getAttribute('aria-controls') ?? textInput.getAttribute('aria-owns');
+      if (ownedId) {
+        const lb = document.getElementById(ownedId);
+        if (lb) return Array.from(lb.querySelectorAll('[role="option"]')) as HTMLElement[];
+      }
+      const listboxes = Array.from(document.querySelectorAll('[role="listbox"]'));
+      for (let i = listboxes.length - 1; i >= 0; i--) {
+        const opts = Array.from(listboxes[i].querySelectorAll('[role="option"]')) as HTMLElement[];
+        if (opts.length > 0 && !/no items/i.test(opts[0].textContent?.trim() ?? '')) return opts;
+      }
+      return [];
+    };
+
+    let options: HTMLElement[] = [];
+    for (let attempt = 0; attempt < 4; attempt++) {
+      await sleep(400);
+      options = getOwnedOptions();
+      const real = options.filter(o => !/no items/i.test(o.textContent?.trim() ?? ''));
+      if (real.length > 0) { options = real; break; }
     }
 
-    const freshOptions = Array.from(document.querySelectorAll('[role="option"]')) as HTMLElement[];
-    if (freshOptions.length > 0) {
+    if (options.length === 0) {
+      const token = value.split(/\s+/)[0];
+      wdLog(`[Workday] Autocomplete "${labelText}" — retrying with "${token}"`);
+      await typeForAutocomplete(textInput, token);
+      for (let attempt = 0; attempt < 4; attempt++) {
+        await sleep(400);
+        options = getOwnedOptions().filter(o => !/no items/i.test(o.textContent?.trim() ?? ''));
+        if (options.length > 0) break;
+      }
+    }
+
+    const realOptions = options;
+    wdLog(`[Workday] Autocomplete "${labelText}" — ${realOptions.length} options found`);
+    if (realOptions.length > 0) {
       const valueLower = value.toLowerCase();
       const tokens = valueLower.split(/\s+/).filter(t => t.length > 2);
-      let best = freshOptions.find(o => o.textContent?.trim().toLowerCase().includes(valueLower));
+
+      let best = realOptions.find(o => o.textContent?.trim().toLowerCase().includes(valueLower));
       if (!best) {
-        best = freshOptions.find(o => {
+        best = realOptions.find(o => {
+          const oText = o.textContent?.trim().toLowerCase() ?? '';
+          return tokens.every(t => oText.includes(t));
+        });
+      }
+      if (!best) {
+        best = realOptions.find(o => {
           const oText = o.textContent?.trim().toLowerCase() ?? '';
           return tokens.some(t => oText.includes(t));
         });
       }
-      if (!best) best = freshOptions[0];
+      if (!best) best = realOptions[0];
+
       if (best) {
         best.click();
         await sleep(300);
+        wdLog(`[Workday] Autocomplete "${labelText}" → "${best.textContent?.trim()}"`);
         return true;
       }
     }
@@ -675,23 +891,145 @@ async function fillOpenEducationForm(
 ): Promise<boolean> {
   const container = findEducationFormContainer();
   if (!container) {
-    console.warn('[Workday] Could not find open Education form container');
+    wdLog('[Workday] Could not find open Education form container');
     return false;
   }
   const scope = container as ParentNode;
 
-  console.log('[Workday] Filling open Education form');
-  if (entry.school?.trim()) await fillFieldByLabel(scope, /school|university|college|institution/i, entry.school);
-  if (entry.degree?.trim()) await fillFieldByLabel(scope, /degree|qualification/i, entry.degree);
-  if (entry.field?.trim()) await fillFieldByAutocompleteLabel(scope, /field of study|major|discipline/i, entry.field);
+  wdLog(`[Workday] Filling Education: school="${entry.school}", degree="${entry.degree}", field="${entry.field}", gradYear="${entry.graduationYear}"`);
+
+  if (entry.school?.trim()) {
+    await fillFieldByAutocompleteLabel(scope, /school|university|college|institution/i, entry.school);
+  }
+
+  // Degree is typically a dropdown button on Workday
+  if (entry.degree?.trim()) {
+    const filled = await fillDropdownByLabel(scope, /^degree/i, entry.degree);
+    if (!filled) await fillFieldByLabel(scope, /degree|qualification/i, entry.degree);
+  }
+
+  if (entry.field?.trim()) {
+    await fillFieldByAutocompleteLabel(scope, /field of study|major|discipline/i, entry.field);
+  }
 
   if (entry.graduationYear) {
-    // Workday may show graduation as a single year field or a date widget
-    await fillFieldByLabel(scope, /graduation.*year|end.*year|year.*graduat/i, entry.graduationYear);
-    await fillFieldByLabel(scope, /graduation date|end date/i, entry.graduationYear);
+    // Use stable data-automation-id selectors matching the Puppeteer automator pattern
+    const lastYearInput = (scope as Element).querySelector(
+      '[data-automation-id="formField-lastYearAttended"] input'
+    ) as HTMLInputElement | null;
+    if (lastYearInput) {
+      await fillInput(lastYearInput, entry.graduationYear);
+    } else {
+      // Fallback: find year spinbuttons — the last one is "To (Actual or Expected)"
+      const toYearInputs = Array.from(
+        (scope as Element).querySelectorAll('input[role="spinbutton"][aria-label*="Year" i]')
+      ) as HTMLInputElement[];
+      const toYear = toYearInputs[toYearInputs.length - 1];
+      if (toYear) {
+        await fillInput(toYear, entry.graduationYear);
+      } else {
+        await fillFieldByLabel(scope, /graduation.*year|end.*year|year.*graduat/i, entry.graduationYear);
+      }
+    }
+  }
+
+  // Education start year (From) — derive from graduation year if not stored
+  const startYear = (entry as any).startYear ?? (
+    entry.graduationYear ? String(Number(entry.graduationYear) - 4) : null
+  );
+  if (startYear) {
+    const firstYearInput = (scope as Element).querySelector(
+      '[data-automation-id="formField-firstYearAttended"] input'
+    ) as HTMLInputElement | null;
+    if (firstYearInput) {
+      await fillInput(firstYearInput, startYear);
+    } else {
+      const yearSpinbuttons = Array.from(
+        (scope as Element).querySelectorAll('input[role="spinbutton"][aria-label*="Year" i]')
+      ) as HTMLInputElement[];
+      if (yearSpinbuttons.length >= 2) {
+        await fillInput(yearSpinbuttons[0], startYear);
+      }
+    }
   }
 
   return true;
+}
+
+async function fillDropdownByLabel(
+  container: ParentNode,
+  labelPattern: RegExp,
+  value: string
+): Promise<boolean> {
+  const formFields = Array.from(
+    container.querySelectorAll('[data-automation-id^="formField"]')
+  ) as Element[];
+
+  for (const ff of formFields) {
+    const lbl =
+      ff.querySelector('[data-automation-id="label"]')?.textContent?.trim() ??
+      ff.querySelector('label')?.textContent?.trim() ?? '';
+    if (!labelPattern.test(lbl)) continue;
+
+    const dropBtn = ff.querySelector('button[aria-haspopup="listbox"]') as HTMLElement | null;
+    if (!dropBtn) continue;
+
+    dropBtn.click();
+    await sleep(300);
+
+    // Poll for aria-controls (Workday sets it asynchronously after click)
+    let controlsId: string | null = null;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      controlsId = dropBtn.getAttribute('aria-controls');
+      if (controlsId) break;
+      await sleep(200);
+    }
+
+    const listbox = controlsId
+      ? document.getElementById(controlsId)
+      : ff.querySelector('[role="listbox"]');
+    if (!listbox) {
+      wdLog(`[Workday] Dropdown "${lbl}" — no listbox found (aria-controls=${controlsId})`);
+      dropBtn.click(); await sleep(200); continue;
+    }
+
+    const options = Array.from(listbox.querySelectorAll('[role="option"]')) as HTMLElement[];
+    const valueLower = value.toLowerCase();
+    const tokens = valueLower.split(/\s+/).filter(t => t.length > 1);
+
+    wdLog(`[Workday] Dropdown "${lbl}" — searching for "${value}" among ${options.length} options`);
+
+    // 1) Exact substring match
+    let match = options.find(o =>
+      o.textContent?.trim().toLowerCase().includes(valueLower)
+    );
+    // 2) ALL significant tokens must match
+    if (!match) {
+      match = options.find(o => {
+        const oText = o.textContent?.trim().toLowerCase() ?? '';
+        return tokens.every(t => oText.includes(t));
+      });
+    }
+    // 3) ANY significant token with length > 2 (last resort)
+    if (!match) {
+      match = options.find(o => {
+        const oText = o.textContent?.trim().toLowerCase() ?? '';
+        return tokens.filter(t => t.length > 2).some(t => oText.includes(t));
+      });
+    }
+
+    if (match && !/select one/i.test(match.textContent?.trim() ?? '')) {
+      match.click();
+      await sleep(300);
+      wdLog(`[Workday] Dropdown "${lbl}" set to "${match.textContent?.trim()}"`);
+      return true;
+    }
+
+    wdLog(`[Workday] Dropdown "${lbl}" — no match for "${value}"`);
+    dropBtn.click();
+    await sleep(200);
+  }
+  return false;
 }
 
 // ── Skills tag-input ─────────────────────────────────────────────────────────
@@ -699,39 +1037,71 @@ async function fillOpenEducationForm(
 async function fillSkillsTagInput(skills: string[]): Promise<void> {
   if (!skills.length) return;
 
-  const skillInput = findSkillsInput();
-
-  if (!skillInput) {
-    console.warn('[Workday] Skills tag input not found — skipping skills fill');
-    return;
-  }
-
-  console.log(`[Workday] Filling ${skills.length} skill(s) via tag input`);
+  wdLog(`[Workday] Filling ${skills.length} skill(s) via tag input`);
 
   for (const skill of skills) {
-    skillInput.focus();
-    await fillWithHumanTyping(skillInput, skill, { clearFirst: true });
-    await sleep(600);
-
-    // Workday shows a suggestions dropdown — click the best matching option
-    const options = Array.from(document.querySelectorAll('[role="option"]')) as HTMLElement[];
-    const match = options.find(o =>
-      o.textContent?.trim().toLowerCase().includes(skill.toLowerCase())
-    ) ?? options[0] ?? null;
-
-    if (match) {
-      match.click();
-      await sleep(300);
-    } else {
-      // No suggestion — press Enter to add the raw skill tag
-      skillInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
-      skillInput.dispatchEvent(new KeyboardEvent('keyup',  { key: 'Enter', keyCode: 13, bubbles: true }));
-      await sleep(300);
+    const input = findSkillsInput();
+    if (!input) {
+      wdLog('[Workday] Skills tag input not found — stopping');
+      break;
     }
 
-    // Clear the input for the next skill (native setter is fine here — just clearing)
-    setReactInputValue(skillInput, '');
-    await sleep(150);
+    // Dismiss any lingering autocomplete by blurring, then re-focusing
+    input.blur();
+    await sleep(200);
+    input.focus();
+    await sleep(100);
+
+    await typeForAutocomplete(input, skill);
+    await sleep(1200);
+
+    // Poll for options (Workday's API-backed autocomplete can be slow)
+    let options: HTMLElement[] = [];
+    for (let attempt = 0; attempt < 3 && options.length === 0; attempt++) {
+      const ownedId = input.getAttribute('aria-controls') ?? input.getAttribute('aria-owns');
+      let listbox: Element | null = ownedId ? document.getElementById(ownedId) : null;
+      if (!listbox) {
+        const allListboxes = Array.from(document.querySelectorAll('[role="listbox"]'));
+        listbox = allListboxes[allListboxes.length - 1] ?? null;
+      }
+      options = listbox
+        ? (Array.from(listbox.querySelectorAll('[role="option"]')) as HTMLElement[])
+          .filter(o => !/no items/i.test(o.textContent?.trim() ?? ''))
+        : [];
+      if (options.length === 0) await sleep(500);
+    }
+
+    const skillLower = skill.toLowerCase();
+    // Strip " not checked" / " checked" suffixes from option text for matching
+    const cleanText = (o: HTMLElement) =>
+      (o.textContent?.trim() ?? '').replace(/\s*(not\s+)?checked\s*$/i, '').toLowerCase();
+
+    const exactMatch = options.find(o => cleanText(o) === skillLower);
+    const containsMatch = options.find(o => cleanText(o).includes(skillLower));
+    const startsWithMatch = options.find(o => cleanText(o).startsWith(skillLower));
+    const match = exactMatch ?? startsWithMatch ?? containsMatch;
+
+    if (match) {
+      const checkbox = match.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+      if (checkbox && !checkbox.checked) {
+        checkbox.click();
+      } else {
+        match.click();
+      }
+      await sleep(400);
+      wdLog(`[Workday] Skill added: "${cleanText(match)}"`);
+    } else {
+      wdLog(`[Workday] Skill not found in autocomplete: "${skill}" (${options.length} options available)`);
+    }
+
+    await sleep(200);
+  }
+
+  // Close any lingering skills autocomplete
+  const finalInput = findSkillsInput();
+  if (finalInput) {
+    finalInput.blur();
+    setReactInputValue(finalInput, '');
   }
 }
 
@@ -742,65 +1112,90 @@ const WE_FORM_LABEL = /job title|position/i;
 /** Label patterns that identify an open Education inline form */
 const EDU_FORM_LABEL = /school|university|college|institution|degree|field of study/i;
 
+function wdLog(msg: string): void {
+  console.log(msg);
+  const el = document.getElementById('__offlyn_diag') || (() => {
+    const d = document.createElement('div');
+    d.id = '__offlyn_diag';
+    d.style.display = 'none';
+    document.body.appendChild(d);
+    return d;
+  })();
+  el.setAttribute('data-log', (el.getAttribute('data-log') || '') + '\n' + msg);
+}
+
 async function handleMyExperienceStep(profile: UserProfile): Promise<void> {
-  console.log('[Workday] Handling "My Experience" step');
+  wdLog('[Workday] Handling "My Experience" step');
+  wdLog(`[Workday] profile.work entries: ${profile.work?.length ?? 0}`);
 
   // ── Work Experience ───────────────────────────────────────────────────────
   if (profile.work?.length) {
     const entries = profile.work;
     const firstAlreadyOpen = isInlineFormOpenByLabel(WE_FORM_LABEL);
+    wdLog(`[Workday] firstAlreadyOpen=${firstAlreadyOpen}, entries=${entries.length}`);
 
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i];
       const isFirst = i === 0;
+      wdLog(`[Workday] WE entry ${i}: "${entry.title}" at "${entry.company}"`);
 
       if (!isFirst || !firstAlreadyOpen) {
-        // Open the inline form by clicking "Add"
+        wdLog(`[Workday] Clicking Add for WE entry ${i}`);
         const clicked = await clickAddInSection(/work experience/i);
         if (!clicked) {
-          console.warn('[Workday] "Add" button not found in Work Experience section — stopping');
+          wdLog('[Workday] "Add" button not found — stopping');
           break;
         }
+        wdLog(`[Workday] Waiting for inline form...`);
         const appeared = await waitForInlineFormWithLabel(WE_FORM_LABEL, 5000);
         if (!appeared) {
-          console.warn('[Workday] Work Experience inline form did not appear after clicking Add');
+          wdLog('[Workday] Inline form did not appear — stopping');
           break;
         }
+        wdLog(`[Workday] Inline form appeared`);
       }
 
       // Fill whatever is open now
+      wdLog(`[Workday] Calling fillOpenWorkExperienceForm...`);
       const filled = await fillOpenWorkExperienceForm(entry);
+      wdLog(`[Workday] fillOpenWorkExperienceForm => ${filled}`);
       if (filled) {
-        const container = findInlineFormContainer('workExperience');
+        const container = findInlineFormContainer('workExperience', true);
         const saved = await saveInlineForm(container);
         if (saved) {
-          // Wait for the form to close (Job Title label disappears)
-          const closed = !(await waitForInlineFormWithLabel(WE_FORM_LABEL, 4000).then(() => true).catch(() => false));
-          console.log(`[Workday] Work Experience entry ${i + 1} ${closed ? 'saved' : 'save pending'}`);
-          await sleep(400);
+          const stillOpen = await waitForInlineFormWithLabel(WE_FORM_LABEL, 4000);
+          wdLog(`[Workday] WE entry ${i} saved. stillOpen=${stillOpen}`);
         } else {
-          console.warn('[Workday] Could not save Work Experience entry — skipping remaining entries');
-          break;
+          // Some Workday instances don't have per-entry Save buttons; entries
+          // are committed via the main "Save and Continue" button instead.
+          wdLog(`[Workday] No Save button for WE entry ${i} — entries may auto-save`);
         }
+        await sleep(400);
       }
     }
   }
 
   // ── Education ────────────────────────────────────────────────────────────
   if (profile.education?.length) {
+    const eduAlreadyOpen = isInlineFormOpenByLabel(EDU_FORM_LABEL);
+    wdLog(`[Workday] eduAlreadyOpen=${eduAlreadyOpen}, entries=${profile.education.length}`);
+
     for (let i = 0; i < profile.education.length; i++) {
       const entry = profile.education[i];
+      const isFirst = i === 0;
 
-      const clicked = await clickAddInSection(/education/i);
-      if (!clicked) {
-        console.warn('[Workday] "Add" button not found in Education section — stopping');
-        break;
-      }
-      // Use label-based wait — more robust than ID-prefix matching
-      const appeared = await waitForInlineFormWithLabel(EDU_FORM_LABEL, 5000);
-      if (!appeared) {
-        console.warn('[Workday] Education inline form did not appear after clicking Add');
-        break;
+      // Skip "Add" click if the first form is already open
+      if (!isFirst || !eduAlreadyOpen) {
+        const clicked = await clickAddInSection(/education/i);
+        if (!clicked) {
+          wdLog('[Workday] "Add" button not found in Education section — stopping');
+          break;
+        }
+        const appeared = await waitForInlineFormWithLabel(EDU_FORM_LABEL, 5000);
+        if (!appeared) {
+          wdLog('[Workday] Education inline form did not appear after clicking Add');
+          break;
+        }
       }
 
       const filled = await fillOpenEducationForm(entry);
@@ -808,19 +1203,20 @@ async function handleMyExperienceStep(profile: UserProfile): Promise<void> {
         const container = findEducationFormContainer();
         const saved = await saveInlineForm(container);
         if (saved) {
-          console.log(`[Workday] Education entry ${i + 1} saved`);
-          await sleep(400);
+          wdLog(`[Workday] Education entry ${i + 1} saved`);
         } else {
-          console.warn('[Workday] Could not save Education entry — skipping remaining entries');
-          break;
+          wdLog(`[Workday] No Save button for Education entry ${i + 1} — entries may auto-save`);
         }
+        await sleep(400);
       }
     }
   }
 
-  // ── Skills ───────────────────────────────────────────────────────────────
+  // ── Skills — skipped (flagged for manual input) ──────────────────────────
+  // Workday's skills autocomplete is API-backed and frequently returns
+  // "No Items" for programmatic input. Skip and let the user fill manually.
   if (profile.skills?.length) {
-    await fillSkillsTagInput(profile.skills);
+    wdLog(`[Workday] ⚠ Skipping ${profile.skills.length} skill(s) — please add skills manually`);
   }
 }
 
@@ -836,10 +1232,46 @@ export async function runWorkdaySpecialHandlers(profile: UserProfile): Promise<v
   const step = detectWorkdayStep();
   console.log(`[Workday] Current step: "${step}"`);
 
+  // Steps that require manual input — show notification and stop auto-advancing
+  const MANUAL_STEPS = ['Voluntary Disclosures', 'Self Identify'];
+  if (MANUAL_STEPS.some(s => step === s)) {
+    wdLog(`[Workday] "${step}" requires manual input — skipping autofill`);
+    showWarning(
+      'Manual Input Needed',
+      `Please fill out "${step}" manually, then click Save and Continue.`,
+      15000
+    );
+    return;
+  }
+
   if (step === 'My Experience') {
     await handleMyExperienceStep(profile);
   }
-  // All other steps (My Information, Application Questions, Voluntary Disclosures,
-  // Self Identify, Review) are handled adequately by the generic fill engine
-  // now that dom.ts extracts Workday's data-automation-id labels correctly.
+
+  // Auto-advance: click "Save and Continue" after filling the current step.
+  // Skipped for Review step to prevent accidental submission.
+  if (step !== 'Review') {
+    await clickSaveAndContinue();
+  }
+}
+
+/**
+ * Click Workday's "Save and Continue" / "Next" button to advance to the next step.
+ * Uses the stable data-automation-id selector from Workday's DOM.
+ */
+async function clickSaveAndContinue(): Promise<void> {
+  await sleep(500);
+  const btn = (
+    document.querySelector('button[data-automation-id="bottom-navigation-next-button"]') ??
+    Array.from(document.querySelectorAll('button')).find(b =>
+      /save and continue|next/i.test(b.textContent?.trim() ?? '')
+    )
+  ) as HTMLButtonElement | null;
+
+  if (btn) {
+    wdLog('[Workday] Clicking "Save and Continue"');
+    btn.click();
+  } else {
+    wdLog('[Workday] "Save and Continue" button not found');
+  }
 }

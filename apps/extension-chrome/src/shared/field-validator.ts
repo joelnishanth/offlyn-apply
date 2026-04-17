@@ -1,10 +1,25 @@
 /**
- * Field validation using Ollama
+ * Field validation using Ollama.
+ * All calls route through the background script via OLLAMA_PROXY to avoid CORS.
  */
 
 import { inferFieldValue } from './ollama-service';
 import type { FieldSchema } from './types';
 import type { UserProfile } from './profile';
+
+const getBrowser = () => (globalThis as any).chrome ?? (globalThis as any).browser;
+
+async function ollamaProxy(method: string, path: string, body?: any): Promise<any> {
+  const b = getBrowser();
+  if (!b?.runtime?.sendMessage) {
+    throw new Error('Extension runtime not available');
+  }
+  const resp = await b.runtime.sendMessage({ kind: 'OLLAMA_PROXY', method, path, body });
+  if (!resp?.ok) {
+    throw new Error(resp?.error || `Ollama request failed: ${method} ${path}`);
+  }
+  return resp.data;
+}
 
 export interface ValidationResult {
   isValid: boolean;
@@ -214,22 +229,13 @@ Respond in JSON format:
 }`;
 
   try {
-    const response = await fetch('http://localhost:11434/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'llama3.2',
-        prompt,
-        stream: false,
-        format: 'json'
-      })
+    const data = await ollamaProxy('POST', '/api/generate', {
+      model: 'llama3.2',
+      prompt,
+      stream: false,
+      format: 'json'
     });
 
-    if (!response.ok) {
-      throw new Error('Ollama validation request failed');
-    }
-
-    const data = await response.json();
     const result = JSON.parse(data.response);
     
     return {

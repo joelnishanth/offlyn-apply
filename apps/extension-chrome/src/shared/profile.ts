@@ -11,6 +11,7 @@ export interface PhoneDetails {
 }
 
 export interface LocationDetails {
+  street?: string;       // e.g., "742 Innovation Drive"
   city: string;          // e.g., "San Francisco"
   state: string;         // e.g., "California" or "CA"
   country: string;       // e.g., "United States"
