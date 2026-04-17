@@ -1,636 +1,557 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Offlyn Apply — Privacy-First Job Application Assistant</title>
-  <meta name="description" content="Chrome and Firefox extension that auto-fills job applications, generates AI cover letters, and tracks your progress. 100% local. No cloud. No data collection." />
-  <link rel="icon" href="assets/icon.png" type="image/png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            navy: { DEFAULT: '#1a2536', light: '#243044', dark: '#111827' },
-            brand: { DEFAULT: '#22c55e', dark: '#16a34a', light: '#dcfce7' },
-          },
-          fontFamily: { sans: ['Inter', 'sans-serif'] },
-        }
-      }
-    }
-  </script>
-  <style>
-    html { scroll-behavior: smooth; }
-    .hero-gradient { background: linear-gradient(135deg, #111827 0%, #1a2536 50%, #14532d 100%); }
-    .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
-    .card-hover:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,0,0,0.10); }
-    .popup-shadow { box-shadow: 0 24px 60px rgba(0,0,0,0.30), 0 8px 24px rgba(0,0,0,0.20); }
-    .step-connector::after {
-      content: '';
-      position: absolute;
-      top: 2rem;
-      left: calc(50% + 2.5rem);
-      width: calc(100% - 5rem);
-      height: 2px;
-      background: linear-gradient(to right, #22c55e, #86efac);
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Apply by Offlyn.ai — Stop filling out the same job forms</title>
+<meta name="description" content="Chrome and Firefox extension that auto-fills job applications, generates AI cover letters, and tracks your progress. 100% local. No cloud. No data collection." />
+<link rel="icon" type="image/png" href="assets/icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --black: #0a0a0a; --white: #ffffff; --off-white: #f9f8f6;
+    --green: #1a7f5a; --green-light: #e6f4ee; --green-mid: #2da870;
+    --gray-100: #f4f3f0; --gray-200: #e8e6e1; --gray-400: #9e9b93;
+    --gray-600: #5a5750; --gray-800: #2c2b28; --border: #e2e0da;
+    --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px;
+    --font-serif: 'Lora', Georgia, serif; --font-sans: 'Inter', system-ui, sans-serif;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: var(--font-sans); color: var(--black); background: var(--white); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .brand { color: var(--green); font-weight: 600; font-style: normal; }
+
+  /* Nav */
+  nav { position: sticky; top: 0; z-index: 100; background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: 0 2rem; height: 58px; display: flex; align-items: center; justify-content: space-between; }
+  .nav-logo { font-family: var(--font-serif); font-size: 20px; color: var(--black); text-decoration: none; display: flex; align-items: center; gap: 8px; }
+  .nav-links { display: flex; align-items: center; gap: 2rem; list-style: none; }
+  .nav-links a { font-size: 14px; color: var(--gray-600); text-decoration: none; font-weight: 400; }
+  .nav-links a:hover { color: var(--black); }
+  .nav-cta { display: flex; align-items: center; gap: 10px; }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-sans); font-size: 14px; font-weight: 500; padding: 8px 18px; border-radius: var(--radius-sm); text-decoration: none; cursor: pointer; border: none; transition: all 0.15s ease; white-space: nowrap; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--black); }
+  .btn-outline:hover { background: var(--gray-100); }
+  .btn-primary { background: var(--black); color: var(--white); }
+  .btn-primary:hover { background: var(--gray-800); }
+  .btn-green { background: var(--green); color: var(--white); }
+  .btn-green:hover { background: #145e42; }
+
+  /* Announcement */
+  .announcement { background: var(--green-light); border-bottom: 1px solid #c5e8d7; padding: 10px 2rem; text-align: center; font-size: 13.5px; color: var(--green); }
+  .announcement a { color: var(--green); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+
+  /* Hero */
+  .hero { max-width: 780px; margin: 0 auto; padding: 80px 2rem 60px; text-align: center; }
+  .hero-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--gray-100); border: 1px solid var(--border); border-radius: 100px; padding: 5px 14px; font-size: 12.5px; font-weight: 500; color: var(--gray-600); margin-bottom: 2rem; }
+  .hero-badge-dot { width: 6px; height: 6px; background: var(--green-mid); border-radius: 50%; }
+  .hero h1 { font-family: var(--font-serif); font-size: clamp(38px, 6vw, 62px); font-weight: 400; line-height: 1.1; letter-spacing: -0.02em; color: var(--black); margin-bottom: 1.25rem; }
+  .hero h1 em { font-style: italic; color: var(--green); }
+  .hero-brand { text-align: center; margin-bottom: 2rem; }
+  .hero-brand h2 { font-family: var(--font-serif); font-size: clamp(48px, 8vw, 72px); font-weight: 400; color: var(--black); line-height: 1; margin-bottom: 6px; letter-spacing: -0.03em; }
+  .hero-brand h2 em { font-style: italic; color: var(--green); }
+  .hero-brand-byline { font-size: 14px; color: var(--gray-400); font-weight: 400; }
+  .hero-brand-byline a { color: var(--gray-400); text-decoration: underline; text-underline-offset: 2px; transition: color 0.15s; }
+  .hero-brand-byline a:hover { color: var(--green); }
+  .hero-sub { font-size: 18px; color: var(--gray-600); line-height: 1.65; max-width: 520px; margin: 0 auto 2.2rem; font-weight: 300; }
+  .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .hero-note { font-size: 12.5px; color: var(--gray-400); }
+
+  /* Screenshot frame (replaces video placeholder) */
+  .screenshot-wrap { max-width: 900px; margin: 0 auto 80px; padding: 0 2rem; }
+  .screenshot-frame { width: 100%; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; background: var(--gray-100); }
+  .screenshot-frame img { width: 100%; display: block; }
+
+  /* Logo strip */
+  .logo-strip { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 28px 0; overflow: hidden; }
+  .logo-strip-label { text-align: center; font-size: 12px; font-weight: 500; color: var(--gray-400); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 20px; padding: 0 2rem; }
+  .logo-marquee { position: relative; overflow: hidden; mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent); -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent); }
+  .logo-track { display: flex; gap: 40px; align-items: center; width: max-content; animation: marquee 50s linear infinite; }
+  .logo-track:hover { animation-play-state: paused; }
+  @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+  .logo-item { flex-shrink: 0; display: inline-flex; align-items: center; gap: 7px; opacity: 0.5; transition: opacity 0.2s; }
+  .logo-item:hover { opacity: 0.85; }
+  .logo-item img { height: 20px; width: 20px; object-fit: contain; }
+  .logo-item span { font-family: var(--font-sans); font-size: 13.5px; font-weight: 600; color: var(--gray-400); letter-spacing: -0.01em; white-space: nowrap; }
+  .logo-item img.favicon { border-radius: 4px; }
+
+  /* Section base */
+  section { padding: 80px 2rem; max-width: 1080px; margin: 0 auto; }
+  .section-label { font-size: 11.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--green); margin-bottom: 12px; }
+  h2 { font-family: var(--font-serif); font-size: clamp(28px, 4vw, 42px); font-weight: 400; line-height: 1.15; letter-spacing: -0.02em; color: var(--black); margin-bottom: 1rem; }
+  .section-sub { font-size: 17px; color: var(--gray-600); max-width: 520px; font-weight: 300; line-height: 1.65; margin-bottom: 2.5rem; }
+
+  /* Pain */
+  .pain-section { background: var(--off-white); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 80px 2rem; }
+  .pain-inner { max-width: 1080px; margin: 0 auto; }
+  .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; margin-top: 2.5rem; }
+  .stat-cell { background: var(--white); padding: 1.8rem 1.5rem; }
+  .stat-num { font-family: var(--font-serif); font-size: 40px; color: var(--black); line-height: 1; margin-bottom: 6px; display: block; }
+  .stat-desc { font-size: 13.5px; color: var(--gray-600); line-height: 1.5; }
+  .pain-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 2rem; }
+  .pain-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.5rem; }
+  .pain-card h3 { font-size: 15px; font-weight: 600; color: var(--black); margin-bottom: 6px; }
+  .pain-card p { font-size: 14px; color: var(--gray-600); line-height: 1.6; }
+
+  /* Feature tabs */
+  .tabs-section { padding: 80px 2rem; max-width: 1080px; margin: 0 auto; }
+  .tabs-header { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 2.5rem; overflow-x: auto; }
+  .tab-btn { padding: 12px 20px; font-size: 14px; font-weight: 500; color: var(--gray-400); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap; font-family: var(--font-sans); transition: all 0.15s; margin-bottom: -1px; }
+  .tab-btn:hover { color: var(--black); }
+  .tab-btn.active { color: var(--black); border-bottom-color: var(--black); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+  .tab-content h3 { font-family: var(--font-serif); font-size: 28px; font-weight: 400; line-height: 1.2; margin-bottom: 1rem; letter-spacing: -0.01em; }
+  .tab-content p { font-size: 15px; color: var(--gray-600); line-height: 1.7; margin-bottom: 1.4rem; }
+  .check-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .check-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--gray-600); }
+  .check-list li::before { content: ''; flex-shrink: 0; margin-top: 5px; width: 14px; height: 14px; background: var(--green-light); border-radius: 50%; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 14 14' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 7l2.5 2.5L11 4.5' stroke='%231a7f5a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-size: contain; }
+  .tab-visual { background: var(--gray-100); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .tab-visual img { width: 100%; display: block; }
+
+  /* Testimonials carousel */
+  .testimonial-section { padding: 80px 0; overflow: hidden; }
+  .testimonial-header { text-align: center; padding: 0 2rem; margin-bottom: 3rem; }
+  .testimonial-carousel { position: relative; mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent); -webkit-mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent); }
+  .testimonial-track { display: flex; gap: 20px; width: max-content; animation: reviewScroll 60s linear infinite; padding: 4px 0; }
+  .testimonial-track:hover { animation-play-state: paused; }
+  @keyframes reviewScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+  .review-card { flex-shrink: 0; width: 340px; padding: 28px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--white); transition: box-shadow 0.2s; }
+  .review-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+  .review-stars { color: #f59e0b; font-size: 13px; letter-spacing: 2px; margin-bottom: 12px; }
+  .review-card p { font-size: 14px; color: var(--gray-600); line-height: 1.65; margin-bottom: 18px; }
+  .testimonial-meta { display: flex; align-items: center; gap: 10px; }
+  .avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--green-light); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--green); flex-shrink: 0; }
+  .testimonial-name { font-size: 13px; font-weight: 600; color: var(--black); }
+  .testimonial-role { font-size: 12px; color: var(--gray-400); }
+
+  /* How it works */
+  .how-section { padding: 80px 2rem; max-width: 1080px; margin: 0 auto; }
+  .steps-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; margin-top: 2.5rem; }
+  .step-cell { background: var(--white); padding: 1.8rem 1.4rem; }
+  .step-num { font-family: var(--font-serif); font-size: 32px; color: var(--gray-200); line-height: 1; margin-bottom: 12px; }
+  .step-title { font-size: 14px; font-weight: 600; color: var(--black); margin-bottom: 6px; }
+  .step-desc { font-size: 13px; color: var(--gray-600); line-height: 1.55; }
+  .step-logos { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .step-logo { height: 18px; opacity: 0.5; filter: grayscale(100%); border-radius: 3px; }
+  .step-powered { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; padding: 4px 10px; background: var(--gray-100); border-radius: 20px; font-size: 11px; font-weight: 500; color: var(--gray-400); }
+  .step-powered img { height: 16px; border-radius: 3px; }
+
+  /* Privacy / Security */
+  .security-section { background: var(--off-white); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 80px 2rem; }
+  .security-inner { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: start; }
+  .security-checks { list-style: none; display: flex; flex-direction: column; gap: 14px; margin-top: 1.5rem; }
+  .security-checks li { display: flex; align-items: flex-start; gap: 10px; font-size: 14.5px; color: var(--gray-600); line-height: 1.5; }
+  .check-icon { flex-shrink: 0; width: 18px; height: 18px; margin-top: 2px; }
+  .security-visual { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 2rem; display: flex; flex-direction: column; gap: 14px; margin-top: 3rem; }
+  .security-badge { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--gray-100); border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; color: var(--gray-800); }
+  .badge-dot { width: 8px; height: 8px; background: var(--green-mid); border-radius: 50%; flex-shrink: 0; }
+
+  /* Compare */
+  .compare-section { padding: 80px 2rem; max-width: 900px; margin: 0 auto; }
+  .compare-table { width: 100%; border-collapse: collapse; margin-top: 2rem; font-size: 14px; }
+  .compare-table th { padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--gray-400); border-bottom: 1px solid var(--border); }
+  .compare-table th.hl { color: var(--black); background: var(--green-light); border-bottom-color: #c5e8d7; }
+  .compare-table td { padding: 13px 16px; border-bottom: 1px solid var(--border); color: var(--gray-600); vertical-align: middle; }
+  .compare-table td.hl { background: rgba(230,244,238,0.4); font-weight: 500; color: var(--black); }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .tick { color: var(--green); font-weight: 700; font-size: 16px; }
+  .cross { color: var(--gray-200); font-size: 16px; }
+
+  /* CTA */
+  .cta-section { padding: 100px 2rem; text-align: center; max-width: 680px; margin: 0 auto; }
+  .cta-section h2 { margin-bottom: 1rem; }
+  .cta-section p { font-size: 17px; color: var(--gray-600); font-weight: 300; line-height: 1.65; margin-bottom: 2rem; }
+  .cta-note { font-size: 12.5px; color: var(--gray-400); margin-top: 12px; }
+
+  /* Footer */
+  footer { border-top: 1px solid var(--border); padding: 40px 2rem; max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 40px; align-items: start; }
+  .footer-brand p { font-size: 13px; color: var(--gray-400); line-height: 1.6; margin-top: 10px; }
+  .footer-col h4 { font-size: 12px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--gray-400); margin-bottom: 14px; }
+  .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .footer-col a { font-size: 13.5px; color: var(--gray-600); text-decoration: none; }
+  .footer-col a:hover { color: var(--black); }
+  .footer-bottom { border-top: 1px solid var(--border); padding: 20px 2rem; max-width: 1080px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; color: var(--gray-400); }
+  .footer-bottom a { color: var(--gray-400); text-decoration: none; }
+  .footer-bottom a:hover { color: var(--black); }
+
+  @media (max-width: 680px) {
+    .tab-panel.active { grid-template-columns: 1fr; }
+    .pain-grid { grid-template-columns: 1fr; }
+    .review-card { width: 280px; }
+    .security-inner { grid-template-columns: 1fr; gap: 30px; }
+    .steps-grid { grid-template-columns: 1fr 1fr; }
+    footer { grid-template-columns: 1fr; gap: 24px; }
+    .footer-bottom { flex-direction: column; gap: 8px; text-align: center; }
+    .stat-row { grid-template-columns: 1fr; }
+    .nav-links { display: none; }
+  }
+</style>
 </head>
-<body class="font-sans bg-white text-gray-900 antialiased">
+<body>
 
-  <!-- ======== NAV ======== -->
-  <header class="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-gray-200">
-    <div class="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
-      <a href="#" class="flex items-center gap-2">
-        <img src="assets/logo.png" alt="Offlyn Apply" class="h-9" />
-      </a>
-      <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
-        <a href="#features" class="hover:text-gray-900 transition-colors">Features</a>
-        <a href="#screenshots" class="hover:text-gray-900 transition-colors">Screenshots</a>
-        <a href="#how-it-works" class="hover:text-gray-900 transition-colors">How It Works</a>
-        <a href="#privacy" class="hover:text-gray-900 transition-colors">Privacy</a>
-        <a href="#open-source" class="hover:text-gray-900 transition-colors">Open Source</a>
-      </nav>
-      <a href="https://github.com/joelnishanth/offlyn-apply" target="_blank" rel="noopener"
-         class="flex items-center gap-2 bg-navy text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-navy-light transition-colors">
-        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-        Star on GitHub
-      </a>
+<!-- Announcement bar -->
+<div class="announcement">
+  Now available on Chrome &amp; Firefox &mdash; 100% free, no sign-up required.
+  <a href="https://chromewebstore.google.com/detail/offlyn-apply-job-applicat/bjllpojjllhfghiemokcoknfmhpmfbph">Install now &rarr;</a>
+</div>
+
+<!-- Nav -->
+<nav>
+  <a class="nav-logo" href="#">
+    <img src="apps/extension-chrome/public/icons/monogram-nosquare.png" alt="Apply by Offlyn.ai" style="height:32px; width:auto;" />
+  </a>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#how-it-works">How it works</a></li>
+    <li><a href="#compare">Compare</a></li>
+    <li><a href="#privacy">Privacy</a></li>
+  </ul>
+  <div class="nav-cta">
+    <a href="https://github.com/joelnishanth/offlyn-apply" class="btn btn-outline" target="_blank" rel="noopener">View on GitHub</a>
+    <a href="https://chromewebstore.google.com/detail/offlyn-apply-job-applicat/bjllpojjllhfghiemokcoknfmhpmfbph" class="btn btn-primary" target="_blank" rel="noopener">Add to Chrome</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-brand">
+    <h2>Meet <em>Apply.</em></h2>
+    <p class="hero-brand-byline">by <a href="https://offlyn.ai" target="_blank" rel="noopener">Offlyn.ai</a></p>
+  </div>
+  <div class="hero-badge">
+    <span class="hero-badge-dot"></span>
+    Local AI &middot; Open Source &middot; No data collected
+  </div>
+  <h1>Stop filling out the<br>same job forms <em>over and over.</em></h1>
+  <p class="hero-sub"><span class="brand">Apply</span> fills out job applications for you &mdash; in seconds, not minutes. Open a job page, review the answers, click apply. That&rsquo;s it.</p>
+  <div class="hero-actions">
+    <a href="https://chromewebstore.google.com/detail/offlyn-apply-job-applicat/bjllpojjllhfghiemokcoknfmhpmfbph" class="btn btn-primary" style="font-size:15px; padding:11px 24px;" target="_blank" rel="noopener">Add to Chrome</a>
+    <a href="https://addons.mozilla.org/en-US/firefox/addon/offlyn-apply/" class="btn btn-outline" style="font-size:15px; padding:11px 24px;" target="_blank" rel="noopener">Get for Firefox</a>
+  </div>
+  <p class="hero-note">Works on LinkedIn, Greenhouse, Workday, Lever &amp; more</p>
+</div>
+
+<!-- Logo strip -->
+<div class="logo-strip">
+  <p class="logo-strip-label">Used by job seekers applying to</p>
+  <div class="logo-marquee">
+    <div class="logo-track">
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/google" alt=""><span>Google</span></div>
+      <div class="logo-item"><img class="favicon" src="https://www.google.com/s2/favicons?domain=amazon.com&sz=128" alt=""><span>Amazon</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/meta" alt=""><span>Meta</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/stripe" alt=""><span>Stripe</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/apple" alt=""><span>Apple</span></div>
+      <div class="logo-item"><img class="favicon" src="https://www.google.com/s2/favicons?domain=microsoft.com&sz=128" alt=""><span>Microsoft</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/netflix" alt=""><span>Netflix</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/spotify" alt=""><span>Spotify</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/shopify" alt=""><span>Shopify</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/figma" alt=""><span>Figma</span></div>
+      <div class="logo-item"><img class="favicon" src="https://www.google.com/s2/favicons?domain=salesforce.com&sz=128" alt=""><span>Salesforce</span></div>
+      <div class="logo-item"><img class="favicon" src="https://www.google.com/s2/favicons?domain=adobe.com&sz=128" alt=""><span>Adobe</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/airbnb" alt=""><span>Airbnb</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/uber" alt=""><span>Uber</span></div>
+      <div class="logo-item"><img class="favicon" src="https://www.google.com/s2/favicons?domain=slack.com&sz=128" alt=""><span>Slack</span></div>
+      <div class="logo-item"><img class="favicon" src="https://www.google.com/s2/favicons?domain=linkedin.com&sz=128" alt=""><span>LinkedIn</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/notion" alt=""><span>Notion</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/dropbox" alt=""><span>Dropbox</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/nvidia" alt=""><span>Nvidia</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/tesla" alt=""><span>Tesla</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/cloudflare" alt=""><span>Cloudflare</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/github" alt=""><span>GitHub</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/databricks" alt=""><span>Databricks</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/snowflake" alt=""><span>Snowflake</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/vercel" alt=""><span>Vercel</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/atlassian" alt=""><span>Atlassian</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/coinbase" alt=""><span>Coinbase</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/intel" alt=""><span>Intel</span></div>
+      <!-- duplicate set for seamless loop -->
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/google" alt=""><span>Google</span></div>
+      <div class="logo-item"><img class="favicon" src="https://www.google.com/s2/favicons?domain=amazon.com&sz=128" alt=""><span>Amazon</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/meta" alt=""><span>Meta</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/stripe" alt=""><span>Stripe</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/apple" alt=""><span>Apple</span></div>
+      <div class="logo-item"><img class="favicon" src="https://www.google.com/s2/favicons?domain=microsoft.com&sz=128" alt=""><span>Microsoft</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/netflix" alt=""><span>Netflix</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/spotify" alt=""><span>Spotify</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/shopify" alt=""><span>Shopify</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/figma" alt=""><span>Figma</span></div>
+      <div class="logo-item"><img class="favicon" src="https://www.google.com/s2/favicons?domain=salesforce.com&sz=128" alt=""><span>Salesforce</span></div>
+      <div class="logo-item"><img class="favicon" src="https://www.google.com/s2/favicons?domain=adobe.com&sz=128" alt=""><span>Adobe</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/airbnb" alt=""><span>Airbnb</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/uber" alt=""><span>Uber</span></div>
+      <div class="logo-item"><img class="favicon" src="https://www.google.com/s2/favicons?domain=slack.com&sz=128" alt=""><span>Slack</span></div>
+      <div class="logo-item"><img class="favicon" src="https://www.google.com/s2/favicons?domain=linkedin.com&sz=128" alt=""><span>LinkedIn</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/notion" alt=""><span>Notion</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/dropbox" alt=""><span>Dropbox</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/nvidia" alt=""><span>Nvidia</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/tesla" alt=""><span>Tesla</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/cloudflare" alt=""><span>Cloudflare</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/github" alt=""><span>GitHub</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/databricks" alt=""><span>Databricks</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/snowflake" alt=""><span>Snowflake</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/vercel" alt=""><span>Vercel</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/atlassian" alt=""><span>Atlassian</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/coinbase" alt=""><span>Coinbase</span></div>
+      <div class="logo-item"><img src="https://cdn.simpleicons.org/intel" alt=""><span>Intel</span></div>
     </div>
-  </header>
+  </div>
+</div>
 
-  <!-- ======== HERO ======== -->
-  <section class="hero-gradient text-white py-20 md:py-28 overflow-hidden">
-    <div class="max-w-7xl mx-auto px-6">
-      <div class="grid md:grid-cols-2 gap-16 items-center">
-
-        <!-- Left -->
-        <div>
-          <div class="flex flex-wrap gap-2 mb-6">
-            <span class="inline-flex items-center gap-1.5 bg-brand/20 text-brand border border-brand/30 text-xs font-semibold px-3 py-1.5 rounded-full">
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-              100% Free & Open Source
-            </span>
-            <span class="inline-flex items-center gap-1.5 bg-white/10 text-white/80 text-xs font-semibold px-3 py-1.5 rounded-full border border-white/20">
-              MIT License
-            </span>
-            <span class="inline-flex items-center gap-1.5 bg-orange-500/20 text-orange-300 text-xs font-semibold px-3 py-1.5 rounded-full border border-orange-500/30">
-              Firefox Extension
-            </span>
-            <span class="inline-flex items-center gap-1.5 bg-blue-500/20 text-blue-300 text-xs font-semibold px-3 py-1.5 rounded-full border border-blue-500/30">
-              Chrome Extension
-            </span>
-          </div>
-
-          <h1 class="text-5xl md:text-6xl font-extrabold leading-tight mb-6 tracking-tight">
-            Apply to Jobs<br/>
-            <span class="text-brand">10x Faster</span>
-          </h1>
-          <p class="text-lg text-gray-300 leading-relaxed mb-8 max-w-lg">
-            The Chrome and Firefox extension that auto-fills job applications, generates AI cover letters with local Ollama, and tracks every application. All on your device — zero cloud, zero tracking.
-          </p>
-
-          <div class="flex flex-col sm:flex-row gap-3 mb-8">
-            <a href="https://chromewebstore.google.com/detail/offlyn-apply-job-applicat/bjllpojjllhfghiemokcoknfmhpmfbph" target="_blank" rel="noopener"
-               class="inline-flex items-center justify-center gap-2 bg-brand hover:bg-brand-dark text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm">
-              <!-- Chrome logo -->
-              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 4a8 8 0 110 16A8 8 0 0112 4zm0 2a6 6 0 100 12A6 6 0 0012 6zm0 2a4 4 0 110 8 4 4 0 010-8z"/></svg>
-              Add to Chrome
-            </a>
-            <a href="https://addons.mozilla.org/en-US/firefox/addon/offlyn-apply/" target="_blank" rel="noopener"
-               class="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm">
-              <!-- Firefox logo colour hint via orange text -->
-              <svg class="w-5 h-5 text-orange-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-              Get for Firefox
-            </a>
-          </div>
-
-          <div class="flex items-center gap-6 text-sm text-gray-400">
-            <span class="flex items-center gap-1.5">
-              <svg class="w-4 h-4 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-              No account required
-            </span>
-            <span class="flex items-center gap-1.5">
-              <svg class="w-4 h-4 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-              Fully offline
-            </span>
-            <span class="flex items-center gap-1.5">
-              <svg class="w-4 h-4 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-              MIT licensed
-            </span>
-          </div>
-        </div>
-
-        <!-- Right: Popup Mockup -->
-        <div class="relative flex justify-center">
-          <div class="popup-shadow rounded-2xl overflow-hidden w-80 bg-[#eef0f5]">
-            <!-- Popup header -->
-            <div class="bg-navy px-5 py-4 flex items-center gap-3">
-              <div class="w-9 h-9 rounded-full bg-white flex items-center justify-center flex-shrink-0">
-                <img src="assets/icon.png" alt="" class="w-7 h-7" />
-              </div>
-              <span class="text-white font-semibold text-base flex-1">Offlyn Apply</span>
-              <button class="w-7 h-7 rounded-full bg-gray-600/60 flex items-center justify-center">
-                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
-            </div>
-            <!-- Fields row -->
-            <div class="px-5 pt-4 pb-2 flex items-center gap-3">
-              <span class="flex items-center gap-1.5 text-sm text-gray-600">
-                <span class="w-2 h-2 rounded-full bg-gray-400 inline-block"></span>
-                <strong class="text-gray-900 font-semibold">33</strong> fields
-              </span>
-              <span class="flex items-center gap-1.5 text-sm text-red-500 font-semibold">
-                <span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span>
-                5 required
-              </span>
-            </div>
-            <!-- Buttons -->
-            <div class="px-4 pb-3 grid grid-cols-2 gap-2">
-              <button class="flex items-center justify-center gap-2 bg-navy text-white font-semibold text-sm py-3 rounded-xl">
-                <svg class="w-4 h-4 text-yellow-300" fill="currentColor" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-                Auto-Fill Form
-              </button>
-              <button class="flex items-center justify-center gap-2 bg-brand text-white font-semibold text-sm py-3 rounded-xl">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                Cover Letter
-              </button>
-              <button class="flex items-center justify-center gap-2 bg-white text-gray-700 font-medium text-sm py-2.5 rounded-xl border border-gray-200">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                Refresh
-              </button>
-              <button class="flex items-center justify-center gap-2 bg-white text-gray-700 font-medium text-sm py-2.5 rounded-xl border border-gray-200">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                Details
-              </button>
-            </div>
-            <!-- Compatibility Score -->
-            <div class="mx-4 mb-4 bg-white rounded-xl p-4 border border-gray-100">
-              <div class="flex items-center gap-3">
-                <span class="w-12 h-12 rounded-xl bg-brand flex items-center justify-center text-white font-bold text-sm flex-shrink-0">80%</span>
-                <div>
-                  <div class="font-semibold text-gray-900 text-sm">Compatibility Score</div>
-                  <div class="text-brand text-xs font-medium">Great Match</div>
-                </div>
-                <svg class="w-4 h-4 text-gray-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-              </div>
-            </div>
-          </div>
-
-          <!-- Floating badge -->
-          <div class="absolute -right-4 bottom-6 bg-brand text-white text-xs font-bold px-3 py-2 rounded-xl shadow-lg flex items-center gap-1.5">
-            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-            Filled in 2s
-          </div>
-        </div>
-
-      </div>
+<!-- Pain section -->
+<div class="pain-section">
+  <div class="pain-inner">
+    <p class="section-label">The problem</p>
+    <h2>The bottleneck isn&rsquo;t your talent.<br>It&rsquo;s the time you waste on forms.</h2>
+    <p class="section-sub">The job search is a volume game. But most of your time goes to re-entering the same information into different portals &mdash; not to the work that actually gets you hired.</p>
+    <div class="stat-row">
+      <div class="stat-cell"><span class="stat-num">10&ndash;15m</span><p class="stat-desc">Average time spent per application &mdash; done by hand</p></div>
+      <div class="stat-cell"><span class="stat-num">50&ndash;150</span><p class="stat-desc">Applications the average candidate sends before landing a role</p></div>
+      <div class="stat-cell"><span class="stat-num">~40 hrs</span><p class="stat-desc">Of your life spent doing nothing but filling out identical boxes</p></div>
     </div>
-  </section>
-
-  <!-- ======== STATS ======== -->
-  <section class="bg-[#eef0f5] border-y border-gray-200 py-12">
-    <div class="max-w-7xl mx-auto px-6">
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
-        <div class="text-center">
-          <div class="text-4xl font-extrabold text-brand mb-1">10x</div>
-          <div class="text-sm text-gray-600">Faster Applications</div>
-        </div>
-        <div class="text-center">
-          <div class="text-4xl font-extrabold text-brand mb-1">100%</div>
-          <div class="text-sm text-gray-600">Private & Local</div>
-        </div>
-        <div class="text-center">
-          <div class="text-4xl font-extrabold text-brand mb-1">50+</div>
-          <div class="text-sm text-gray-600">Supported ATS Systems</div>
-        </div>
-        <div class="text-center">
-          <div class="text-4xl font-extrabold text-brand mb-1">0</div>
-          <div class="text-sm text-gray-600">Data Uploaded</div>
-        </div>
-      </div>
+    <div class="pain-grid">
+      <div class="pain-card"><h3>Repetitive by design</h3><p>Every portal asks the same questions. Name, experience, education, LinkedIn URL &mdash; typed out again and again into different boxes on different sites.</p></div>
+      <div class="pain-card"><h3>The process rewards patience, not talent</h3><p>ATS systems were built for recruiters, not applicants. The more patient you are with the grind, the more applications you send. That&rsquo;s a broken system.</p></div>
     </div>
-  </section>
+  </div>
+</div>
 
-  <!-- ======== FEATURES ======== -->
-  <section id="features" class="py-24 bg-white">
-    <div class="max-w-7xl mx-auto px-6">
-      <div class="text-center mb-16">
-        <h2 class="text-4xl font-extrabold text-gray-900 mb-4">Everything You Need to Land Your Next Role</h2>
-        <p class="text-lg text-gray-500 max-w-2xl mx-auto">
-          Offlyn Apply handles the repetitive parts of job hunting so you can focus on what actually matters.
-        </p>
-      </div>
+<!-- Feature tabs -->
+<div class="tabs-section" id="features">
+  <p class="section-label">What it does</p>
+  <h2>Everything you need to apply faster.</h2>
+  <p class="section-sub">Open a job page. Let <span class="brand">Apply</span> do the heavy lifting. Review the answers. Apply &mdash; in minutes, not an hour.</p>
+  <div class="tabs-header">
+    <button class="tab-btn active" onclick="switchTab('autofill', this)">Auto-fill</button>
+    <button class="tab-btn" onclick="switchTab('coverletter', this)">AI career coach</button>
+    <button class="tab-btn" onclick="switchTab('tracker', this)">Application tracker</button>
+    <button class="tab-btn" onclick="switchTab('ats', this)">Job matching</button>
+  </div>
 
-      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <!-- Feature card -->
-        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100">
-          <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4">
-            <svg class="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-          </div>
-          <h3 class="font-bold text-gray-900 mb-2">Smart Auto-Fill</h3>
-          <p class="text-sm text-gray-500 leading-relaxed">Detects all form fields and fills them instantly from your profile. Works on Workday, Greenhouse, Lever, and plain HTML forms.</p>
-        </div>
+  <div id="tab-autofill" class="tab-panel active">
+    <div class="tab-content">
+      <h3>Fills out every field for you, instantly</h3>
+      <p><span class="brand">Apply</span> detects every input on the page &mdash; text fields, dropdowns, checkboxes &mdash; and fills them based on your resume and work history. No copy-pasting, no re-typing.</p>
+      <ul class="check-list">
+        <li>Works across all major job portals including Greenhouse, Workday, Lever &amp; Ashby</li>
+        <li>Answers are tailored to each job description, not just copy-pasted</li>
+        <li>You review and edit everything before submitting &mdash; you&rsquo;re always in control</li>
+      </ul>
+    </div>
+    <div class="tab-visual"><img src="marketing/chrome-store/screenshots/08-popup-command-center-1280x800.png" alt="Auto-fill popup" loading="lazy" /></div>
+  </div>
 
-        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100">
-          <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4">
-            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-          </div>
-          <h3 class="font-bold text-gray-900 mb-2">AI Cover Letters</h3>
-          <p class="text-sm text-gray-500 leading-relaxed">Generate tailored cover letters using a local Ollama model. Professional output, tuned to each job — never sent to any third party.</p>
-        </div>
+  <div id="tab-coverletter" class="tab-panel">
+    <div class="tab-content">
+      <h3>Chat with your resume using AI</h3>
+      <p>Ask questions about your background and get instant career advice. <span class="brand">Apply</span> uses your resume to give tailored answers &mdash; powered by local AI, so your data never leaves your device.</p>
+      <ul class="check-list">
+        <li>Get personalized answers about your skills, experience, and strengths</li>
+        <li>Generate cover letters and interview prep in your voice</li>
+        <li>100% private &mdash; everything runs locally through Ollama</li>
+      </ul>
+    </div>
+    <div class="tab-visual"><img src="marketing/chrome-store/screenshots/05-chat-with-resume-1280x800.png" alt="Chat with your resume" loading="lazy" /></div>
+  </div>
 
-        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100">
-          <div class="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center mb-4">
-            <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-          </div>
-          <h3 class="font-bold text-gray-900 mb-2">Application Tracker</h3>
-          <p class="text-sm text-gray-500 leading-relaxed">Kanban-style dashboard to track every application from submitted to offer. All stored locally in your browser.</p>
-        </div>
+  <div id="tab-tracker" class="tab-panel">
+    <div class="tab-content">
+      <h3>Track every application in one place</h3>
+      <p>Never lose track of where you&rsquo;ve applied. <span class="brand">Apply</span> automatically logs each application &mdash; company, role, date, status &mdash; so you have a clear picture of your job search.</p>
+      <ul class="check-list">
+        <li>Automatically saved when you apply &mdash; no manual logging</li>
+        <li>See all your applications at a glance</li>
+        <li>Stored locally on your device, completely private</li>
+      </ul>
+    </div>
+    <div class="tab-visual"><img src="marketing/chrome-store/screenshots/02-dashboard-tracker-1280x800.png" alt="Application tracker dashboard" loading="lazy" /></div>
+  </div>
 
-        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100">
-          <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-4">
-            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-          </div>
-          <h3 class="font-bold text-gray-900 mb-2">100% Private</h3>
-          <p class="text-sm text-gray-500 leading-relaxed">All profile data and history live in your browser's local storage. No backend, no cloud, no analytics. What we can't see, we can't sell.</p>
-        </div>
+  <div id="tab-ats" class="tab-panel">
+    <div class="tab-content">
+      <h3>Find jobs that match your skills</h3>
+      <p><span class="brand">Apply</span> scores every job against your resume so you can focus on roles where you&rsquo;re a strong fit &mdash; instead of spraying and praying.</p>
+      <ul class="check-list">
+        <li>AI-powered compatibility scores show how well you match each role</li>
+        <li>Filter by salary, location, remote, and job type</li>
+        <li>Apply directly from the results &mdash; no tab switching</li>
+      </ul>
+    </div>
+    <div class="tab-visual"><img src="marketing/chrome-store/screenshots/03-find-matching-jobs-1280x800.png" alt="Find jobs that match your skills" loading="lazy" /></div>
+  </div>
+</div>
 
-        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100">
-          <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mb-4">
-            <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-          </div>
-          <h3 class="font-bold text-gray-900 mb-2">ATS Detection</h3>
-          <p class="text-sm text-gray-500 leading-relaxed">Automatically identifies job pages and application systems. Shows a compatibility score so you know how strong a match you are before applying.</p>
-        </div>
-
-        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100">
-          <div class="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center mb-4">
-            <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-          </div>
-          <h3 class="font-bold text-gray-900 mb-2">Learns From You</h3>
-          <p class="text-sm text-gray-500 leading-relaxed">Reinforcement learning from your manual corrections. The more you use it, the smarter the autofill gets for your specific profile.</p>
-        </div>
+<!-- How it works -->
+<div class="how-section" id="how-it-works">
+  <p class="section-label">How it works</p>
+  <h2>Four steps. Minutes, not hours.</h2>
+  <p class="section-sub">No setup wizard. No monthly subscription. Install the extension once and it just works whenever you open a job application.</p>
+  <div class="steps-grid">
+    <div class="step-cell">
+      <div class="step-num">01</div>
+      <p class="step-title">Open a job page</p>
+      <p class="step-desc">Navigate to any job listing on any major platform. <span class="brand">Apply</span> wakes up automatically.</p>
+      <div class="step-logos">
+        <img class="step-logo" src="https://www.google.com/s2/favicons?domain=linkedin.com&sz=128" alt="LinkedIn" />
+        <img class="step-logo" src="https://cdn.simpleicons.org/greenhouse" alt="Greenhouse" />
+        <img class="step-logo" src="https://www.google.com/s2/favicons?domain=workday.com&sz=128" alt="Workday" />
+        <img class="step-logo" src="https://www.google.com/s2/favicons?domain=lever.co&sz=128" alt="Lever" />
+        <img class="step-logo" src="https://cdn.simpleicons.org/indeed" alt="Indeed" />
       </div>
     </div>
-  </section>
+    <div class="step-cell">
+      <div class="step-num">02</div>
+      <p class="step-title">Extension reads the form</p>
+      <p class="step-desc"><span class="brand">Apply</span> scans the page, identifies every input field, and understands the context of the role.</p>
+    </div>
+    <div class="step-cell">
+      <div class="step-num">03</div>
+      <p class="step-title">AI fills it out</p>
+      <p class="step-desc">Your local AI generates tailored answers using your resume &mdash; in seconds, with no internet request.</p>
+      <div class="step-powered"><img src="apps/extension-chrome/public/icons/ollama-logo.svg" alt="Ollama" /> Powered by Ollama</div>
+    </div>
+    <div class="step-cell">
+      <div class="step-num">04</div>
+      <p class="step-title">Review &amp; apply</p>
+      <p class="step-desc">Read through the answers, make any tweaks you want, and click submit. Done.</p>
+    </div>
+  </div>
+</div>
 
-  <!-- ======== SCREENSHOTS ======== -->
-  <section id="screenshots" class="py-24 bg-[#eef0f5]">
-    <div class="max-w-7xl mx-auto px-6">
-      <div class="text-center mb-16">
-        <h2 class="text-4xl font-extrabold text-gray-900 mb-4">See It in Action</h2>
-        <p class="text-lg text-gray-500 max-w-xl mx-auto">Real screenshots from the extension running in Chrome and Firefox.</p>
-      </div>
-
-      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div class="card-hover bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200">
-          <img src="assets/ss1.png" alt="Extension popup — Auto-Fill and Cover Letter" class="w-full object-cover" />
-          <div class="p-4">
-            <div class="font-semibold text-gray-900 text-sm">Extension Popup</div>
-            <div class="text-xs text-gray-500 mt-1">One-click auto-fill and cover letter generation right from the toolbar</div>
-          </div>
-        </div>
-
-        <div class="card-hover bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200">
-          <img src="assets/ss2.png" alt="Compatibility Score and skills match" class="w-full object-cover" />
-          <div class="p-4">
-            <div class="font-semibold text-gray-900 text-sm">Compatibility Score</div>
-            <div class="text-xs text-gray-500 mt-1">AI-powered match analysis showing skills, experience, location, and salary alignment</div>
-          </div>
-        </div>
-
-        <div class="card-hover bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200">
-          <img src="assets/ss4.png" alt="Extension home and dashboard" class="w-full object-cover" />
-          <div class="p-4">
-            <div class="font-semibold text-gray-900 text-sm">Extension Home & Dashboard</div>
-            <div class="text-xs text-gray-500 mt-1">Track total applications, weekly activity, interviews, and response rates</div>
-          </div>
-        </div>
-
-        <div class="card-hover bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200">
-          <img src="assets/ss3.png" alt="Profile setup onboarding" class="w-full object-cover" />
-          <div class="p-4">
-            <div class="font-semibold text-gray-900 text-sm">Profile Onboarding</div>
-            <div class="text-xs text-gray-500 mt-1">Guided 8-step setup — upload resume, configure AI, set personal info and preferences</div>
-          </div>
-        </div>
-
-        <div class="card-hover bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200">
-          <img src="assets/ss5.png" alt="Features overview" class="w-full object-cover" />
-          <div class="p-4">
-            <div class="font-semibold text-gray-900 text-sm">Core Features</div>
-            <div class="text-xs text-gray-500 mt-1">Smart Auto-Fill, AI Cover Letters, and 100% Private — all running locally</div>
-          </div>
-        </div>
-
-        <div class="card-hover bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200">
-          <img src="assets/ss6.png" alt="Extension pages and privacy" class="w-full object-cover" />
-          <div class="p-4">
-            <div class="font-semibold text-gray-900 text-sm">Extension Pages</div>
-            <div class="text-xs text-gray-500 mt-1">Access your dashboard, profile, exported data, and privacy settings from one place</div>
-          </div>
-        </div>
+<!-- Privacy / Security -->
+<div class="security-section" id="privacy">
+  <div class="security-inner">
+    <div>
+      <p class="section-label">Privacy first</p>
+      <h2>Your data never leaves your laptop.</h2>
+      <p class="section-sub" style="margin-bottom:0;">Most AI tools for job seekers send your resume, employment history, and personal details to their servers. <span class="brand">Apply</span> works completely differently.</p>
+      <ul class="security-checks">
+        <li><svg class="check-icon" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" fill="#e6f4ee"/><path d="M5 9l2.5 2.5L13 6" stroke="#1a7f5a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>The AI model runs entirely on your machine &mdash; no API calls, no cloud processing</li>
+        <li><svg class="check-icon" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" fill="#e6f4ee"/><path d="M5 9l2.5 2.5L13 6" stroke="#1a7f5a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Your resume and personal info is stored locally, never uploaded to any server</li>
+        <li><svg class="check-icon" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" fill="#e6f4ee"/><path d="M5 9l2.5 2.5L13 6" stroke="#1a7f5a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>No account required &mdash; there&rsquo;s nothing to sign in to, no data to collect</li>
+        <li><svg class="check-icon" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" fill="#e6f4ee"/><path d="M5 9l2.5 2.5L13 6" stroke="#1a7f5a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Fully open source &mdash; audit every line of code on GitHub</li>
+        <li><svg class="check-icon" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" fill="#e6f4ee"/><path d="M5 9l2.5 2.5L13 6" stroke="#1a7f5a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Free forever &mdash; no freemium, no subscription, no hidden costs</li>
+        <li><svg class="check-icon" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" fill="#e6f4ee"/><path d="M5 9l2.5 2.5L13 6" stroke="#1a7f5a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>No cookies, analytics, fingerprinting, or tracking of any kind</li>
+        <li><svg class="check-icon" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" fill="#e6f4ee"/><path d="M5 9l2.5 2.5L13 6" stroke="#1a7f5a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>All network requests go to localhost (Ollama) &mdash; zero external calls</li>
+      </ul>
+    </div>
+    <div>
+      <div class="security-visual">
+        <div class="security-badge"><span class="badge-dot"></span>AI runs on your device</div>
+        <div class="security-badge"><span class="badge-dot"></span>No data uploaded</div>
+        <div class="security-badge"><span class="badge-dot"></span>No account required</div>
+        <div class="security-badge"><span class="badge-dot"></span>Open source &amp; auditable</div>
+        <div class="security-badge"><span class="badge-dot"></span>Works fully offline</div>
+        <div class="security-badge"><span class="badge-dot"></span>No cookies or tracking</div>
+        <div class="security-badge"><span class="badge-dot"></span>MIT licensed</div>
       </div>
     </div>
-  </section>
+  </div>
+</div>
 
-  <!-- ======== HOW IT WORKS ======== -->
-  <section id="how-it-works" class="py-24 bg-white">
-    <div class="max-w-7xl mx-auto px-6">
-      <div class="text-center mb-16">
-        <h2 class="text-4xl font-extrabold text-gray-900 mb-4">Get Running in 5 Minutes</h2>
-        <p class="text-lg text-gray-500 max-w-xl mx-auto">No accounts, no API keys. Just install and go.</p>
-      </div>
+<!-- Compare -->
+<div class="compare-section" id="compare">
+  <p class="section-label">How we compare</p>
+  <h2>The only job application tool<br>that keeps everything on your device.</h2>
+  <table class="compare-table">
+    <thead><tr><th style="width:40%">Feature</th><th class="hl">Apply</th><th>Simplify</th><th>LazyApply</th></tr></thead>
+    <tbody>
+      <tr><td>Auto-fills job applications</td><td class="hl tick">&#10003;</td><td class="tick">&#10003;</td><td class="tick">&#10003;</td></tr>
+      <tr><td>AI cover letter generation</td><td class="hl tick">&#10003;</td><td class="tick">&#10003;</td><td class="tick">&#10003;</td></tr>
+      <tr><td>Application tracker</td><td class="hl tick">&#10003;</td><td class="tick">&#10003;</td><td class="cross">&#10007;</td></tr>
+      <tr><td>Data stays on your device</td><td class="hl tick">&#10003;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td></tr>
+      <tr><td>No account required</td><td class="hl tick">&#10003;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td></tr>
+      <tr><td>Works offline</td><td class="hl tick">&#10003;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td></tr>
+      <tr><td>Open source</td><td class="hl tick">&#10003;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td></tr>
+      <tr><td>Pricing</td><td class="hl" style="color:var(--green); font-weight:600;">Free</td><td>Freemium</td><td>Paid</td></tr>
+    </tbody>
+  </table>
+</div>
 
-      <div class="grid md:grid-cols-4 gap-8 relative">
-        <div class="text-center relative">
-          <div class="w-16 h-16 bg-brand text-white rounded-full flex items-center justify-center text-2xl font-extrabold mx-auto mb-5 shadow-lg shadow-brand/30">1</div>
-          <h3 class="font-bold text-gray-900 mb-2">Install Extension</h3>
-          <p class="text-sm text-gray-500">Add from the Chrome Web Store, or load from the repo into Firefox developer mode</p>
-        </div>
-        <div class="text-center">
-          <div class="w-16 h-16 bg-brand text-white rounded-full flex items-center justify-center text-2xl font-extrabold mx-auto mb-5 shadow-lg shadow-brand/30">2</div>
-          <h3 class="font-bold text-gray-900 mb-2">Start Ollama</h3>
-          <p class="text-sm text-gray-500">Run <code class="bg-gray-100 px-1.5 py-0.5 rounded text-xs font-mono">ollama serve</code> and pull a model like <code class="bg-gray-100 px-1.5 py-0.5 rounded text-xs font-mono">llama3.2</code></p>
-        </div>
-        <div class="text-center">
-          <div class="w-16 h-16 bg-brand text-white rounded-full flex items-center justify-center text-2xl font-extrabold mx-auto mb-5 shadow-lg shadow-brand/30">3</div>
-          <h3 class="font-bold text-gray-900 mb-2">Set Up Your Profile</h3>
-          <p class="text-sm text-gray-500">Upload your resume and fill in your info through the guided 8-step onboarding</p>
-        </div>
-        <div class="text-center">
-          <div class="w-16 h-16 bg-brand text-white rounded-full flex items-center justify-center text-2xl font-extrabold mx-auto mb-5 shadow-lg shadow-brand/30">4</div>
-          <h3 class="font-bold text-gray-900 mb-2">Apply with One Click</h3>
-          <p class="text-sm text-gray-500">Visit any job listing, click the extension icon, and hit Auto-Fill Form</p>
-        </div>
-      </div>
-
-      <div class="text-center mt-14">
-        <a href="https://github.com/joelnishanth/offlyn-apply#getting-started" target="_blank" rel="noopener"
-           class="inline-flex items-center gap-2 bg-navy text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-navy-light transition-colors">
-          Read the Setup Guide
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
-        </a>
-      </div>
+<!-- Testimonials -->
+<div class="testimonial-section">
+  <div class="testimonial-header">
+    <p class="section-label">What people are saying</p>
+    <h2>Trusted by job seekers everywhere.</h2>
+  </div>
+  <div class="testimonial-carousel">
+    <div class="testimonial-track">
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;I used to spend an hour on each application. With <span class="brand">Apply</span> I&rsquo;m done in five minutes. The form fills itself, the cover letter is actually good, and my data stays on my laptop.&rdquo;</p><div class="testimonial-meta"><div class="avatar">JR</div><div><p class="testimonial-name">Jamie R.</p><p class="testimonial-role">Software Engineer, San Francisco</p></div></div></div>
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;As a PM switching industries, I was sending 10+ applications a day. <span class="brand">Apply</span> cut my time per app from 15 minutes to under 2. The cover letters are surprisingly well-written.&rdquo;</p><div class="testimonial-meta"><div class="avatar">SK</div><div><p class="testimonial-name">Sarah K.</p><p class="testimonial-role">Product Manager, New York</p></div></div></div>
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;I just graduated and had zero patience for Workday forms. <span class="brand">Apply</span> detected every field and filled them instantly. Landed three interviews in my first week.&rdquo;</p><div class="testimonial-meta"><div class="avatar">MT</div><div><p class="testimonial-name">Marcus T.</p><p class="testimonial-role">New Grad CS, Austin</p></div></div></div>
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Everything runs locally &mdash; that blew my mind. I work in cybersecurity, so I&rsquo;m paranoid about sharing my resume with cloud tools. <span class="brand">Apply</span> is the first one I actually trust.&rdquo;</p><div class="testimonial-meta"><div class="avatar">LP</div><div><p class="testimonial-name">Lisa P.</p><p class="testimonial-role">Career Switcher, Chicago</p></div></div></div>
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;The application tracker alone is worth it. I was losing track of where I&rsquo;d applied. Now everything is logged automatically and I can see my pipeline at a glance.&rdquo;</p><div class="testimonial-meta"><div class="avatar">AC</div><div><p class="testimonial-name">Arun C.</p><p class="testimonial-role">Data Analyst, Toronto</p></div></div></div>
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;I tested it against Simplify and LazyApply. <span class="brand">Apply</span> is the only one that doesn&rsquo;t require an account or send my data to their servers. That matters.&rdquo;</p><div class="testimonial-meta"><div class="avatar">NW</div><div><p class="testimonial-name">Nina W.</p><p class="testimonial-role">UX Designer, Berlin</p></div></div></div>
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Greenhouse forms used to be my nightmare. <span class="brand">Apply</span> handles the custom dropdowns, the repeated questions, all of it. I went from 3 apps a day to 15.&rdquo;</p><div class="testimonial-meta"><div class="avatar">DJ</div><div><p class="testimonial-name">Derek J.</p><p class="testimonial-role">Marketing Manager, London</p></div></div></div>
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;I set up Ollama in about 10 minutes and now the AI cover letters run completely offline. It feels like having a writing assistant that never phones home.&rdquo;</p><div class="testimonial-meta"><div class="avatar">RB</div><div><p class="testimonial-name">Raj B.</p><p class="testimonial-role">DevOps Engineer, Bangalore</p></div></div></div>
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;The compatibility score changed how I approach applications. Instead of spraying and praying, I focus on jobs where I actually match. My interview rate tripled.&rdquo;</p><div class="testimonial-meta"><div class="avatar">EM</div><div><p class="testimonial-name">Elena M.</p><p class="testimonial-role">Frontend Developer, Seattle</p></div></div></div>
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Open source, MIT licensed, and it actually works. I read through the code before installing &mdash; something you can&rsquo;t do with any competitor.&rdquo;</p><div class="testimonial-meta"><div class="avatar">TH</div><div><p class="testimonial-name">Tom H.</p><p class="testimonial-role">Business Analyst, Melbourne</p></div></div></div>
+      <!-- duplicate set for seamless loop -->
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;I used to spend an hour on each application. With <span class="brand">Apply</span> I&rsquo;m done in five minutes. The form fills itself, the cover letter is actually good, and my data stays on my laptop.&rdquo;</p><div class="testimonial-meta"><div class="avatar">JR</div><div><p class="testimonial-name">Jamie R.</p><p class="testimonial-role">Software Engineer, San Francisco</p></div></div></div>
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;As a PM switching industries, I was sending 10+ applications a day. <span class="brand">Apply</span> cut my time per app from 15 minutes to under 2. The cover letters are surprisingly well-written.&rdquo;</p><div class="testimonial-meta"><div class="avatar">SK</div><div><p class="testimonial-name">Sarah K.</p><p class="testimonial-role">Product Manager, New York</p></div></div></div>
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;I just graduated and had zero patience for Workday forms. <span class="brand">Apply</span> detected every field and filled them instantly. Landed three interviews in my first week.&rdquo;</p><div class="testimonial-meta"><div class="avatar">MT</div><div><p class="testimonial-name">Marcus T.</p><p class="testimonial-role">New Grad CS, Austin</p></div></div></div>
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Everything runs locally &mdash; that blew my mind. I work in cybersecurity, so I&rsquo;m paranoid about sharing my resume with cloud tools. <span class="brand">Apply</span> is the first one I actually trust.&rdquo;</p><div class="testimonial-meta"><div class="avatar">LP</div><div><p class="testimonial-name">Lisa P.</p><p class="testimonial-role">Career Switcher, Chicago</p></div></div></div>
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;The application tracker alone is worth it. I was losing track of where I&rsquo;d applied. Now everything is logged automatically and I can see my pipeline at a glance.&rdquo;</p><div class="testimonial-meta"><div class="avatar">AC</div><div><p class="testimonial-name">Arun C.</p><p class="testimonial-role">Data Analyst, Toronto</p></div></div></div>
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;I tested it against Simplify and LazyApply. <span class="brand">Apply</span> is the only one that doesn&rsquo;t require an account or send my data to their servers. That matters.&rdquo;</p><div class="testimonial-meta"><div class="avatar">NW</div><div><p class="testimonial-name">Nina W.</p><p class="testimonial-role">UX Designer, Berlin</p></div></div></div>
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Greenhouse forms used to be my nightmare. <span class="brand">Apply</span> handles the custom dropdowns, the repeated questions, all of it. I went from 3 apps a day to 15.&rdquo;</p><div class="testimonial-meta"><div class="avatar">DJ</div><div><p class="testimonial-name">Derek J.</p><p class="testimonial-role">Marketing Manager, London</p></div></div></div>
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;I set up Ollama in about 10 minutes and now the AI cover letters run completely offline. It feels like having a writing assistant that never phones home.&rdquo;</p><div class="testimonial-meta"><div class="avatar">RB</div><div><p class="testimonial-name">Raj B.</p><p class="testimonial-role">DevOps Engineer, Bangalore</p></div></div></div>
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;The compatibility score changed how I approach applications. Instead of spraying and praying, I focus on jobs where I actually match. My interview rate tripled.&rdquo;</p><div class="testimonial-meta"><div class="avatar">EM</div><div><p class="testimonial-name">Elena M.</p><p class="testimonial-role">Frontend Developer, Seattle</p></div></div></div>
+      <div class="review-card"><div class="review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>&ldquo;Open source, MIT licensed, and it actually works. I read through the code before installing &mdash; something you can&rsquo;t do with any competitor.&rdquo;</p><div class="testimonial-meta"><div class="avatar">TH</div><div><p class="testimonial-name">Tom H.</p><p class="testimonial-role">Business Analyst, Melbourne</p></div></div></div>
     </div>
-  </section>
+  </div>
+</div>
 
-  <!-- ======== PRIVACY ======== -->
-  <section id="privacy" class="py-24 bg-[#eef0f5]">
-    <div class="max-w-7xl mx-auto px-6">
-      <div class="grid md:grid-cols-2 gap-16 items-center">
-        <div>
-          <span class="inline-flex items-center gap-2 bg-green-100 text-green-800 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-            Privacy First Architecture
-          </span>
-          <h2 class="text-4xl font-extrabold text-gray-900 mb-6">Your Data Stays Yours</h2>
-          <p class="text-lg text-gray-600 mb-8 leading-relaxed">
-            Unlike most job tools that funnel your resume and personal info through their servers, Offlyn Apply never sends your data anywhere. Everything — your profile, applications, AI results — lives in your browser.
-          </p>
-          <ul class="space-y-5">
-            <li class="flex items-start gap-3">
-              <div class="w-6 h-6 rounded-full bg-brand flex items-center justify-center flex-shrink-0 mt-0.5">
-                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-              </div>
-              <div>
-                <strong class="text-gray-900">Local storage only</strong>
-                <p class="text-sm text-gray-500 mt-0.5">All data stored in <code class="bg-gray-100 px-1 py-0.5 rounded text-xs">browser.storage.local</code> — never synced to any cloud</p>
-              </div>
-            </li>
-            <li class="flex items-start gap-3">
-              <div class="w-6 h-6 rounded-full bg-brand flex items-center justify-center flex-shrink-0 mt-0.5">
-                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-              </div>
-              <div>
-                <strong class="text-gray-900">No backend</strong>
-                <p class="text-sm text-gray-500 mt-0.5">Zero servers, zero databases. The only network requests go to <code class="bg-gray-100 px-1 py-0.5 rounded text-xs">localhost</code> (Ollama)</p>
-              </div>
-            </li>
-            <li class="flex items-start gap-3">
-              <div class="w-6 h-6 rounded-full bg-brand flex items-center justify-center flex-shrink-0 mt-0.5">
-                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-              </div>
-              <div>
-                <strong class="text-gray-900">Local AI with Ollama</strong>
-                <p class="text-sm text-gray-500 mt-0.5">Cover letters generated on your machine — your resume never touches OpenAI, Anthropic, or any external model</p>
-              </div>
-            </li>
-            <li class="flex items-start gap-3">
-              <div class="w-6 h-6 rounded-full bg-brand flex items-center justify-center flex-shrink-0 mt-0.5">
-                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-              </div>
-              <div>
-                <strong class="text-gray-900">Open source & auditable</strong>
-                <p class="text-sm text-gray-500 mt-0.5">Every line of code is public. Don't trust us — verify it yourself</p>
-              </div>
-            </li>
-          </ul>
-        </div>
+<!-- Final CTA -->
+<div class="cta-section">
+  <p class="section-label">Get started</p>
+  <h2>Get your time back.<br>Start applying <em>smarter.</em></h2>
+  <p>Install in two minutes. No account. No subscription. Just open a job page and watch the form fill itself.</p>
+  <a href="https://chromewebstore.google.com/detail/offlyn-apply-job-applicat/bjllpojjllhfghiemokcoknfmhpmfbph" class="btn btn-green" style="font-size:16px; padding:14px 32px;" target="_blank" rel="noopener">Add to Chrome &mdash; Free</a>
+  <p class="cta-note">Also available for <a href="https://addons.mozilla.org/en-US/firefox/addon/offlyn-apply/" style="color:var(--gray-600); text-decoration:underline;" target="_blank" rel="noopener">Firefox</a> &nbsp;&middot;&nbsp; Open source on <a href="https://github.com/joelnishanth/offlyn-apply" style="color:var(--gray-600); text-decoration:underline;" target="_blank" rel="noopener">GitHub</a> &nbsp;&middot;&nbsp; No data collected</p>
+</div>
 
-        <div class="bg-navy rounded-2xl p-8 text-white">
-          <div class="w-14 h-14 bg-white/10 rounded-xl flex items-center justify-center mb-6">
-            <svg class="w-7 h-7 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-          </div>
-          <h3 class="text-2xl font-bold mb-2">Zero Data Collection</h3>
-          <p class="text-gray-400 text-sm mb-6">We built it this way on purpose. The job market is stressful enough — you shouldn't have to worry about who has your resume.</p>
-          <ul class="space-y-3 text-sm text-gray-300">
-            <li class="flex items-center gap-2"><span class="text-brand">✓</span> No account creation</li>
-            <li class="flex items-center gap-2"><span class="text-brand">✓</span> No email collection</li>
-            <li class="flex items-center gap-2"><span class="text-brand">✓</span> No analytics or tracking</li>
-            <li class="flex items-center gap-2"><span class="text-brand">✓</span> No cookies or fingerprinting</li>
-            <li class="flex items-center gap-2"><span class="text-brand">✓</span> No data sold to third parties</li>
-          </ul>
-          <p class="mt-6 text-brand font-semibold text-sm">Because we can't access what we never collect.</p>
-        </div>
-      </div>
-    </div>
-  </section>
+<!-- Footer -->
+<footer>
+  <div class="footer-brand">
+    <a class="nav-logo" href="#"><img src="apps/extension-chrome/public/icons/monogram-nosquare.png" alt="Apply by Offlyn.ai" style="height:28px; width:auto;" /></a>
+    <p>A local AI-powered job application assistant. Built by job seekers, for job seekers.</p>
+  </div>
+  <div class="footer-col">
+    <h4>Product</h4>
+    <ul>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how-it-works">How it works</a></li>
+      <li><a href="#compare">Compare</a></li>
+      <li><a href="#privacy">Privacy</a></li>
+    </ul>
+  </div>
+  <div class="footer-col">
+    <h4>Resources</h4>
+    <ul>
+      <li><a href="https://github.com/joelnishanth/offlyn-apply" target="_blank" rel="noopener">GitHub</a></li>
+      <li><a href="https://chromewebstore.google.com/detail/offlyn-apply-job-applicat/bjllpojjllhfghiemokcoknfmhpmfbph" target="_blank" rel="noopener">Chrome Store</a></li>
+      <li><a href="https://addons.mozilla.org/en-US/firefox/addon/offlyn-apply/" target="_blank" rel="noopener">Firefox Add-ons</a></li>
+    </ul>
+  </div>
+</footer>
+<div class="footer-bottom">
+  <span>&copy; 2026 <a href="https://offlyn.ai">Offlyn.ai</a> &mdash; All rights reserved</span>
+  <div style="display:flex; gap:16px;">
+    <a href="privacy.html">Privacy Policy</a>
+    <a href="https://github.com/joelnishanth/offlyn-apply/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+  </div>
+</div>
 
-  <!-- ======== OPEN SOURCE ======== -->
-  <section id="open-source" class="py-24 bg-white">
-    <div class="max-w-7xl mx-auto px-6">
-      <div class="text-center mb-16">
-        <span class="inline-flex items-center gap-2 bg-gray-100 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
-          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-          Open Source
-        </span>
-        <h2 class="text-4xl font-extrabold text-gray-900 mb-4">Built in the Open</h2>
-        <p class="text-lg text-gray-500 max-w-2xl mx-auto">
-          Offlyn Apply is MIT-licensed and fully open source. Read the code, fork it, contribute to it, or build on top of it.
-        </p>
-      </div>
-
-      <!-- License + GitHub row -->
-      <div class="grid md:grid-cols-3 gap-6 mb-12">
-        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100 flex flex-col items-start">
-          <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4">
-            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
-          </div>
-          <h3 class="font-bold text-gray-900 mb-2">MIT License</h3>
-          <p class="text-sm text-gray-500 mb-4 flex-1">Free to use, modify, and distribute. Build on it for personal or commercial use with no restrictions.</p>
-          <a href="https://github.com/joelnishanth/offlyn-apply/blob/main/LICENSE" target="_blank" rel="noopener"
-             class="text-sm font-semibold text-blue-600 hover:underline flex items-center gap-1">
-            View LICENSE
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-          </a>
-        </div>
-
-        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100 flex flex-col items-start">
-          <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-4">
-            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-          </div>
-          <h3 class="font-bold text-gray-900 mb-2">Contributing</h3>
-          <p class="text-sm text-gray-500 mb-4 flex-1">Bug fixes, new ATS integrations, better form detection — all contributions welcome. Read the guide to get started.</p>
-          <a href="https://github.com/joelnishanth/offlyn-apply/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener"
-             class="text-sm font-semibold text-green-600 hover:underline flex items-center gap-1">
-            CONTRIBUTING.md
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-          </a>
-        </div>
-
-        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100 flex flex-col items-start">
-          <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mb-4">
-            <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-          </div>
-          <h3 class="font-bold text-gray-900 mb-2">Community Standards</h3>
-          <p class="text-sm text-gray-500 mb-4 flex-1">A welcoming, inclusive community with a Code of Conduct enforced by the maintainers.</p>
-          <a href="https://github.com/joelnishanth/offlyn-apply/blob/main/CODE_OF_CONDUCT.md" target="_blank" rel="noopener"
-             class="text-sm font-semibold text-orange-600 hover:underline flex items-center gap-1">
-            CODE_OF_CONDUCT.md
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-          </a>
-        </div>
-      </div>
-
-      <!-- Security + Report bug row -->
-      <div class="grid md:grid-cols-2 gap-6 mb-12">
-        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100 flex items-start gap-5">
-          <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
-            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-          </div>
-          <div>
-            <h3 class="font-bold text-gray-900 mb-1">Security Policy</h3>
-            <p class="text-sm text-gray-500 mb-3">Found a vulnerability? Please don't open a public issue. Follow the responsible disclosure process.</p>
-            <a href="https://github.com/joelnishanth/offlyn-apply/blob/main/SECURITY.md" target="_blank" rel="noopener"
-               class="text-sm font-semibold text-red-600 hover:underline flex items-center gap-1">
-              SECURITY.md
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-            </a>
-          </div>
-        </div>
-
-        <div class="card-hover bg-[#f7f8fa] rounded-2xl p-6 border border-gray-100 flex items-start gap-5">
-          <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
-            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>
-          </div>
-          <div>
-            <h3 class="font-bold text-gray-900 mb-1">Report a Bug or Request a Feature</h3>
-            <p class="text-sm text-gray-500 mb-3">Use GitHub Issues with the structured templates — bug reports and feature requests welcome.</p>
-            <a href="https://github.com/joelnishanth/offlyn-apply/issues/new/choose" target="_blank" rel="noopener"
-               class="text-sm font-semibold text-purple-600 hover:underline flex items-center gap-1">
-              Open an Issue
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-            </a>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tech stack badges -->
-      <div class="bg-[#f7f8fa] rounded-2xl p-8 border border-gray-100 text-center">
-        <p class="text-sm font-semibold text-gray-600 mb-5 uppercase tracking-widest">Built with</p>
-        <div class="flex flex-wrap justify-center gap-3">
-          <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">TypeScript</span>
-          <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">WebExtension API</span>
-          <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">Ollama</span>
-          <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">esbuild</span>
-          <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">Vitest</span>
-          <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">Vercel AI SDK</span>
-          <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">Firefox 109+</span>
-          <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">Chrome / Chromium</span>
-          <span class="bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm">Manifest V3</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ======== CTA ======== -->
-  <section class="py-24 bg-gradient-to-br from-brand-dark to-green-700 text-white">
-    <div class="max-w-4xl mx-auto px-6 text-center">
-      <div class="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-8">
-        <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-      </div>
-      <h2 class="text-4xl font-extrabold mb-5">Ready to Supercharge Your Job Search?</h2>
-      <p class="text-xl text-green-100 mb-10 max-w-xl mx-auto">
-        Free. Open source. Private. Install it in minutes and start applying faster today.
-      </p>
-      <div class="flex flex-col sm:flex-row gap-4 justify-center">
-        <a href="https://chromewebstore.google.com/detail/offlyn-apply-job-applicat/bjllpojjllhfghiemokcoknfmhpmfbph" target="_blank" rel="noopener"
-           class="inline-flex items-center justify-center gap-2 bg-white text-green-800 font-bold px-8 py-3.5 rounded-xl hover:bg-green-50 transition-colors">
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 4a8 8 0 110 16A8 8 0 0112 4zm0 2a6 6 0 100 12A6 6 0 0012 6zm0 2a4 4 0 110 8 4 4 0 010-8z"/></svg>
-          Add to Chrome
-        </a>
-        <a href="https://addons.mozilla.org/en-US/firefox/addon/offlyn-apply/" target="_blank" rel="noopener"
-           class="inline-flex items-center justify-center gap-2 bg-white/15 hover:bg-white/25 border border-white/30 text-white font-bold px-8 py-3.5 rounded-xl transition-colors">
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-          Get for Firefox
-        </a>
-      </div>
-    </div>
-  </section>
-
-  <!-- ======== FOOTER ======== -->
-  <footer class="bg-navy text-gray-400 py-14">
-    <div class="max-w-7xl mx-auto px-6">
-      <div class="grid md:grid-cols-4 gap-10 mb-10">
-        <div class="col-span-1">
-          <img src="assets/logo.png" alt="Offlyn Apply" class="h-9 mb-4 brightness-0 invert opacity-80" />
-          <p class="text-sm leading-relaxed">Privacy-first job application assistant for Chrome and Firefox. Free, open source, and fully offline.</p>
-        </div>
-        <div>
-          <h4 class="text-white font-semibold mb-4 text-sm">Product</h4>
-          <ul class="space-y-2 text-sm">
-            <li><a href="https://chromewebstore.google.com/detail/offlyn-apply-job-applicat/bjllpojjllhfghiemokcoknfmhpmfbph" target="_blank" rel="noopener" class="hover:text-white transition-colors">Chrome Web Store</a></li>
-            <li><a href="#features" class="hover:text-white transition-colors">Features</a></li>
-            <li><a href="#screenshots" class="hover:text-white transition-colors">Screenshots</a></li>
-            <li><a href="#how-it-works" class="hover:text-white transition-colors">How It Works</a></li>
-            <li><a href="#privacy" class="hover:text-white transition-colors">Privacy</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 class="text-white font-semibold mb-4 text-sm">Open Source</h4>
-          <ul class="space-y-2 text-sm">
-            <li><a href="https://github.com/joelnishanth/offlyn-apply" target="_blank" rel="noopener" class="hover:text-white transition-colors">GitHub</a></li>
-            <li><a href="https://github.com/joelnishanth/offlyn-apply/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener" class="hover:text-white transition-colors">Contributing</a></li>
-            <li><a href="https://github.com/joelnishanth/offlyn-apply/issues" target="_blank" rel="noopener" class="hover:text-white transition-colors">Issues</a></li>
-            <li><a href="https://github.com/joelnishanth/offlyn-apply/blob/main/CHANGELOG.md" target="_blank" rel="noopener" class="hover:text-white transition-colors">Changelog</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 class="text-white font-semibold mb-4 text-sm">Legal & Community</h4>
-          <ul class="space-y-2 text-sm">
-            <li><a href="privacy.html" class="text-brand font-medium hover:underline transition-colors">Privacy Policy</a></li>
-            <li><a href="https://github.com/joelnishanth/offlyn-apply/blob/main/LICENSE" target="_blank" rel="noopener" class="hover:text-white transition-colors">MIT License</a></li>
-            <li><a href="https://github.com/joelnishanth/offlyn-apply/blob/main/CODE_OF_CONDUCT.md" target="_blank" rel="noopener" class="hover:text-white transition-colors">Code of Conduct</a></li>
-            <li><a href="https://github.com/joelnishanth/offlyn-apply/blob/main/SECURITY.md" target="_blank" rel="noopener" class="hover:text-white transition-colors">Security Policy</a></li>
-          </ul>
-        </div>
-      </div>
-      <div class="border-t border-white/10 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
-        <p>© 2026 <a href="https://offlyn.ai" class="text-brand hover:underline">Offlyn Apply</a>. Open source under the MIT License.</p>
-        <a href="https://github.com/joelnishanth/offlyn-apply" target="_blank" rel="noopener"
-           class="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-          joelnishanth/offlyn-apply
-        </a>
-      </div>
-    </div>
-  </footer>
-
+<script>
+  function switchTab(id, el) {
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+    document.getElementById('tab-' + id).classList.add('active');
+    el.classList.add('active');
+  }
+</script>
 </body>
 </html>
