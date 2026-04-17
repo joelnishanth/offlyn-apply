@@ -109,8 +109,21 @@
   .check-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
   .check-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--gray-600); }
   .check-list li::before { content: ''; flex-shrink: 0; margin-top: 5px; width: 14px; height: 14px; background: var(--green-light); border-radius: 50%; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 14 14' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 7l2.5 2.5L11 4.5' stroke='%231a7f5a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-size: contain; }
-  .tab-visual { background: var(--gray-100); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .tab-visual { background: var(--gray-100); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; position: relative; }
   .tab-visual img { width: 100%; display: block; }
+  .tab-visual .device-frame { position: relative; }
+  .tab-visual .device-toolbar { display: flex; align-items: center; gap: 6px; padding: 10px 14px; background: var(--white); border-bottom: 1px solid var(--border); }
+  .device-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .device-dot.r { background: #ff5f57; }
+  .device-dot.y { background: #febc2e; }
+  .device-dot.g { background: #28c840; }
+  .device-url { flex: 1; margin-left: 10px; background: var(--gray-100); border: 1px solid var(--border); border-radius: 6px; padding: 4px 12px; font-size: 11px; color: var(--gray-400); font-family: var(--font-sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tab-visual iframe { width: 100%; height: 420px; border: none; display: block; background: var(--white); }
+  .iframe-overlay { position: absolute; bottom: 0; left: 0; right: 0; top: 33px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 16px; cursor: pointer; z-index: 2; background: linear-gradient(to top, rgba(0,0,0,0.04), transparent 40%); transition: opacity 0.2s; }
+  .iframe-overlay span { background: var(--white); border: 1px solid var(--border); border-radius: 100px; padding: 5px 16px; font-size: 12px; font-weight: 500; color: var(--gray-600); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .iframe-overlay.active { opacity: 0; pointer-events: none; }
+  .tab-visual.interactive iframe { pointer-events: auto; }
+  .tab-visual:not(.interactive) iframe { pointer-events: none; }
 
   /* Testimonials carousel */
   .testimonial-section { padding: 80px 0; overflow: hidden; }
@@ -341,7 +354,14 @@
         <li>You review and edit everything before submitting &mdash; you&rsquo;re always in control</li>
       </ul>
     </div>
-    <div class="tab-visual"><img src="marketing/chrome-store/screenshots/08-popup-command-center-1280x800.png" alt="Auto-fill popup" loading="lazy" /></div>
+    <div class="tab-visual" onclick="this.classList.toggle('interactive'); this.querySelector('.iframe-overlay').classList.toggle('active')">
+      <div class="device-frame">
+        <div class="device-toolbar"><span class="device-dot r"></span><span class="device-dot y"></span><span class="device-dot g"></span><span class="device-url">chrome-extension://apply/popup.html</span></div>
+        <iframe src="apps/extension-chrome/public/popup/popup.html" sandbox="allow-scripts" loading="lazy" tabindex="-1"></iframe>
+      </div>
+      <div class="iframe-overlay"><span>Click to interact</span></div>
+      <noscript><img src="public/screenshots/08-popup-command-center-1280x800.png" alt="Auto-fill popup" /></noscript>
+    </div>
   </div>
 
   <div id="tab-coverletter" class="tab-panel">
@@ -354,7 +374,14 @@
         <li>100% private &mdash; everything runs locally through Ollama</li>
       </ul>
     </div>
-    <div class="tab-visual"><img src="marketing/chrome-store/screenshots/05-chat-with-resume-1280x800.png" alt="Chat with your resume" loading="lazy" /></div>
+    <div class="tab-visual" onclick="this.classList.toggle('interactive'); this.querySelector('.iframe-overlay').classList.toggle('active')">
+      <div class="device-frame">
+        <div class="device-toolbar"><span class="device-dot r"></span><span class="device-dot y"></span><span class="device-dot g"></span><span class="device-url">chrome-extension://apply/chat.html</span></div>
+        <iframe src="apps/extension-chrome/public/chat/chat.html" sandbox="allow-scripts" loading="lazy" tabindex="-1"></iframe>
+      </div>
+      <div class="iframe-overlay"><span>Click to interact</span></div>
+      <noscript><img src="public/screenshots/05-chat-with-resume-1280x800.png" alt="Chat with your resume" /></noscript>
+    </div>
   </div>
 
   <div id="tab-tracker" class="tab-panel">
@@ -367,7 +394,14 @@
         <li>Stored locally on your device, completely private</li>
       </ul>
     </div>
-    <div class="tab-visual"><img src="marketing/chrome-store/screenshots/02-dashboard-tracker-1280x800.png" alt="Application tracker dashboard" loading="lazy" /></div>
+    <div class="tab-visual" onclick="this.classList.toggle('interactive'); this.querySelector('.iframe-overlay').classList.toggle('active')">
+      <div class="device-frame">
+        <div class="device-toolbar"><span class="device-dot r"></span><span class="device-dot y"></span><span class="device-dot g"></span><span class="device-url">chrome-extension://apply/dashboard.html</span></div>
+        <iframe src="apps/extension-chrome/public/dashboard/dashboard.html" sandbox="allow-scripts" loading="lazy" tabindex="-1"></iframe>
+      </div>
+      <div class="iframe-overlay"><span>Click to interact</span></div>
+      <noscript><img src="public/screenshots/02-dashboard-tracker-1280x800.png" alt="Application tracker dashboard" /></noscript>
+    </div>
   </div>
 
   <div id="tab-ats" class="tab-panel">
@@ -380,7 +414,14 @@
         <li>Apply directly from the results &mdash; no tab switching</li>
       </ul>
     </div>
-    <div class="tab-visual"><img src="marketing/chrome-store/screenshots/03-find-matching-jobs-1280x800.png" alt="Find jobs that match your skills" loading="lazy" /></div>
+    <div class="tab-visual" onclick="this.classList.toggle('interactive'); this.querySelector('.iframe-overlay').classList.toggle('active')">
+      <div class="device-frame">
+        <div class="device-toolbar"><span class="device-dot r"></span><span class="device-dot y"></span><span class="device-dot g"></span><span class="device-url">chrome-extension://apply/jobs.html</span></div>
+        <iframe src="apps/extension-chrome/public/jobs/jobs.html" sandbox="allow-scripts" loading="lazy" tabindex="-1"></iframe>
+      </div>
+      <div class="iframe-overlay"><span>Click to interact</span></div>
+      <noscript><img src="public/screenshots/03-find-matching-jobs-1280x800.png" alt="Find jobs that match your skills" /></noscript>
+    </div>
   </div>
 </div>
 
