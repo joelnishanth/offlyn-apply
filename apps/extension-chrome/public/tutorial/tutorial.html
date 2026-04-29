@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Offlyn Apply -- Interactive Tutorial</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --green: #16a34a;
+    --green-light: #dcfce7;
+    --blue: #2563eb;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-serif: 'Lora', Georgia, serif;
+  }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: var(--font-sans); background: var(--gray-50); color: var(--gray-800); }
+
+  /* ── Tutorial header ── */
+  .tutorial-header {
+    background: #fff;
+    border-bottom: 1px solid var(--gray-200);
+    padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .tutorial-header-left { display: flex; align-items: center; gap: 12px; }
+  .tutorial-header-logo { height: 28px; }
+  .tutorial-header-badge {
+    font-size: 11px; font-weight: 600;
+    background: var(--green-light); color: var(--green);
+    padding: 3px 10px; border-radius: 20px;
+  }
+  .tutorial-skip {
+    background: none; border: 1px solid var(--gray-300);
+    color: var(--gray-500); padding: 6px 16px;
+    border-radius: 6px; font-size: 12px; font-weight: 500;
+    cursor: pointer; font-family: inherit; transition: all .15s;
+  }
+  .tutorial-skip:hover { border-color: var(--gray-400); color: var(--gray-700); }
+
+  /* ── Job page layout ── */
+  .page-container { max-width: 800px; margin: 0 auto; padding: 24px; }
+
+  .job-posting {
+    background: #fff; border: 1px solid var(--gray-200);
+    border-radius: 12px; padding: 28px; margin-bottom: 20px;
+  }
+  .job-posting h1 {
+    font-family: var(--font-serif);
+    font-size: 22px; font-weight: 600; margin-bottom: 4px;
+  }
+  .job-company { color: var(--gray-500); font-size: 14px; margin-bottom: 16px; }
+  .job-meta {
+    display: flex; gap: 16px; margin-bottom: 16px;
+    font-size: 12px; color: var(--gray-500);
+  }
+  .job-meta-item { display: flex; align-items: center; gap: 4px; }
+  .job-section-title { font-size: 14px; font-weight: 600; margin: 16px 0 8px; }
+  .job-posting ul { padding-left: 20px; font-size: 13px; line-height: 1.8; color: var(--gray-600); }
+  .job-posting p { font-size: 13px; line-height: 1.7; color: var(--gray-600); margin-bottom: 8px; }
+
+  /* ── Application form ── */
+  .application-form {
+    background: #fff; border: 1px solid var(--gray-200);
+    border-radius: 12px; padding: 28px;
+  }
+  .form-title {
+    font-family: var(--font-serif);
+    font-size: 18px; font-weight: 600; margin-bottom: 20px;
+  }
+  .form-row { margin-bottom: 16px; }
+  .form-row label {
+    display: block; font-size: 12px; font-weight: 500;
+    color: var(--gray-600); margin-bottom: 5px;
+  }
+  .form-row input, .form-row textarea, .form-row select {
+    width: 100%; padding: 10px 12px;
+    border: 1px solid var(--gray-300); border-radius: 8px;
+    font-family: inherit; font-size: 13px; color: var(--gray-800);
+    background: #fff;
+  }
+  .form-row textarea { resize: vertical; min-height: 100px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-submit {
+    padding: 12px 28px; background: var(--blue); color: #fff;
+    border: none; border-radius: 8px; font-size: 14px;
+    font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px;
+  }
+  .tool-buttons {
+    display: flex; gap: 10px; margin-top: 16px; padding-top: 16px;
+    border-top: 1px solid var(--gray-200);
+  }
+  .mock-tool-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border: 1px solid var(--gray-300);
+    border-radius: 8px; background: #fff; color: var(--gray-600);
+    font-size: 12px; font-weight: 500; cursor: default; font-family: inherit;
+  }
+  .mock-tool-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+  /* ── Tour tooltip (positioned next to the widget) ── */
+  .tour-tooltip {
+    position: fixed;
+    width: 300px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.18);
+    padding: 20px;
+    z-index: 2147483646;
+    transition: top .3s ease, left .3s ease, opacity .2s;
+    opacity: 0;
+  }
+  .tour-tooltip.visible { opacity: 1; }
+  .tour-tooltip.arrow-right::after {
+    content: '';
+    position: absolute;
+    top: 24px;
+    right: -8px;
+    width: 0; height: 0;
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-left: 8px solid #fff;
+    filter: drop-shadow(2px 0 2px rgba(0,0,0,.06));
+  }
+  .tour-tooltip.arrow-left::after {
+    content: '';
+    position: absolute;
+    top: 24px;
+    left: -8px;
+    right: auto;
+    width: 0; height: 0;
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-right: 8px solid #fff;
+    filter: drop-shadow(-2px 0 2px rgba(0,0,0,.06));
+  }
+  .tour-step {
+    font-size: 11px; font-weight: 600;
+    color: var(--green); margin-bottom: 6px;
+    letter-spacing: .03em;
+  }
+  .tour-title {
+    font-family: var(--font-serif);
+    font-size: 16px; font-weight: 600; margin-bottom: 8px;
+  }
+  .tour-body {
+    font-size: 13px; color: var(--gray-600);
+    line-height: 1.6; margin-bottom: 16px;
+  }
+  .tour-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .tour-btn-next {
+    padding: 8px 20px; background: var(--green); color: #fff;
+    border: none; border-radius: 6px; font-size: 13px;
+    font-weight: 600; cursor: pointer; font-family: inherit;
+    transition: background .15s;
+  }
+  .tour-btn-next:hover { background: #15803d; }
+  .tour-btn-skip {
+    padding: 8px 16px; background: none; border: none;
+    color: var(--gray-400); font-size: 12px; cursor: pointer;
+    font-family: inherit; transition: color .15s;
+  }
+  .tour-btn-skip:hover { color: var(--gray-700); }
+
+  /* ── Completion screen ── */
+  .completion-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 2147483647;
+    background: rgba(0,0,0,.6);
+    align-items: center; justify-content: center;
+  }
+  .completion-overlay.active { display: flex; }
+  .completion-card {
+    background: #fff; border-radius: 16px;
+    padding: 40px; text-align: center;
+    max-width: 420px; width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  }
+  .completion-icon {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--green-light);
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+  }
+  .completion-card h2 {
+    font-family: var(--font-serif);
+    font-size: 22px; font-weight: 600; margin-bottom: 8px;
+  }
+  .completion-card p {
+    font-size: 14px; color: var(--gray-500); line-height: 1.6;
+    margin-bottom: 24px;
+  }
+  .completion-btn {
+    padding: 12px 32px; background: var(--green); color: #fff;
+    border: none; border-radius: 8px; font-size: 14px;
+    font-weight: 600; cursor: pointer; font-family: inherit;
+    transition: background .15s;
+  }
+  .completion-btn:hover { background: #15803d; }
+
+  /* ── Filled state animation ── */
+  .form-row input.filled, .form-row textarea.filled {
+    border-color: var(--green);
+    background: #f0fdf4;
+    animation: fillPulse .5s ease;
+  }
+  @keyframes fillPulse {
+    0% { background: #fff; }
+    50% { background: #dcfce7; }
+    100% { background: #f0fdf4; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Tutorial header -->
+<div class="tutorial-header">
+  <div class="tutorial-header-left">
+    <img class="tutorial-header-logo" src="../icons/primary-logo.png" alt="Offlyn Apply">
+    <span class="tutorial-header-badge">Interactive Tutorial</span>
+  </div>
+  <button class="tutorial-skip" id="skip-tutorial">Skip Tutorial</button>
+</div>
+
+<!-- Fake job page (triggers the widget) -->
+<div class="page-container">
+  <div class="job-posting">
+    <h1>Senior Software Engineer</h1>
+    <div class="job-company">Offlyn Technologies -- San Francisco, CA (Remote)</div>
+    <div class="job-meta">
+      <span class="job-meta-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        Full-time
+      </span>
+      <span class="job-meta-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        $150k - $200k
+      </span>
+      <span class="job-meta-item">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        Remote
+      </span>
+    </div>
+    <p>We're looking for a Senior Software Engineer to help build the next generation of AI-powered job application tools. You'll work on browser extensions, local AI integration, and user-facing features used by thousands of job seekers.</p>
+    <div class="job-section-title">Requirements</div>
+    <ul>
+      <li>5+ years of experience in software engineering</li>
+      <li>Strong proficiency in TypeScript and modern JavaScript</li>
+      <li>Experience with browser extension development (Chrome MV3)</li>
+      <li>Familiarity with AI/ML concepts and local inference</li>
+      <li>Excellent communication and collaboration skills</li>
+    </ul>
+    <div class="job-section-title">Nice to Have</div>
+    <ul>
+      <li>Experience with Ollama or similar local LLM tooling</li>
+      <li>Contributions to open-source projects</li>
+      <li>Background in developer tools or productivity software</li>
+    </ul>
+  </div>
+
+  <div class="application-form">
+    <div class="form-title">Apply for this position</div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label>First Name</label>
+        <input type="text" id="field-firstname" placeholder="Enter first name">
+      </div>
+      <div class="form-row">
+        <label>Last Name</label>
+        <input type="text" id="field-lastname" placeholder="Enter last name">
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label>Email Address</label>
+        <input type="email" id="field-email" placeholder="you@example.com">
+      </div>
+      <div class="form-row">
+        <label>Phone Number</label>
+        <input type="tel" id="field-phone" placeholder="+1 (555) 000-0000">
+      </div>
+    </div>
+    <div class="form-row">
+      <label>LinkedIn Profile URL</label>
+      <input type="url" id="field-linkedin" placeholder="https://linkedin.com/in/...">
+    </div>
+    <div class="form-row">
+      <label>Cover Letter</label>
+      <textarea id="field-coverletter" placeholder="Write your cover letter here..."></textarea>
+    </div>
+    <div class="form-row">
+      <label>Why are you interested in this role?</label>
+      <textarea id="field-interest" placeholder="Share what excites you about this opportunity..." rows="3"></textarea>
+    </div>
+    <button class="form-submit" type="button">Submit Application</button>
+    <div class="tool-buttons">
+      <div class="mock-tool-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/></svg>
+        Tailor Resume
+      </div>
+      <div class="mock-tool-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Chat with Resume
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tour tooltip (positioned by JS) -->
+<div class="tour-tooltip" id="tour-tooltip">
+  <div class="tour-step" id="tour-step"></div>
+  <div class="tour-title" id="tour-title"></div>
+  <div class="tour-body" id="tour-body"></div>
+  <div class="tour-actions">
+    <button class="tour-btn-skip" id="tour-skip">Skip</button>
+    <button class="tour-btn-next" id="tour-next">Next</button>
+  </div>
+</div>
+
+<!-- Completion overlay -->
+<div class="completion-overlay" id="completion-overlay">
+  <div class="completion-card">
+    <div class="completion-icon">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <h2>You're all set!</h2>
+    <p>You now know how to use Offlyn Apply. Auto-fill applications, generate cover letters, tailor your resume, and chat with your profile -- all powered by local AI on your device.</p>
+    <button class="completion-btn" id="start-applying-btn">Start Applying</button>
+  </div>
+</div>
+
+<script src="tutorial.js"></script>
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Self-ID Autofill - Job Application</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 10px;
+    }
+    .section {
+      margin: 30px 0;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 6px;
+    }
+    .section h2 {
+      color: #667eea;
+      font-size: 18px;
+      margin-bottom: 15px;
+    }
+    .question {
+      margin-bottom: 20px;
+    }
+    .question-label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #333;
+    }
+    .checkbox-group, .radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .checkbox-group label, .radio-group label {
+      display: flex;
+      align-items: center;
+      padding: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .checkbox-group label:hover, .radio-group label:hover {
+      background: #f0f0f0;
+    }
+    input[type="checkbox"], input[type="radio"] {
+      margin-right: 10px;
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+    select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .submit-btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 15px 40px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 30px;
+    }
+    .submit-btn:hover {
+      background: #5568d3;
+    }
+    .note {
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      margin: 20px 0;
+      font-size: 14px;
+      color: #856404;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Software Engineer - Test Company</h1>
+    
+    <div class="note">
+      <strong>Test Instructions:</strong> This page tests Self-ID autofill. 
+      Complete onboarding with Self-ID data, then visit this page to see if fields auto-fill correctly.
+    </div>
+
+    <form id="applicationForm">
+      <!-- Gender Identity -->
+      <div class="section">
+        <h2>Equal Opportunity Information (Optional)</h2>
+        
+        <div class="question">
+          <span class="question-label">Which gender identities do you most identify with? (Select all that apply)</span>
+          <div class="checkbox-group">
+            <label><input type="checkbox" name="gender" value="Agender"> Agender</label>
+            <label><input type="checkbox" name="gender" value="Gender non-conforming"> Gender non-conforming</label>
+            <label><input type="checkbox" name="gender" value="Genderfluid"> Genderfluid</label>
+            <label><input type="checkbox" name="gender" value="Genderqueer"> Genderqueer</label>
+            <label><input type="checkbox" name="gender" value="I choose not to disclose"> I choose not to disclose</label>
+            <label><input type="checkbox" name="gender" value="Man"> Man</label>
+            <label><input type="checkbox" name="gender" value="Non-binary"> Non-binary</label>
+            <label><input type="checkbox" name="gender" value="Not Listed"> Not Listed</label>
+            <label><input type="checkbox" name="gender" value="Woman"> Woman</label>
+          </div>
+        </div>
+
+        <!-- Race/Ethnicity -->
+        <div class="question">
+          <span class="question-label">Which race or ethnicity best describes you? (Select all that apply)</span>
+          <div class="checkbox-group">
+            <label><input type="checkbox" name="race" value="American Indian or Alaskan Native"> American Indian or Alaskan Native</label>
+            <label><input type="checkbox" name="race" value="Asian"> Asian</label>
+            <label><input type="checkbox" name="race" value="Black or African American"> Black or African American</label>
+            <label><input type="checkbox" name="race" value="Hispanic or Latinx"> Hispanic or Latinx</label>
+            <label><input type="checkbox" name="race" value="I choose not to disclose"> I choose not to disclose</label>
+            <label><input type="checkbox" name="race" value="Middle Eastern or North African"> Middle Eastern or North African</label>
+            <label><input type="checkbox" name="race" value="Native Hawaiian or Other Pacific Islander"> Native Hawaiian or Other Pacific Islander</label>
+            <label><input type="checkbox" name="race" value="White"> White</label>
+          </div>
+        </div>
+
+        <!-- Sexual Orientation -->
+        <div class="question">
+          <span class="question-label">Which sexual orientations do you most identify with? (Select all that apply)</span>
+          <div class="checkbox-group">
+            <label><input type="checkbox" name="orientation" value="Asexual"> Asexual</label>
+            <label><input type="checkbox" name="orientation" value="Bisexual"> Bisexual</label>
+            <label><input type="checkbox" name="orientation" value="Gay"> Gay</label>
+            <label><input type="checkbox" name="orientation" value="Heterosexual"> Heterosexual</label>
+            <label><input type="checkbox" name="orientation" value="I choose not to disclose"> I choose not to disclose</label>
+            <label><input type="checkbox" name="orientation" value="Lesbian"> Lesbian</label>
+            <label><input type="checkbox" name="orientation" value="Not Listed"> Not Listed</label>
+            <label><input type="checkbox" name="orientation" value="Pansexual"> Pansexual</label>
+            <label><input type="checkbox" name="orientation" value="Queer"> Queer</label>
+          </div>
+        </div>
+
+        <!-- Veteran Status -->
+        <div class="question">
+          <span class="question-label">Are you a US veteran?</span>
+          <div class="radio-group">
+            <label><input type="radio" name="veteran" value="Not a veteran"> Not a veteran</label>
+            <label><input type="radio" name="veteran" value="Veteran"> Veteran</label>
+            <label><input type="radio" name="veteran" value="Protected veteran"> Protected veteran</label>
+            <label><input type="radio" name="veteran" value="I choose not to disclose"> I choose not to disclose</label>
+          </div>
+        </div>
+
+        <!-- Transgender Experience -->
+        <div class="question">
+          <span class="question-label">Are you a person of transgender experience?</span>
+          <select name="transgender">
+            <option value="">Select...</option>
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+            <option value="I choose not to disclose">I choose not to disclose</option>
+          </select>
+        </div>
+
+        <!-- Disability Status -->
+        <div class="question">
+          <span class="question-label">Would you consider yourself to be a person with a disability?</span>
+          <select name="disability">
+            <option value="">Select...</option>
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+            <option value="I choose not to disclose">I choose not to disclose</option>
+          </select>
+        </div>
+      </div>
+
+      <button type="submit" class="submit-btn">Submit Application</button>
+    </form>
+  </div>
+
+  <script>
+    // Prevent actual form submission for testing
+    document.getElementById('applicationForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      // Show what was filled
+      const formData = new FormData(e.target);
+      const data = {};
+      
+      // Collect all values
+      for (let [key, value] of formData.entries()) {
+        if (!data[key]) {
+          data[key] = [];
+        }
+        data[key].push(value);
+      }
+      
+      console.log('Form Data:', data);
+      alert('Form submitted! Check console for data.');
+    });
+    
+    // Log when fields are auto-filled
+    document.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(input => {
+      input.addEventListener('change', (e) => {
+        if (e.isTrusted) return; // Ignore user changes
+        console.log(`Auto-filled: ${input.name} = ${input.value} (checked: ${input.checked})`);
+      });
+    });
+    
+    document.querySelectorAll('select').forEach(select => {
+      select.addEventListener('change', (e) => {
+        if (e.isTrusted) return; // Ignore user changes
+        console.log(`Auto-filled: ${select.name} = ${select.value}`);
+      });
+    });
+  </script>
+</body>
+</html>

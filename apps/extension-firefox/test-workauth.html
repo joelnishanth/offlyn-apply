@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Work Authorization - Job Application</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 10px;
+    }
+    .section {
+      margin: 30px 0;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 6px;
+    }
+    .section h2 {
+      color: #667eea;
+      font-size: 18px;
+      margin-bottom: 15px;
+    }
+    .question {
+      margin-bottom: 25px;
+    }
+    .question-label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #333;
+    }
+    .radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .radio-group label {
+      display: flex;
+      align-items: center;
+      padding: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .radio-group label:hover {
+      background: #f0f0f0;
+    }
+    input[type="radio"] {
+      margin-right: 10px;
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+    select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .submit-btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 15px 40px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 30px;
+    }
+    .submit-btn:hover {
+      background: #5568d3;
+    }
+    .note {
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      margin: 20px 0;
+      font-size: 14px;
+      color: #856404;
+    }
+    .info {
+      background: #d1ecf1;
+      border-left: 4px solid #0c5460;
+      padding: 15px;
+      margin: 20px 0;
+      font-size: 14px;
+      color: #0c5460;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Senior Software Engineer - Tech Company</h1>
+    
+    <div class="note">
+      <strong>Test Instructions:</strong> This page tests work authorization autofill. 
+      Complete work auth questions in onboarding, then visit this page to see if fields auto-fill correctly.
+    </div>
+
+    <div class="info">
+      <strong>Common Variations:</strong> This form includes multiple ways companies ask about work authorization.
+      All variations should be auto-filled based on your onboarding answers.
+    </div>
+
+    <form id="applicationForm">
+      <!-- Section 1: US Work Authorization -->
+      <div class="section">
+        <h2>Work Authorization - Variation 1</h2>
+        
+        <div class="question">
+          <span class="question-label">Are you legally authorized to work in the United States? *</span>
+          <div class="radio-group">
+            <label><input type="radio" name="authorized_1" value="Yes"> Yes</label>
+            <label><input type="radio" name="authorized_1" value="No"> No</label>
+          </div>
+        </div>
+
+        <div class="question">
+          <span class="question-label">Do you now or will you in the future require sponsorship for employment visa status? *</span>
+          <div class="radio-group">
+            <label><input type="radio" name="sponsorship_1" value="Yes"> Yes</label>
+            <label><input type="radio" name="sponsorship_1" value="No"> No</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Alternative Phrasing -->
+      <div class="section">
+        <h2>Work Authorization - Variation 2</h2>
+        
+        <div class="question">
+          <span class="question-label">Are you eligible to work in the US? *</span>
+          <div class="radio-group">
+            <label><input type="radio" name="authorized_2" value="yes"> Yes</label>
+            <label><input type="radio" name="authorized_2" value="no"> No</label>
+          </div>
+        </div>
+
+        <div class="question">
+          <span class="question-label">Will you require visa sponsorship now or in the future? *</span>
+          <div class="radio-group">
+            <label><input type="radio" name="sponsorship_2" value="yes"> Yes</label>
+            <label><input type="radio" name="sponsorship_2" value="no"> No</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Dropdown Style -->
+      <div class="section">
+        <h2>Work Authorization - Variation 3 (Dropdowns)</h2>
+        
+        <div class="question">
+          <span class="question-label">Are you legally authorized to work in the United States? *</span>
+          <select name="authorized_3">
+            <option value="">Select...</option>
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+          </select>
+        </div>
+
+        <div class="question">
+          <span class="question-label">Do you require sponsorship? *</span>
+          <select name="sponsorship_3">
+            <option value="">Select...</option>
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Section 4: Current Status -->
+      <div class="section">
+        <h2>Work Status Details</h2>
+        
+        <div class="question">
+          <span class="question-label">What is your current work authorization status? *</span>
+          <select name="current_status">
+            <option value="">Select...</option>
+            <option value="US Citizen">US Citizen</option>
+            <option value="US Permanent Resident">US Permanent Resident (Green Card)</option>
+            <option value="Employment Authorization Document">Employment Authorization Document (EAD)</option>
+            <option value="H-1B Visa">H-1B Visa</option>
+            <option value="L-1 Visa">L-1 Visa</option>
+            <option value="TN Visa">TN Visa (NAFTA)</option>
+            <option value="O-1 Visa">O-1 Visa</option>
+            <option value="F-1 Student Visa">F-1 Student Visa</option>
+            <option value="OPT">OPT (Optional Practical Training)</option>
+            <option value="CPT">CPT (Curricular Practical Training)</option>
+            <option value="STEM OPT Extension">STEM OPT Extension</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Section 5: Visa Type (if requires sponsorship) -->
+      <div class="section">
+        <h2>Visa Sponsorship Details</h2>
+        
+        <div class="question">
+          <span class="question-label">What type of visa sponsorship do you require?</span>
+          <select name="visa_type">
+            <option value="">Select...</option>
+            <option value="H-1B">H-1B (Specialty Occupation)</option>
+            <option value="Green Card">Green Card (Permanent Residency)</option>
+            <option value="TN">TN Visa (NAFTA - Canadian/Mexican)</option>
+            <option value="O-1">O-1 (Extraordinary Ability)</option>
+            <option value="L-1">L-1 (Intracompany Transfer)</option>
+            <option value="E-3">E-3 (Australian Specialty Workers)</option>
+            <option value="H-1B1">H-1B1 (Chile/Singapore)</option>
+            <option value="OPT Extension">OPT Extension</option>
+            <option value="STEM OPT Extension">STEM OPT Extension</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div class="question">
+          <span class="question-label">When will you require sponsorship?</span>
+          <select name="sponsorship_timeline">
+            <option value="">Select...</option>
+            <option value="Immediately">Immediately</option>
+            <option value="Within 3 months">Within 3 months</option>
+            <option value="Within 6 months">Within 6 months</option>
+            <option value="Within 1 year">Within 1 year</option>
+            <option value="More than 1 year">More than 1 year</option>
+            <option value="Uncertain">Uncertain</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Section 6: Common Alternative Phrasings -->
+      <div class="section">
+        <h2>Work Authorization - Various Phrasings</h2>
+        
+        <div class="question">
+          <span class="question-label">Are you authorized to work in the US without sponsorship? *</span>
+          <div class="radio-group">
+            <label><input type="radio" name="authorized_4" value="yes"> Yes</label>
+            <label><input type="radio" name="authorized_4" value="no"> No</label>
+          </div>
+        </div>
+
+        <div class="question">
+          <span class="question-label">Can you provide proof of your legal right to work in the US? *</span>
+          <div class="radio-group">
+            <label><input type="radio" name="authorized_5" value="yes"> Yes</label>
+            <label><input type="radio" name="authorized_5" value="no"> No</label>
+          </div>
+        </div>
+
+        <div class="question">
+          <span class="question-label">Will you need work permit or visa support? *</span>
+          <div class="radio-group">
+            <label><input type="radio" name="sponsorship_4" value="yes"> Yes</label>
+            <label><input type="radio" name="sponsorship_4" value="no"> No</label>
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="submit-btn">Submit Application</button>
+    </form>
+  </div>
+
+  <script>
+    // Prevent actual form submission
+    document.getElementById('applicationForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      const formData = new FormData(e.target);
+      const data = {};
+      
+      for (let [key, value] of formData.entries()) {
+        data[key] = value;
+      }
+      
+      console.log('Form Data:', data);
+      
+      // Count filled fields
+      const totalFields = Object.keys(data).length;
+      const expectedFields = 13; // Total questions
+      
+      alert(`Form submitted!\n\nFilled: ${totalFields}/${expectedFields} fields\n\nCheck console for details.`);
+    });
+
+    // Monitor auto-fill
+    console.log('Page loaded. Waiting for auto-fill...');
+    
+    // Log when fields are auto-filled
+    document.querySelectorAll('input[type="radio"], select').forEach(input => {
+      input.addEventListener('change', (e) => {
+        if (!e.isTrusted) {
+          console.log(`[OK] Auto-filled: ${input.name} = ${input.value}`);
+        }
+      });
+    });
+
+    // Check status after 3 seconds
+    setTimeout(() => {
+      const form = document.getElementById('applicationForm');
+      const formData = new FormData(form);
+      const filled = [];
+      const empty = [];
+
+      // Check radio groups
+      ['authorized_1', 'sponsorship_1', 'authorized_2', 'sponsorship_2', 
+       'authorized_4', 'authorized_5', 'sponsorship_4'].forEach(name => {
+        const checked = form.querySelector(`input[name="${name}"]:checked`);
+        if (checked) {
+          filled.push(name);
+        } else {
+          empty.push(name);
+        }
+      });
+
+      // Check selects
+      ['authorized_3', 'sponsorship_3', 'current_status', 'visa_type', 
+       'sponsorship_timeline'].forEach(name => {
+        const select = form.querySelector(`[name="${name}"]`);
+        if (select && select.value) {
+          filled.push(name);
+        } else {
+          empty.push(name);
+        }
+      });
+
+      console.log('\nAuto-fill Status Check:');
+      console.log(`[OK] Filled: ${filled.length} fields`);
+      console.log(`[FAIL] Empty: ${empty.length} fields`);
+      
+      if (empty.length > 0) {
+        console.log('\n[FAIL] Empty fields:', empty);
+        console.log('\nPossible causes:');
+        console.log('1. No work auth data in profile');
+        console.log('2. Extension not loaded');
+        console.log('3. Field patterns not matching');
+      } else {
+        console.log('\n[OK] SUCCESS: All work authorization fields filled!');
+      }
+    }, 3000);
+  </script>
+</body>
+</html>

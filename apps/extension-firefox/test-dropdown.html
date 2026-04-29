@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Dropdown vs Text Field Detection</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    
+    h1 {
+      color: #333;
+      border-bottom: 3px solid #4CAF50;
+      padding-bottom: 10px;
+    }
+    
+    .form-section {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .form-section h2 {
+      color: #4CAF50;
+      margin-top: 0;
+      font-size: 18px;
+    }
+    
+    .form-group {
+      margin: 15px 0;
+    }
+    
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 5px;
+      color: #555;
+    }
+    
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #4CAF50;
+    }
+    
+    .hint {
+      font-size: 12px;
+      color: #666;
+      font-style: italic;
+      margin-top: 5px;
+    }
+    
+    .test-info {
+      background: #e3f2fd;
+      padding: 15px;
+      border-left: 4px solid #2196F3;
+      margin: 20px 0;
+    }
+    
+    .test-info h3 {
+      margin-top: 0;
+      color: #1976D2;
+    }
+    
+    button {
+      background: #4CAF50;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    
+    button:hover {
+      background: #45a049;
+    }
+    
+    .expected-result {
+      background: #fff3cd;
+      padding: 10px;
+      border-left: 4px solid #ffc107;
+      margin: 10px 0;
+      font-size: 13px;
+    }
+    
+    .expected-result strong {
+      color: #856404;
+    }
+  </style>
+</head>
+<body>
+  <h1>Dropdown vs Text Field Detection Test</h1>
+  
+  <div class="test-info">
+    <h3>How to Test</h3>
+    <ol>
+      <li>Load this page with the Offlyn extension enabled</li>
+      <li>Click the Offlyn popup to open the field detection panel</li>
+      <li>Check each field's icon and type:
+        <ul>
+          <li><strong>[T]</strong> = Text field</li>
+          <li><strong>[▼]</strong> = Dropdown (select)</li>
+          <li><strong>[▼?]</strong> = Autocomplete dropdown</li>
+          <li><strong>[E]</strong> = Email field</li>
+          <li><strong>[P]</strong> = Phone field</li>
+        </ul>
+      </li>
+      <li>Dropdowns should display: <em>"Options: option1, option2, option3..."</em></li>
+      <li>Try the "Auto-fill" button and verify:
+        <ul>
+          <li>Text fields: Values are typed in</li>
+          <li>Dropdowns: Options are selected from the list</li>
+        </ul>
+      </li>
+    </ol>
+  </div>
+  
+  <form id="testForm">
+    <div class="form-section">
+      <h2>Text Fields (Should show [T] icon)</h2>
+      
+      <div class="form-group">
+        <label for="fullName">Full Name *</label>
+        <input type="text" id="fullName" name="fullName" required>
+        <div class="expected-result">
+          <strong>Expected:</strong> Icon [T], Type: text, No options shown
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label for="email">Email Address *</label>
+        <input type="email" id="email" name="email" required>
+        <div class="expected-result">
+          <strong>Expected:</strong> Icon [E], Type: email, No options shown
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label for="phone">Phone Number</label>
+        <input type="tel" id="phone" name="phone">
+        <div class="expected-result">
+          <strong>Expected:</strong> Icon [P], Type: tel, No options shown
+        </div>
+      </div>
+    </div>
+    
+    <div class="form-section">
+      <h2>Dropdown Lists (Should show [▼] icon)</h2>
+      
+      <div class="form-group">
+        <label for="country">Country of Residence *</label>
+        <select id="country" name="country" required>
+          <option value="">-- Select Country --</option>
+          <option value="US">United States</option>
+          <option value="CA">Canada</option>
+          <option value="GB">United Kingdom</option>
+          <option value="AU">Australia</option>
+          <option value="IN">India</option>
+          <option value="DE">Germany</option>
+          <option value="FR">France</option>
+          <option value="JP">Japan</option>
+        </select>
+        <div class="expected-result">
+          <strong>Expected:</strong> Icon [▼], Type: select-one, Options listed
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label for="workAuth">Work Authorization Status *</label>
+        <select id="workAuth" name="workAuth" required>
+          <option value="">-- Select Status --</option>
+          <option value="citizen">U.S. Citizen</option>
+          <option value="green_card">Green Card Holder</option>
+          <option value="h1b">H-1B Visa</option>
+          <option value="opt">OPT</option>
+          <option value="cpt">CPT</option>
+          <option value="tn">TN Visa</option>
+          <option value="other">Other</option>
+        </select>
+        <div class="expected-result">
+          <strong>Expected:</strong> Icon [▼], Type: select-one, Options listed
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label for="experience">Years of Experience *</label>
+        <select id="experience" name="experience" required>
+          <option value="">-- Select Experience --</option>
+          <option value="0-1">0-1 years</option>
+          <option value="1-3">1-3 years</option>
+          <option value="3-5">3-5 years</option>
+          <option value="5-10">5-10 years</option>
+          <option value="10+">10+ years</option>
+        </select>
+        <div class="expected-result">
+          <strong>Expected:</strong> Icon [▼], Type: select-one, Options listed
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label for="education">Highest Education Level *</label>
+        <select id="education" name="education" required>
+          <option value="">-- Select Education --</option>
+          <option value="hs">High School</option>
+          <option value="associate">Associate Degree</option>
+          <option value="bachelor">Bachelor's Degree</option>
+          <option value="master">Master's Degree</option>
+          <option value="phd">PhD</option>
+        </select>
+        <div class="expected-result">
+          <strong>Expected:</strong> Icon [▼], Type: select-one, Options listed
+        </div>
+      </div>
+    </div>
+    
+    <div class="form-section">
+      <h2>Multi-line Text (Should show [A] icon)</h2>
+      
+      <div class="form-group">
+        <label for="coverLetter">Cover Letter</label>
+        <textarea id="coverLetter" name="coverLetter" rows="6"></textarea>
+        <div class="expected-result">
+          <strong>Expected:</strong> Icon [A], Type: textarea, No options shown
+        </div>
+      </div>
+    </div>
+    
+    <button type="submit">Submit Application</button>
+  </form>
+  
+  <div class="test-info" style="margin-top: 40px;">
+    <h3>Success Criteria</h3>
+    <ul>
+      <li>Text fields show <strong>[T]</strong> icon and type "text"</li>
+      <li>Email fields show <strong>[E]</strong> icon and type "email"</li>
+      <li>Phone fields show <strong>[P]</strong> icon and type "tel"</li>
+      <li>Dropdown fields show <strong>[▼]</strong> icon and type "select-one"</li>
+      <li>Dropdown fields display "Options: option1, option2..."</li>
+      <li>Textarea shows <strong>[A]</strong> icon and type "textarea"</li>
+      <li>Auto-fill correctly types into text fields</li>
+      <li>Auto-fill correctly selects from dropdowns (not typing)</li>
+      <li>No console errors during detection or filling</li>
+    </ul>
+  </div>
+  
+  <script>
+    // Prevent actual form submission for testing
+    document.getElementById('testForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      alert('Form submission prevented (this is a test page).\n\nCheck that dropdowns were selected correctly!');
+      
+      // Log all field values to console
+      const formData = new FormData(this);
+      console.log('=== Form Values ===');
+      for (let [key, value] of formData.entries()) {
+        console.log(`${key}: ${value}`);
+      }
+    });
+    
+    // Add some visual feedback when fields are filled
+    const fields = document.querySelectorAll('input, select, textarea');
+    fields.forEach(field => {
+      field.addEventListener('input', function() {
+        if (this.value) {
+          this.style.borderColor = '#4CAF50';
+          this.style.backgroundColor = '#f0fff0';
+        } else {
+          this.style.borderColor = '#ddd';
+          this.style.backgroundColor = 'white';
+        }
+      });
+      
+      field.addEventListener('change', function() {
+        if (this.value) {
+          this.style.borderColor = '#4CAF50';
+          this.style.backgroundColor = '#f0fff0';
+        }
+      });
+    });
+  </script>
+</body>
+</html>

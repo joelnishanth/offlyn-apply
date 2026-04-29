@@ -1,0 +1,274 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # ── Detect which extensions are present ────────────────────────────────────
+  detect:
+    name: Detect extension directories
+    runs-on: ubuntu-latest
+    outputs:
+      has-chrome: ${{ steps.check.outputs.has-chrome }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          if [ -f apps/extension-chrome/package.json ]; then
+            echo "has-chrome=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-chrome=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ── Firefox ────────────────────────────────────────────────────────────────
+  firefox:
+    name: Firefox — Build, Type-check, Lint & Test
+    runs-on: ubuntu-latest
+    needs: [detect]
+    defaults:
+      run:
+        working-directory: apps/extension-firefox
+    outputs:
+      tsc-errors: ${{ steps.typecheck.outputs.error_count }}
+      lint-errors: ${{ steps.lint.outputs.error_count }}
+      bundle-total: ${{ steps.bundle.outputs.total }}
+      bundle-files: ${{ steps.bundle.outputs.files }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/extension-firefox/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      # ── Must-pass checks ───────────────────────────────────────────────────
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      # ── Improvement-flagging checks (annotate but don't block PRs) ─────────
+      - name: Type-check
+        id: typecheck
+        continue-on-error: true
+        run: |
+          set +e
+          tsc_output=$(npx tsc --noEmit 2>&1)
+          error_count=$(echo "$tsc_output" | grep -c "error TS" || echo "0")
+          echo "$tsc_output"
+          echo "error_count=${error_count}" >> "$GITHUB_OUTPUT"
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^(.+)\(([0-9]+),([0-9]+)\):\ error\ (TS[0-9]+):\ (.+)$ ]]; then
+              echo "::warning file=apps/extension-firefox/${BASH_REMATCH[1]},line=${BASH_REMATCH[2]},col=${BASH_REMATCH[3]}::${BASH_REMATCH[4]}: ${BASH_REMATCH[5]}"
+            fi
+          done <<< "$tsc_output"
+          {
+            echo "### TypeScript — Firefox"
+            echo "**${error_count} type error(s)**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: |
+          set +e
+          lint_output=$(npx eslint src --format compact 2>&1)
+          error_count=$(echo "$lint_output" | grep -c ": error " || echo "0")
+          warn_count=$(echo "$lint_output" | grep -c ": warning " || echo "0")
+          echo "$lint_output"
+          echo "error_count=${error_count}" >> "$GITHUB_OUTPUT"
+          {
+            echo "### ESLint — Firefox"
+            echo "**${error_count} error(s), ${warn_count} warning(s)**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ── Bundle size capture ────────────────────────────────────────────────
+      - name: Capture bundle sizes
+        id: bundle
+        run: |
+          TOTAL=$(du -sh dist | cut -f1)
+          FILES=$(find dist -name "*.js" | sort | while read -r f; do
+            echo "$(du -sh "$f" | cut -f1)  ${f#dist/}"
+          done)
+          echo "total=${TOTAL}" >> "$GITHUB_OUTPUT"
+          {
+            echo "files<<BUNDLE_EOF"
+            echo "$FILES"
+            echo "BUNDLE_EOF"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### Bundle — Firefox (total: ${TOTAL})"
+            echo '```'
+            echo "$FILES"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ── Chrome (auto-activates when apps/extension-chrome/package.json lands) ──
+  chrome:
+    name: Chrome — Build, Type-check, Lint & Test
+    runs-on: ubuntu-latest
+    needs: [detect]
+    if: needs.detect.outputs.has-chrome == 'true'
+    defaults:
+      run:
+        working-directory: apps/extension-chrome
+    outputs:
+      tsc-errors: ${{ steps.typecheck.outputs.error_count }}
+      lint-errors: ${{ steps.lint.outputs.error_count }}
+      bundle-total: ${{ steps.bundle.outputs.total }}
+      bundle-files: ${{ steps.bundle.outputs.files }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/extension-chrome/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Type-check
+        id: typecheck
+        continue-on-error: true
+        run: |
+          set +e
+          tsc_output=$(npx tsc --noEmit 2>&1)
+          error_count=$(echo "$tsc_output" | grep -c "error TS" || echo "0")
+          echo "$tsc_output"
+          echo "error_count=${error_count}" >> "$GITHUB_OUTPUT"
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^(.+)\(([0-9]+),([0-9]+)\):\ error\ (TS[0-9]+):\ (.+)$ ]]; then
+              echo "::warning file=apps/extension-chrome/${BASH_REMATCH[1]},line=${BASH_REMATCH[2]},col=${BASH_REMATCH[3]}::${BASH_REMATCH[4]}: ${BASH_REMATCH[5]}"
+            fi
+          done <<< "$tsc_output"
+          {
+            echo "### TypeScript — Chrome"
+            echo "**${error_count} type error(s)**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: |
+          set +e
+          lint_output=$(npx eslint src --format compact 2>&1)
+          error_count=$(echo "$lint_output" | grep -c ": error " || echo "0")
+          warn_count=$(echo "$lint_output" | grep -c ": warning " || echo "0")
+          echo "$lint_output"
+          echo "error_count=${error_count}" >> "$GITHUB_OUTPUT"
+          {
+            echo "### ESLint — Chrome"
+            echo "**${error_count} error(s), ${warn_count} warning(s)**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Capture bundle sizes
+        id: bundle
+        run: |
+          TOTAL=$(du -sh dist | cut -f1)
+          FILES=$(find dist -name "*.js" | sort | while read -r f; do
+            echo "$(du -sh "$f" | cut -f1)  ${f#dist/}"
+          done)
+          echo "total=${TOTAL}" >> "$GITHUB_OUTPUT"
+          {
+            echo "files<<BUNDLE_EOF"
+            echo "$FILES"
+            echo "BUNDLE_EOF"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### Bundle — Chrome (total: ${TOTAL})"
+            echo '```'
+            echo "$FILES"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ── PR comment with consolidated report ────────────────────────────────────
+  pr-report:
+    name: Post PR improvement report
+    runs-on: ubuntu-latest
+    needs: [firefox]
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Post or update PR comment
+        uses: actions/github-script@v7
+        env:
+          FIREFOX_TSC: ${{ needs.firefox.outputs.tsc-errors }}
+          FIREFOX_LINT: ${{ needs.firefox.outputs.lint-errors }}
+          FIREFOX_BUNDLE_TOTAL: ${{ needs.firefox.outputs.bundle-total }}
+          FIREFOX_BUNDLE_FILES: ${{ needs.firefox.outputs.bundle-files }}
+        with:
+          script: |
+            const tsc   = process.env.FIREFOX_TSC   || '?';
+            const lint  = process.env.FIREFOX_LINT  || '?';
+            const total = process.env.FIREFOX_BUNDLE_TOTAL || '?';
+            const files = process.env.FIREFOX_BUNDLE_FILES || '';
+
+            const badge = (n) => n === '0' ? ':white_check_mark: 0' : `:warning: ${n}`;
+
+            const body = [
+              '<!-- offlyn-ci-report -->',
+              '## CI Improvement Report',
+              '',
+              '| Check | Firefox |',
+              '|-------|---------|',
+              `| TypeScript errors | ${badge(tsc)} |`,
+              `| ESLint errors | ${badge(lint)} |`,
+              '',
+              '> Type errors and lint issues are **warnings** — they do not block merging.',
+              '> Fix them gradually to keep the codebase healthy.',
+              '',
+              `### Bundle — Firefox (total: \`${total}\`)`,
+              '```',
+              files,
+              '```',
+              '',
+              `_Updated on commit \`${context.sha.slice(0, 7)}\`_`,
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c => c.body && c.body.includes('<!-- offlyn-ci-report -->'));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

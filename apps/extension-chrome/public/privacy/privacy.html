@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" sizes="48x48" href="../icons/icon-48.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script src="../shared/theme-init.js"></script>
+  <title>Privacy Policy - Offlyn Apply</title>
+  <style>
+    /* ── Design Tokens ── */
+    :root {
+      --black: #0a0a0a;
+      --white: #ffffff;
+      --off-white: #f9f8f6;
+      --green: #1a7f5a;
+      --green-light: #e6f4ee;
+      --green-mid: #2da870;
+      --gray-100: #f4f3f0;
+      --gray-200: #e8e6e1;
+      --gray-400: #9e9b93;
+      --gray-600: #5a5750;
+      --gray-800: #2c2b28;
+      --border: #e2e0da;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --font-serif: 'Lora', Georgia, serif;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    html.dark {
+      --black: #ffffff;
+      --white: #0a0a0a;
+      --off-white: #111111;
+      --green: #2da870;
+      --green-light: #1a3a2a;
+      --green-mid: #34d399;
+      --gray-100: #1a1a1a;
+      --gray-200: #2a2a2a;
+      --gray-400: #737373;
+      --gray-600: #a3a3a3;
+      --gray-800: #e5e5e5;
+      --border: #2a2a2a;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--off-white);
+      color: var(--black);
+      min-height: 100vh;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .header {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      color: var(--black);
+      padding: 24px 0;
+    }
+    html.dark .header {
+      background: var(--green);
+      border-bottom: none;
+      color: #fff;
+    }
+    .header-inner {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .header-icon {
+      height: 32px;
+      width: auto;
+      object-fit: contain;
+    }
+    .header-text h1 {
+      font-family: var(--font-serif);
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--black);
+    }
+    html.dark .header-text h1 { color: #fff; }
+    .header-text p {
+      font-size: 13px;
+      color: var(--gray-600);
+      margin-top: 2px;
+    }
+    html.dark .header-text p { color: rgba(255,255,255,0.7); }
+
+    .main {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .card {
+      background: var(--white);
+      border-radius: var(--radius-md);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .card h2 {
+      font-family: var(--font-serif);
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--black);
+      margin-bottom: 10px;
+    }
+
+    .card p, .card li {
+      font-size: 14px;
+      line-height: 1.7;
+      color: #374151;
+    }
+
+    .card ul {
+      padding-left: 20px;
+      margin: 8px 0;
+    }
+    .card li { margin-bottom: 4px; }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge--green {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+    .badge--blue {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+
+    .highlight-box {
+      background: #f0f7e8;
+      border-left: 3px solid #7cb342;
+      padding: 14px 18px;
+      border-radius: 0 8px 8px 0;
+      margin: 12px 0;
+    }
+    .highlight-box p {
+      font-size: 13px;
+      font-weight: 500;
+      color: #1e2a3a;
+    }
+
+    .perm-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+    }
+    .perm-table th, .perm-table td {
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 13px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .perm-table th {
+      font-weight: 600;
+      color: #1e2a3a;
+      background: #f9fafb;
+    }
+    .perm-table td:first-child {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      color: #7cb342;
+      white-space: nowrap;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 16px 24px 32px;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+    .footer a {
+      color: #64748b;
+      text-decoration: none;
+    }
+    .footer a:hover { color: #1e2a3a; }
+
+    .dark-mode-toggle {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.3);
+      cursor: pointer; color: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: all .15s;
+      flex-shrink: 0;
+    }
+    .dark-mode-toggle:hover { background: rgba(255,255,255,0.1); }
+
+    /* Dark mode — mostly handled by CSS tokens */
+    html.dark .highlight-box { background: var(--green-light); border-left-color: var(--green-mid); }
+    html.dark .badge--green { background: var(--green-light); color: var(--green-mid); }
+    html.dark .badge--blue { background: #0c2d48; color: #7dd3fc; }
+    html.dark .perm-table td:first-child { color: var(--green-mid); }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-inner">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <img class="header-icon" src="../icons/primary-logo.png" alt="Offlyn Apply">
+        <div class="header-text">
+          <h1>Privacy Policy</h1>
+          <p>How Offlyn Apply handles your data</p>
+        </div>
+      </div>
+      <button id="dark-mode-toggle" class="dark-mode-toggle" aria-label="Toggle dark mode"></button>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <div class="card">
+      <h2>The Short Version</h2>
+      <div class="highlight-box">
+        <p>Your data never leaves your device. Offlyn Apply stores everything locally in your browser and makes zero network requests to external servers.</p>
+      </div>
+      <p style="margin-top: 10px;">
+        <span class="badge badge--green">100% Local</span>
+        <span class="badge badge--blue" style="margin-left: 6px;">No Accounts</span>
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>What Data We Store</h2>
+      <ul>
+        <li><strong>Your profile</strong> - Name, email, phone, work history, education (entered by you during onboarding)</li>
+        <li><strong>Job applications</strong> - Company, position, date, status (recorded when you submit applications)</li>
+        <li><strong>Learned values</strong> - Corrections you make to autofill suggestions, so the extension improves over time</li>
+        <li><strong>Extension settings</strong> - Your preferences (enabled/disabled, dry run mode, etc.)</li>
+      </ul>
+      <div class="highlight-box">
+        <p>All data is stored in <code>browser.storage.local</code> on your device. It is never transmitted anywhere.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>What We Do NOT Do</h2>
+      <ul>
+        <li>We do <strong>not</strong> collect analytics or telemetry</li>
+        <li>We do <strong>not</strong> track your browsing history</li>
+        <li>We do <strong>not</strong> send data to any server (ours or third-party)</li>
+        <li>We do <strong>not</strong> require an account or login</li>
+        <li>We do <strong>not</strong> use cookies or fingerprinting</li>
+        <li>We do <strong>not</strong> inject ads or affiliate links</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>AI Features (Ollama)</h2>
+      <p>Offlyn Apply uses <strong>Ollama</strong> for AI-powered features like resume parsing and cover letter generation. Ollama runs <strong>locally on your computer</strong> - your data stays on your machine.</p>
+      <ul>
+        <li>Ollama communicates via a local native messaging bridge (<code>localhost:11434</code>)</li>
+        <li>No data is sent to OpenAI, Google, or any cloud AI service</li>
+        <li>If Ollama is not installed, AI features are simply disabled</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Permissions Explained</h2>
+      <p>Here's why the extension requests each permission:</p>
+      <table class="perm-table">
+        <thead>
+          <tr>
+            <th>Permission</th>
+            <th>Why It's Needed</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>storage</td>
+            <td>Save your profile, settings, and application history locally</td>
+          </tr>
+          <tr>
+            <td>tabs</td>
+            <td>Open the dashboard and onboarding pages in new tabs</td>
+          </tr>
+          <tr>
+            <td>&lt;all_urls&gt;</td>
+            <td>Detect job application pages and autofill forms on any website</td>
+          </tr>
+          <tr>
+            <td>localhost:11434</td>
+            <td>Communicate with your local Ollama AI server (never leaves your machine)</td>
+          </tr>
+          <tr>
+            <td>menus</td>
+            <td>Add helpful options to the right-click context menu</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Data Deletion</h2>
+      <p>You have full control over your data at all times:</p>
+      <ul>
+        <li><strong>Settings page</strong> - Reset Self-ID data or clear all applications</li>
+        <li><strong>Onboarding page</strong> - Delete learned values individually</li>
+        <li><strong>Uninstall</strong> - Removing the extension deletes all stored data automatically</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Third-Party Services</h2>
+      <p>The dashboard uses <strong>Chart.js</strong> for rendering charts. Chart.js is bundled locally within the extension — no external resources are loaded. It does not collect or transmit any user data.</p>
+    </div>
+
+    <div class="footer">
+      <p>Last updated: February 2026</p>
+      <p style="margin-top: 4px;"><a href="../settings/settings.html">Back to Settings</a></p>
+    </div>
+
+  </div>
+
+  <script src="../shared/dark-mode.js"></script>
+</body>
+</html>

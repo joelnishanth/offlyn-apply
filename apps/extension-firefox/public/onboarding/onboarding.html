@@ -1,0 +1,3007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" sizes="48x48" href="../icons/icon-48.png">
+  <title>Offlyn Apply - Onboarding</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script src="../shared/theme-init.js"></script>
+  <style>
+    /* ── Design Tokens ── */
+    :root {
+      --black: #0a0a0a;
+      --white: #ffffff;
+      --off-white: #f9f8f6;
+      --green: #1a7f5a;
+      --green-light: #e6f4ee;
+      --green-mid: #2da870;
+      --gray-100: #f4f3f0;
+      --gray-200: #e8e6e1;
+      --gray-400: #9e9b93;
+      --gray-600: #5a5750;
+      --gray-800: #2c2b28;
+      --border: #e2e0da;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --font-serif: 'Lora', Georgia, serif;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      
+      /* Status colors */
+      --info-bg: #e6f4ee;
+      --info-text: var(--green);
+      --success-bg: #e6f4ee;
+      --success-text: #166534;
+      --error-bg: #fef2f2;
+      --error-text: #dc2626;
+      --warning-bg: #fffbeb;
+      --warning-text: #d97706;
+    }
+    
+    /* ── Dark Mode Tokens ── */
+    html.dark {
+      --black: #ffffff;
+      --white: #0a0a0a;
+      --off-white: #111111;
+      --green: #2da870;
+      --green-light: #1a3a2a;
+      --green-mid: #34d399;
+      --gray-100: #1a1a1a;
+      --gray-200: #2a2a2a;
+      --gray-400: #737373;
+      --gray-600: #a3a3a3;
+      --gray-800: #e5e5e5;
+      --border: #2a2a2a;
+      
+      --info-bg: #1a3a2a;
+      --info-text: #34d399;
+      --success-bg: #1a3a2a;
+      --success-text: #34d399;
+      --error-bg: #2d1f1f;
+      --error-text: #f87171;
+      --warning-bg: #2d2a1f;
+      --warning-text: #fbbf24;
+    }
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    html {
+      scroll-behavior: smooth;
+    }
+    
+    body {
+      font-family: var(--font-sans);
+      background: var(--white);
+      color: var(--black);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0;
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    .container {
+      background: transparent;
+      max-width: 760px;
+      width: 100%;
+      overflow: hidden;
+      margin-bottom: 24px;
+      padding: 0 24px;
+    }
+
+    /* Top nav bar */
+    .top-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 860px;
+    }
+    .top-nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .top-nav-brand img {
+      height: 36px;
+      width: auto;
+      object-fit: contain;
+    }
+    .top-nav-info .top-nav-title {
+      font-family: var(--font-serif);
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--black);
+    }
+    .top-nav-info .top-nav-step {
+      font-size: 12px;
+      color: var(--gray-400);
+      margin-top: 1px;
+    }
+    .top-nav-exit {
+      font-size: 13px;
+      color: var(--gray-400);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: var(--font-sans);
+      transition: color 0.15s;
+    }
+    .top-nav-exit:hover { color: var(--black); }
+
+    /* Step wizard */
+    .step-wizard {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 24px 40px 20px;
+      gap: 0;
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      max-width: 860px;
+      width: 100%;
+    }
+    .wizard-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+      position: relative;
+      text-align: center;
+    }
+    .wizard-step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      top: 16px;
+      left: calc(50% + 20px);
+      width: calc(100% - 40px);
+      height: 2px;
+      background: var(--gray-200);
+    }
+    .wizard-step.completed:not(:last-child)::after { background: var(--green); }
+    .wizard-icon {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      border: 2px solid var(--gray-200);
+      background: var(--white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      transition: all 0.2s;
+    }
+    .wizard-icon svg { color: var(--gray-400); width: 16px; height: 16px; }
+    .wizard-step.active .wizard-icon {
+      border-color: var(--green);
+      background: var(--green);
+    }
+    .wizard-step.active .wizard-icon svg { color: #fff; }
+    .wizard-step.completed .wizard-icon {
+      border-color: var(--green);
+      background: var(--green-light);
+    }
+    .wizard-step.completed .wizard-icon svg { color: var(--green); }
+    .wizard-label {
+      font-size: 10px;
+      color: var(--gray-400);
+      font-weight: 500;
+    }
+    .wizard-step.active .wizard-label { color: var(--black); font-weight: 600; }
+    .wizard-step.completed .wizard-label { color: var(--green); }
+    .wizard-step.completed,
+    .wizard-step.active { cursor: pointer; }
+    .wizard-step.completed:hover .wizard-icon {
+      box-shadow: 0 0 0 3px rgba(26, 127, 90, 0.15);
+    }
+    .wizard-step.active:hover .wizard-icon {
+      box-shadow: 0 0 0 3px rgba(26, 127, 90, 0.15);
+    }
+
+    .header {
+      display: none;
+    }
+    .header-logo-container { display: none; }
+    .header-logo { display: none; }
+    
+    .header h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+    
+    .header p {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+    
+    .content {
+      padding: 0;
+    }
+    
+    .step {
+      display: none;
+    }
+    
+    .step.active {
+      display: block;
+      animation: fadeIn 0.3s;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .upload-area {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-md);
+      padding: 48px 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--white);
+    }
+    
+    .upload-area:hover {
+      border-color: var(--gray-400);
+      background: var(--gray-100);
+    }
+    
+    .upload-area.dragging {
+      border-color: var(--green);
+      background: var(--green-light);
+    }
+    
+    .upload-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 16px;
+      background: var(--gray-100);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .upload-icon svg { color: var(--gray-400); }
+    
+    .upload-text {
+      font-size: 16px;
+      color: var(--black);
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    
+    .upload-hint {
+      font-size: 13px;
+      color: var(--gray-400);
+    }
+    
+    input[type="file"] {
+      display: none;
+    }
+    
+    .file-info {
+      display: none;
+      background: var(--green-light);
+      padding: 16px;
+      border-radius: var(--radius-sm);
+      margin-top: 16px;
+      border: 1px solid rgba(26, 127, 90, 0.15);
+    }
+    
+    .file-info.visible {
+      display: block;
+    }
+    
+    .file-name {
+      font-weight: 600;
+      color: var(--black);
+      margin-bottom: 4px;
+    }
+    
+    .file-size {
+      font-size: 13px;
+      color: var(--gray-600);
+    }
+    
+    .status {
+      margin-top: 20px;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      display: none;
+    }
+    
+    .status.visible {
+      display: block;
+    }
+    
+    .status.info {
+      background: var(--info-bg);
+      color: var(--info-text);
+    }
+    
+    .status.success {
+      background: var(--success-bg);
+      color: var(--success-text);
+    }
+    
+    .status.error {
+      background: var(--error-bg);
+      color: var(--error-text);
+    }
+    
+    .error-details {
+      margin-top: 16px;
+      padding: 16px;
+      background: #fff3e0;
+      border-left: 4px solid #f57c00;
+      border-radius: 4px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    
+    .error-details h4 {
+      color: #e65100;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    
+    .error-details pre {
+      background: #fff;
+      padding: 8px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 12px;
+      margin: 8px 0;
+      border: 1px solid #ffe0b2;
+    }
+    
+    .error-details ul {
+      margin: 8px 0 8px 20px;
+    }
+    
+    .error-details li {
+      margin: 4px 0;
+      color: #666;
+    }
+    
+    .connection-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px;
+      background: var(--gray-100);
+      border-radius: var(--radius-sm);
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    
+    .connection-status.connected {
+      background: var(--success-bg);
+      color: var(--success-text);
+    }
+    
+    .connection-status.disconnected {
+      background: var(--error-bg);
+      color: var(--error-text);
+    }
+    
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    
+    .status-indicator.connected {
+      background: var(--green-mid);
+    }
+    
+    .status-indicator.disconnected {
+      background: #dc2626;
+    }
+    
+    .profile-preview {
+      margin-top: 24px;
+    }
+    
+    .profile-section {
+      margin-bottom: 24px;
+    }
+    
+    .profile-section h3 {
+      font-family: var(--font-serif);
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--black);
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .profile-field {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 20px;
+      font-size: 14px;
+      gap: 6px;
+    }
+    
+    .profile-label {
+      font-weight: 600;
+      color: var(--black);
+      font-size: 13px;
+    }
+    
+    .profile-value {
+      color: var(--gray-600);
+      flex: 1;
+    }
+    
+    .profile-input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-family: var(--font-sans);
+      background: var(--gray-100);
+      color: var(--black);
+      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    }
+    
+    .profile-input:focus {
+      outline: none;
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(26, 127, 90, 0.12);
+      background: var(--white);
+    }
+    
+    .profile-input::placeholder {
+      color: var(--gray-400);
+    }
+    
+    .profile-textarea {
+      flex: 1;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-family: var(--font-sans);
+      min-height: 80px;
+      resize: vertical;
+      background: var(--gray-100);
+      color: var(--black);
+      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    }
+    
+    .profile-textarea:focus {
+      outline: none;
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(26, 127, 90, 0.12);
+      background: var(--white);
+    }
+    
+    .profile-textarea::placeholder {
+      color: var(--gray-400);
+    }
+    
+    .editable-list {
+      flex: 1;
+    }
+    
+    .editable-list-item {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    
+    .editable-list-item input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: var(--font-sans);
+      background: var(--gray-100);
+      color: var(--black);
+      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    }
+    .editable-list-item input:focus {
+      outline: none;
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(26, 127, 90, 0.12);
+      background: var(--white);
+    }
+    
+    .editable-list-item button {
+      padding: 8px 14px;
+      background: var(--error-bg);
+      color: var(--error-text);
+      border: 1px solid rgba(220, 38, 38, 0.2);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: var(--font-sans);
+      transition: all 0.15s;
+    }
+    
+    .editable-list-item button:hover {
+      background: rgba(220, 38, 38, 0.15);
+      border-color: rgba(220, 38, 38, 0.3);
+    }
+    
+    .add-item-btn {
+      padding: 8px 14px;
+      background: var(--green-light);
+      color: var(--green);
+      border: 1px solid rgba(26, 127, 90, 0.2);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: var(--font-sans);
+      margin-top: 8px;
+      transition: all 0.15s;
+    }
+    
+    .add-item-btn:hover {
+      background: rgba(26, 127, 90, 0.15);
+      border-color: var(--green);
+    }
+
+    /* Self-ID Questionnaire Styles */
+    .selfid-intro {
+      font-size: 14px;
+      color: #94a3b8;
+      line-height: 1.6;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .question-group {
+      margin-bottom: 28px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .question-group:last-of-type {
+      border-bottom: none;
+    }
+
+    .question-label {
+      display: block;
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--black);
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+
+    .checkbox-group,
+    .radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .checkbox-group label,
+    .radio-group label {
+      display: flex;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background 0.15s;
+      font-size: 14px;
+      color: var(--gray-600);
+    }
+
+    .checkbox-group label:hover,
+    .radio-group label:hover {
+      background: var(--green-light);
+    }
+
+    .checkbox-group input[type="checkbox"],
+    .radio-group input[type="radio"] {
+      margin-right: 10px;
+      cursor: pointer;
+      width: 18px;
+      height: 18px;
+      accent-color: var(--green);
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+      justify-content: flex-end;
+    }
+
+    .required {
+      color: #dc2626;
+      font-weight: bold;
+      margin-left: 2px;
+    }
+    
+    .skills-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    
+    .skill-tag {
+      background: var(--green-light);
+      color: var(--green);
+      padding: 4px 12px;
+      border-radius: 16px;
+      font-size: 13px;
+    }
+
+    .skill-chip-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+      padding: 10px 12px;
+      background: var(--gray-100);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      min-height: 48px;
+      align-items: center;
+      cursor: text;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .skill-chip-container:focus-within {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(26, 127, 90, 0.12);
+      background: var(--white);
+    }
+    .skill-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--green-light);
+      color: var(--green);
+      padding: 5px 10px 5px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .skill-chip .remove-chip {
+      cursor: pointer;
+      font-size: 15px;
+      line-height: 1;
+      color: var(--green-mid);
+      padding: 0 2px;
+      border-radius: 50%;
+      transition: color 0.15s, background 0.15s;
+    }
+    .skill-chip .remove-chip:hover {
+      color: #dc2626;
+      background: rgba(220, 38, 38, 0.08);
+    }
+    .skill-chip-input {
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 13px;
+      min-width: 130px;
+      flex: 1;
+      padding: 4px 2px;
+      color: var(--black);
+      font-family: var(--font-sans);
+    }
+    .skill-chip-input::placeholder {
+      color: var(--gray-400);
+    }
+    .skill-chip-hint {
+      width: 100%;
+      font-size: 11px;
+      color: var(--gray-400);
+      margin-top: 4px;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 32px;
+    }
+    
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      font-weight: 500;
+      padding: 12px 24px;
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+      flex: 1;
+    }
+    
+    .btn-primary {
+      background: var(--green);
+      color: var(--white);
+    }
+    
+    .btn-primary:hover:not(:disabled) {
+      background: #145e42;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(26, 127, 90, 0.25);
+    }
+    
+    .btn-secondary {
+      background: transparent;
+      color: var(--black);
+      border: 1px solid var(--border);
+    }
+    
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--gray-100);
+    }
+    
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--black);
+    }
+    
+    .btn-outline:hover:not(:disabled) {
+      background: var(--gray-100);
+    }
+    
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Select styling to match inputs */
+    .question-group select,
+    form select {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-family: var(--font-sans);
+      background: var(--gray-100);
+      color: var(--black);
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%239e9b93' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    }
+    .question-group select:focus,
+    form select:focus {
+      outline: none;
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(26, 127, 90, 0.12);
+      background-color: var(--white);
+    }
+
+    /* Step title styling */
+    .step-title {
+      font-family: var(--font-serif);
+      font-size: clamp(24px, 4vw, 32px);
+      font-weight: 400;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      color: var(--black);
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .step-title em {
+      font-style: italic;
+      color: var(--green);
+    }
+    .step-subtitle {
+      font-size: 15px;
+      color: var(--gray-600);
+      text-align: center;
+      margin-bottom: 32px;
+      font-weight: 300;
+      line-height: 1.6;
+    }
+
+    /* Form grid layout for two-column fields */
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 20px;
+    }
+    .form-group.full-width {
+      grid-column: 1 / -1;
+    }
+    .form-group label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--black);
+    }
+    .form-group label .required-mark {
+      color: #dc2626;
+      margin-left: 2px;
+    }
+
+    /* Skip link styling */
+    .skip-link {
+      display: block;
+      text-align: center;
+      margin-top: 20px;
+      color: var(--gray-600);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      padding: 8px;
+      transition: color 0.15s;
+    }
+    .skip-link:hover {
+      color: var(--green);
+    }
+
+    /* Info box */
+    .info-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      background: var(--green-light);
+      border: 1px solid rgba(26, 127, 90, 0.15);
+      border-radius: var(--radius-md);
+      margin-top: 24px;
+      font-size: 14px;
+      color: var(--green);
+    }
+    .info-box svg {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+    }
+
+    /* Review sections */
+    .review-section {
+      padding: 20px 24px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      margin-bottom: 16px;
+      background: var(--white);
+    }
+    .review-section-title {
+      font-family: var(--font-serif);
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--green);
+      margin-bottom: 12px;
+    }
+    .review-field {
+      margin-bottom: 6px;
+      font-size: 14px;
+      color: var(--gray-600);
+    }
+    .review-field strong {
+      font-weight: 600;
+      color: var(--black);
+    }
+
+    /* Content card wrapper */
+    .content-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+      margin-top: 24px;
+    }
+    
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .progress-container {
+      display: none;
+      margin-top: 24px;
+    }
+    
+    .progress-container.visible {
+      display: block;
+      animation: fadeIn 0.3s;
+    }
+    
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: var(--gray-200);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--green), var(--green-mid));
+      border-radius: 4px;
+      transition: width 0.5s ease;
+      width: 0%;
+      position: relative;
+    }
+    .progress-fill::after {
+      content: '';
+      position: absolute;
+      top: 0; right: 0; bottom: 0;
+      width: 40px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4));
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+    @keyframes shimmer {
+      0% { opacity: 0; }
+      50% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    
+    .progress-text {
+      font-size: 14px;
+      color: var(--gray-600);
+      text-align: center;
+    }
+
+    .progress-time-hint {
+      text-align: center;
+      font-size: 12px;
+      color: #94a3b8;
+      margin: 4px 0 0;
+    }
+
+    .parse-status-label {
+      text-align: center;
+      font-size: 14px;
+      color: #64748b;
+      margin: 10px 0 0;
+      min-height: 20px;
+      transition: opacity 0.3s ease;
+    }
+
+    .parse-detail-label {
+      text-align: center;
+      font-size: 12px;
+      color: #94a3b8;
+      margin: 4px 0 0;
+      min-height: 18px;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      transition: opacity 0.3s ease;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .tip-carousel {
+      margin: 20px auto 0;
+      padding: 16px 20px;
+      background: var(--green-light);
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(26, 127, 90, 0.15);
+      max-width: 480px;
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .tip-carousel-icon {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-sm);
+      background: rgba(26, 127, 90, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--green);
+    }
+    .tip-carousel-icon svg {
+      width: 20px;
+      height: 20px;
+    }
+    .tip-carousel-text {
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--gray-600);
+      opacity: 1;
+      transition: opacity 0.4s ease;
+    }
+    .tip-carousel-text.fading { opacity: 0; }
+
+    .progress-stages {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 16px;
+      font-size: 12px;
+    }
+    
+    .progress-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      color: #999;
+      flex: 1;
+    }
+    
+    .progress-stage.active {
+      color: #1e2a3a;
+      font-weight: 600;
+    }
+    
+    .progress-stage.completed {
+      color: #4caf50;
+    }
+    
+    .stage-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #f5f5f5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: all 0.3s ease;
+    }
+    
+    .progress-stage.active .stage-icon {
+      background: #dcfce7;
+      color: #16a34a;
+      box-shadow: 0 0 0 3px rgba(22,163,74,0.15);
+      animation: stagePulse 2s ease-in-out infinite;
+    }
+    @keyframes stagePulse {
+      0%, 100% { box-shadow: 0 0 0 3px rgba(22,163,74,0.15); }
+      50% { box-shadow: 0 0 0 6px rgba(22,163,74,0.08); }
+    }
+    
+    .progress-stage.completed .stage-icon {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+    
+    .raw-data-section {
+      margin-top: 24px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    
+    .raw-data-header {
+      background: #f5f5f5;
+      padding: 12px 16px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+    
+    .raw-data-header:hover {
+      background: #eeeeee;
+    }
+    
+    .raw-data-header h4 {
+      font-size: 14px;
+      color: #666;
+      margin: 0;
+    }
+    
+    .raw-data-toggle {
+      font-size: 12px;
+      color: #999;
+    }
+    
+    .raw-data-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+    
+    .raw-data-content.expanded {
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    
+    .raw-data-json {
+      background: #f9f9f9;
+      padding: 16px;
+      margin: 0;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      color: #333;
+    }
+    
+    /* ── RL Learned Values: Card Grid ─────────────────────────────────── */
+
+    /* Container scroll area */
+    #learnedValuesContainer {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding-bottom: 8px;
+    }
+
+    /* Individual pattern card */
+    .rl-card {
+      background: #ffffff;
+      border: 1px solid #E5E7EB;
+      border-radius: 10px;
+      padding: 16px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .rl-card:hover {
+      border-color: #27E38D;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
+    }
+
+    /* Card header row: field name + delete button */
+    .rl-card__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .rl-card__field-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: #0F172A;
+    }
+
+    /* Thin navy divider */
+    .rl-card__divider {
+      height: 1px;
+      background: #E5E7EB;
+      margin-bottom: 10px;
+    }
+
+    /* "Learned value" label + value */
+    .rl-card__learned-label {
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748B;
+      margin-bottom: 4px;
+    }
+
+    .rl-card__learned-value {
+      font-size: 14px;
+      color: #27E38D;
+      font-weight: 500;
+      word-break: break-word;
+      margin-bottom: 10px;
+    }
+
+    /* Confidence bar row */
+    .rl-card__confidence-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .rl-bar {
+      flex: 1;
+      height: 6px;
+      background: #E5E7EB;
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    .rl-bar__fill {
+      height: 100%;
+      border-radius: 9999px;
+      transition: width 0.3s ease;
+    }
+
+    /* Confidence colour tiers */
+    .rl-bar--high   .rl-bar__fill { background: #27E38D; }
+    .rl-bar--medium .rl-bar__fill { background: #6EE7B7; }
+    .rl-bar--low    .rl-bar__fill { background: #F59E0B; }
+
+    .rl-bar__pct {
+      font-size: 12px;
+      font-weight: 600;
+      color: #0F172A;
+      min-width: 36px;
+      text-align: right;
+    }
+
+    /* Stats row */
+    .rl-card__stats {
+      font-size: 12px;
+      color: #64748B;
+    }
+
+    .rl-card__ctx {
+      margin-top: 4px;
+      font-size: 11px;
+      color: #94A3B8;
+    }
+
+    /* Delete button */
+    .rl-card__delete {
+      background: transparent;
+      color: #EF4444;
+      border: 1px solid #EF4444;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .rl-card__delete:hover {
+      background: #EF4444;
+      color: #ffffff;
+    }
+
+    /* Clear all / secondary danger button */
+    .btn-outline-danger {
+      background: transparent;
+      color: #EF4444;
+      border: 1px solid #EF4444;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .btn-outline-danger:hover {
+      background: #EF4444;
+      color: #ffffff;
+    }
+
+    /* Empty state */
+    .rl-empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: #64748B;
+    }
+
+    .rl-empty-state__icon {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 16px;
+      color: #CBD5E1;
+    }
+
+    .rl-empty-state__title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #0F172A;
+      margin-bottom: 8px;
+    }
+
+    .rl-empty-state__desc {
+      font-size: 14px;
+      color: #64748B;
+      max-width: 400px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* Legacy class aliases (in case any stale HTML still uses them) */
+    .learned-value-card { display: none; }
+    .empty-learned-state { display: none; }
+
+    /* AI Suggestion Hint for empty fields */
+    .input-wrapper {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .input-wrapper .profile-input,
+    .input-wrapper .profile-textarea {
+      width: 100%;
+    }
+
+    .ai-suggest-tile {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 4px;
+      padding: 5px 10px;
+      background: linear-gradient(135deg, #f0f7e8 0%, #e8f5e9 100%);
+      border: 1px solid rgba(30, 42, 58, 0.15);
+      border-radius: 6px;
+      font-size: 12px;
+      color: #16a34a;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      user-select: none;
+      opacity: 0;
+      animation: hintFadeIn 0.4s ease forwards;
+      animation-delay: 0.5s;
+    }
+
+    @keyframes hintFadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .ai-suggest-tile:hover {
+      background: linear-gradient(135deg, #e8f5e9 0%, #dcedc8 100%);
+      border-color: rgba(30, 42, 58, 0.35);
+      color: #1e2a3a;
+      box-shadow: 0 2px 8px rgba(30, 42, 58, 0.1);
+    }
+
+    .ai-suggest-tile .ai-sparkle {
+      font-size: 13px;
+      line-height: 1;
+    }
+
+    .ai-suggest-tile .ai-label {
+      font-weight: 500;
+      letter-spacing: 0.2px;
+    }
+
+    .ai-suggest-tile.loading {
+      pointer-events: none;
+      opacity: 0.7;
+    }
+
+    .ai-suggest-tile.loading .ai-label {
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    /* ── Split-field layouts ──────────────────────────────────────────────── */
+    .form-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .form-row .form-group {
+      flex: 1;
+      min-width: 0;
+    }
+    .form-row .form-group.narrow {
+      flex: 0 0 160px;
+    }
+
+    .form-section-header {
+      margin: 20px 0 8px;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 6px;
+    }
+    .form-section-header h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .form-hint {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 3px;
+      display: block;
+    }
+
+    /* ── Self-ID step ────────────────────────────────────────────────────── */
+    .privacy-notice {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin: 12px 0 20px;
+      font-size: 13px;
+      color: #166534;
+    }
+    .privacy-notice svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      stroke: #166534;
+    }
+
+    .selfid-group {
+      margin-bottom: 20px;
+    }
+    .selfid-group label.group-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1e2a3a;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .selfid-group .group-hint {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .checkbox-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 16px;
+    }
+    .checkbox-grid label,
+    .radio-list label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #374151;
+      cursor: pointer;
+      padding: 3px 0;
+    }
+    .checkbox-grid input[type="checkbox"],
+    .radio-list input[type="radio"] {
+      accent-color: #558b2f;
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+    }
+
+    .radio-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .age-option-row {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 8px;
+    }
+    .age-option-row label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: #374151;
+      cursor: pointer;
+    }
+    .age-option-row input[type="radio"] {
+      accent-color: #558b2f;
+    }
+
+    /* AI suggestion result shown inline */
+    .ai-suggestion-result {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+      padding: 6px 10px;
+      background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
+      border: 1px solid rgba(76, 175, 80, 0.2);
+      border-radius: 6px;
+      font-size: 12px;
+      color: #2e7d32;
+      animation: hintFadeIn 0.3s ease forwards;
+    }
+
+    .ai-suggestion-result .suggestion-text {
+      flex: 1;
+      font-weight: 500;
+      word-break: break-word;
+    }
+
+    .ai-suggestion-result .accept-btn {
+      padding: 3px 10px;
+      background: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.2s;
+    }
+
+    .ai-suggestion-result .accept-btn:hover {
+      background: #388e3c;
+    }
+
+    .ai-suggestion-result .dismiss-btn {
+      padding: 3px 8px;
+      background: transparent;
+      color: #999;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .ai-suggestion-result .dismiss-btn:hover {
+      background: #f5f5f5;
+      color: #666;
+    }
+
+    /* ── Ollama Setup Step ───────────────────────────────── */
+    .ollama-state { display: none; }
+    .ollama-state.active { display: block; }
+
+    /* One-click onboarding: shimmer polling indicator */
+    .ollama-progress-polling {
+      width: 100% !important;
+      background: linear-gradient(90deg, transparent 0%, var(--green-light) 30%, var(--green-mid) 50%, var(--green-light) 70%, transparent 100%) !important;
+      background-size: 200% 100% !important;
+      animation: ollamaShimmer 1.8s ease-in-out infinite !important;
+    }
+    @keyframes ollamaShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    @keyframes fadeInBanner { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    #btnOllamaDownload:hover {
+      background: #222 !important;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    }
+
+    .ollama-spinner-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 32px 0;
+      color: #94a3b8;
+      font-size: 14px;
+    }
+    .ollama-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #e5e7eb;
+      border-top-color: #16a34a;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .ollama-status-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 16px 18px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+    }
+    .ollama-status-card.success {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+    }
+    .ollama-status-card.error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+    }
+    .ollama-status-card svg { flex-shrink: 0; margin-top: 2px; }
+    .ollama-status-card.success svg { color: #16a34a; }
+    .ollama-status-card.error svg { color: #dc2626; }
+    .ollama-status-body h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .ollama-status-card.success .ollama-status-body h3 { color: #15803d; }
+    .ollama-status-card.error .ollama-status-body h3 { color: #b91c1c; }
+    .ollama-status-meta {
+      font-size: 13px;
+      color: #6b7280;
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    .ollama-privacy-notice {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: #f8faff;
+      border: 1px solid #dbeafe;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: #3b82f6;
+      margin-bottom: 16px;
+    }
+    .ollama-privacy-notice svg { flex-shrink: 0; margin-top: 1px; color: #3b82f6; }
+
+    /* CORS warning banner */
+    .ollama-cors-warning {
+      display: none;
+      align-items: flex-start;
+      gap: 12px;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+    }
+    .ollama-cors-warning.visible { display: flex; }
+    .ollama-cors-warning svg { flex-shrink: 0; color: #d97706; margin-top: 1px; }
+    .ollama-cors-warning h4 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #92400e;
+      margin-bottom: 6px;
+    }
+    .ollama-cors-warning p {
+      font-size: 13px;
+      color: #78350f;
+      margin: 0 0 8px;
+      line-height: 1.5;
+    }
+    .cors-fix-cmd {
+      background: #1e2a3a;
+      color: #fbbf24;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-family: monospace;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .cors-steps {
+      font-size: 12px;
+      color: #92400e;
+      margin: 6px 0 0 0;
+      padding-left: 16px;
+      line-height: 1.7;
+    }
+
+    .ollama-advanced summary {
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: #94a3b8;
+      user-select: none;
+      margin-bottom: 0;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .ollama-advanced summary::before {
+      content: '▶';
+      font-size: 10px;
+      transition: transform 0.2s;
+    }
+    .ollama-advanced[open] summary::before { transform: rotate(90deg); }
+    .ollama-advanced summary::-webkit-details-marker { display: none; }
+    .ollama-advanced .adv-body {
+      margin-top: 14px;
+      padding: 16px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .adv-test-result {
+      font-size: 13px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      display: none;
+    }
+    .adv-test-result.visible { display: block; }
+    .adv-test-result.ok { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .adv-test-result.fail { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+
+    .setup-oneliner-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .ollama-setup-substate { margin-bottom: 4px; }
+    .setup-steps-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin: 16px 0;
+    }
+    .setup-step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+    .setup-step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #558b2f;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .setup-step-content h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1e2a3a;
+      margin-bottom: 4px;
+    }
+    .setup-step-content p {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 8px;
+    }
+    .code-cmd {
+      background: #1e2a3a;
+      color: #a3e635;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-family: monospace;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .btn-copy-cmd {
+      background: #334155;
+      color: #cbd5e1;
+      border: none;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .btn-copy-cmd:hover { background: #475569; }
+
+    /* Troubleshooting modal */
+    .troubleshoot-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9000;
+    }
+    .troubleshoot-modal.visible { display: block; }
+    .ts-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+    }
+    .ts-dialog {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #fff;
+      border-radius: 12px;
+      width: min(680px, 90vw);
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    .ts-dialog-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid #f0f0f0;
+      position: sticky;
+      top: 0;
+      background: #fff;
+      z-index: 1;
+    }
+    .ts-dialog-header h2 { font-size: 17px; color: #1e2a3a; }
+    .ts-close {
+      background: none;
+      border: none;
+      font-size: 22px;
+      color: #94a3b8;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 4px;
+    }
+    .ts-close:hover { color: #1e2a3a; }
+    .ts-dialog-body { padding: 20px 24px 24px; }
+    .ts-section { margin-bottom: 24px; }
+    .ts-section h3 { font-size: 14px; font-weight: 700; color: #1e2a3a; margin-bottom: 12px; }
+    .ts-issue { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #f5f5f5; }
+    .ts-issue:last-child { border-bottom: none; margin-bottom: 0; }
+    .ts-issue h4 { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+    .ts-issue p { font-size: 13px; color: #6b7280; margin: 0 0 4px; line-height: 1.5; }
+    .ts-issue ul { font-size: 13px; color: #6b7280; margin: 4px 0 0 18px; line-height: 1.7; }
+    .ts-issue code { background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+    .ts-cmd-row { margin: 8px 0; }
+    .ts-resources a { display: block; color: #558b2f; font-size: 13px; margin-bottom: 6px; text-decoration: none; }
+    .ts-resources a:hover { text-decoration: underline; }
+    .ts-skip-wrap { margin-top: 20px; padding-top: 16px; border-top: 1px solid #f0f0f0; font-size: 13px; color: #6b7280; }
+
+    /* ── Dark mode toggle button ── */
+    .dark-mode-toggle {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: transparent;
+      border: 1px solid #e2e8f0;
+      cursor: pointer; color: #64748b;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .15s;
+      flex-shrink: 0;
+    }
+    .dark-mode-toggle:hover { background: #f1f5f9; color: #1e293b; border-color: #cbd5e1; }
+
+    /* ── Dark mode overrides ── */
+    /* Most dark mode styling is handled by CSS custom properties in :root / html.dark */
+    /* These are additional overrides for specific components */
+    
+    html.dark .top-nav { 
+      background: rgba(10, 10, 10, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    html.dark .dark-mode-toggle { border-color: var(--border); color: var(--gray-400); }
+    html.dark .dark-mode-toggle:hover { background: var(--gray-200); color: var(--black); }
+    html.dark .container { background: transparent; }
+    html.dark .step { background: transparent; }
+    html.dark .card,
+    html.dark .section-card,
+    html.dark .content-card,
+    html.dark .upload-area,
+    html.dark .profile-section { background: var(--gray-100); border-color: var(--border); }
+    html.dark .card h3,
+    html.dark .section-title,
+    html.dark label { color: var(--black); }
+    html.dark .card p,
+    html.dark .section-subtitle,
+    html.dark .helper-text { color: var(--gray-400); }
+    html.dark input[type="text"],
+    html.dark input[type="email"],
+    html.dark input[type="number"],
+    html.dark input[type="url"],
+    html.dark input[type="tel"],
+    html.dark select,
+    html.dark textarea,
+    html.dark .profile-input,
+    html.dark .profile-textarea {
+      background: var(--off-white);
+      color: var(--black);
+      border-color: var(--border);
+    }
+    html.dark input::placeholder,
+    html.dark textarea::placeholder { color: var(--gray-400); }
+    html.dark .progress-bar-track,
+    html.dark .progress-bar { background: var(--gray-200); }
+    html.dark .step-nav { background: var(--gray-100); border-top-color: var(--border); }
+    html.dark .btn-back { background: var(--gray-200); color: var(--gray-400); border-color: var(--border); }
+    html.dark .btn-back:hover { background: var(--gray-100); color: var(--black); }
+    html.dark .connection-status { background: var(--gray-100); border-color: var(--border); color: var(--gray-400); }
+    html.dark .file-info { background: var(--off-white); border-color: var(--border); color: var(--gray-400); }
+    html.dark .ts-dialog { background: var(--off-white); border-color: var(--gray-100); }
+    html.dark .ts-dialog-header { background: var(--gray-100); border-bottom-color: var(--border); }
+    html.dark .ts-dialog-header h2 { color: var(--black); }
+    html.dark .ts-close { color: var(--gray-400); }
+    html.dark .ts-close:hover { color: var(--black); }
+    html.dark .ts-dialog-body { color: var(--gray-400); }
+    html.dark .ts-section h3 { color: var(--black); }
+    html.dark .ts-issue { border-bottom-color: var(--border); }
+    html.dark .ts-issue h4 { color: var(--black); }
+    html.dark .ts-issue p,
+    html.dark .ts-issue ul { color: var(--gray-400); }
+    html.dark .ts-issue code { background: var(--gray-100); color: var(--green-mid); }
+    html.dark .ts-resources a { color: var(--green-mid); }
+    html.dark .ts-skip-wrap { border-top-color: var(--border); color: var(--gray-400); }
+    html.dark .skill-chip-container { background: var(--off-white); }
+    html.dark .review-section { background: var(--gray-100); }
+    html.dark .question-group { border-bottom-color: var(--border); }
+
+    /* ─── Mini-Games Shared ── */
+    .game-container { margin-top: 16px; animation: fadeInBanner 0.3s ease; }
+    .game-btn-small { background: var(--green); color: #fff; border: none; border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font-sans); }
+    .game-btn-small:disabled { opacity: 0.5; cursor: default; }
+    .game-btn-link { background: none; border: none; color: var(--gray-400); font-size: 12px; cursor: pointer; font-family: var(--font-sans); text-decoration: underline; }
+
+    /* ─── Trivia ── */
+    .game-trivia { background: var(--gray-100); border-radius: var(--radius-md); padding: 16px; }
+    .game-trivia-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 13px; font-weight: 600; color: var(--gray-600); }
+    .game-trivia-score { color: var(--green); font-weight: 700; }
+    .game-trivia-body { min-height: 120px; }
+    .game-trivia-q { font-size: 14px; font-weight: 600; color: var(--gray-800); margin-bottom: 10px; line-height: 1.5; }
+    .game-trivia-opts { display: grid; gap: 6px; }
+    .game-trivia-opt { text-align: left; background: var(--white); border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--gray-800); cursor: pointer; font-family: var(--font-sans); transition: all 0.15s; }
+    .game-trivia-opt:hover:not(:disabled) { border-color: var(--green); background: var(--green-light); }
+    .game-trivia-opt:disabled { cursor: default; opacity: 0.85; }
+    .game-trivia-opt.correct { border-color: var(--green); background: var(--green-light); color: var(--green); font-weight: 600; }
+    .game-trivia-opt.wrong { border-color: #ef4444; background: #fef2f2; color: #dc2626; }
+    .game-trivia-fact { font-size: 12px; color: var(--gray-600); margin-top: 10px; padding: 10px; background: var(--white); border-radius: 8px; border-left: 3px solid var(--green); line-height: 1.5; }
+    .game-trivia-next { margin-top: 10px; background: var(--green); color: #fff; border: none; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-sans); }
+    .game-trivia-final { text-align: center; padding: 16px 0; }
+    .game-trivia-final-score { font-size: 36px; font-weight: 700; color: var(--green); }
+    .game-trivia-again { margin-top: 10px; background: var(--green); color: #fff; border: none; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-sans); }
+
+    /* ─── Word Scramble ── */
+    .game-scramble { background: var(--gray-100); border-radius: var(--radius-md); padding: 16px; text-align: center; }
+    .game-scramble-score { font-size: 12px; font-weight: 700; color: var(--green); margin-bottom: 10px; }
+    .game-scramble-body { min-height: 100px; }
+    .game-scramble-letters { font-size: 28px; font-weight: 700; letter-spacing: 6px; color: var(--gray-800); margin-bottom: 6px; font-family: monospace; }
+    .game-scramble-hint { font-size: 12px; color: var(--gray-400); margin-bottom: 12px; }
+    .game-scramble-input { border: 1.5px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 14px; font-family: monospace; text-transform: uppercase; text-align: center; width: 140px; background: var(--white); color: var(--gray-800); }
+    .game-scramble-input:focus { outline: none; border-color: var(--green); }
+    .game-scramble-feedback { font-size: 12px; margin-top: 8px; font-weight: 600; min-height: 18px; }
+    .game-scramble-feedback.correct { color: var(--green); }
+    .game-scramble-feedback.wrong { color: #dc2626; }
+    .game-scramble-done { padding: 16px 0; }
+
+    /* ─── Memory Flip ── */
+    .game-memory { background: var(--gray-100); border-radius: var(--radius-md); padding: 16px; }
+    .game-memory-info { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--gray-600); margin-bottom: 10px; }
+    .game-memory-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; max-width: 320px; margin: 0 auto; }
+    .game-memory-card { width: 100%; aspect-ratio: 1; position: relative; cursor: pointer; perspective: 400px; }
+    .game-memory-front, .game-memory-back { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px; backface-visibility: hidden; transition: transform 0.35s ease; }
+    .game-memory-back svg { width: 22px; height: 22px; color: var(--gray-600); }
+    .game-memory-front { background: var(--green); color: #fff; font-weight: 700; font-size: 16px; transform: rotateY(0deg); }
+    .game-memory-back { background: var(--white); border: 1.5px solid var(--border); transform: rotateY(180deg); }
+    .game-memory-card.flipped .game-memory-front { transform: rotateY(180deg); }
+    .game-memory-card.flipped .game-memory-back { transform: rotateY(0deg); }
+    .game-memory-card.matched .game-memory-back { border-color: var(--green); background: var(--green-light); }
+    .game-memory-win { text-align: center; margin-top: 12px; font-size: 14px; font-weight: 600; color: var(--green); }
+
+    /* ─── 2048 ── */
+    .game-2048 { background: var(--gray-100); border-radius: var(--radius-md); padding: 16px; }
+    .game-2048-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .game-2048-score { font-size: 14px; font-weight: 700; color: var(--green); }
+    .game-2048-board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; max-width: 260px; margin: 0 auto; background: var(--gray-200); border-radius: 8px; padding: 4px; }
+    .game-2048-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-weight: 700; font-size: 16px; font-family: var(--font-sans); background: var(--white); color: var(--gray-800); transition: all 0.1s; }
+    .game-2048-cell.v0 { background: var(--gray-100); color: transparent; }
+    .game-2048-cell.v2 { background: #eee4da; color: #776e65; }
+    .game-2048-cell.v4 { background: #ede0c8; color: #776e65; }
+    .game-2048-cell.v8 { background: #f2b179; color: #f9f6f2; }
+    .game-2048-cell.v16 { background: #f59563; color: #f9f6f2; }
+    .game-2048-cell.v32 { background: #f67c5f; color: #f9f6f2; }
+    .game-2048-cell.v64 { background: #f65e3b; color: #f9f6f2; }
+    .game-2048-cell.v128 { background: #edcf72; color: #f9f6f2; font-size: 14px; }
+    .game-2048-cell.v256 { background: #edcc61; color: #f9f6f2; font-size: 14px; }
+    .game-2048-cell.v512 { background: #edc850; color: #f9f6f2; font-size: 14px; }
+    .game-2048-cell.v1024 { background: #edc53f; color: #f9f6f2; font-size: 12px; }
+    .game-2048-cell.v2048 { background: #edc22e; color: #f9f6f2; font-size: 12px; }
+    .game-2048-msg { text-align: center; margin-top: 8px; font-size: 14px; font-weight: 700; color: var(--green); }
+
+    /* ─── Dino Runner ── */
+    .game-dino { background: var(--gray-100); border-radius: var(--radius-md); padding: 12px; text-align: center; }
+    .game-dino-hud { font-size: 12px; font-weight: 600; color: var(--gray-600); margin-bottom: 6px; }
+    .game-dino-canvas { border-radius: 8px; width: 100%; max-width: 400px; cursor: pointer; }
+
+    /* ─── Game Picker ── */
+    .game-picker { margin-top: 16px; }
+    .game-picker-title { font-size: 13px; font-weight: 600; color: var(--gray-600); text-align: center; margin-bottom: 10px; }
+    .game-picker-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .game-picker-card { background: var(--gray-100); border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 14px 10px; cursor: pointer; text-align: center; font-family: var(--font-sans); transition: all 0.15s; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .game-picker-card:hover { border-color: var(--green); background: var(--green-light); }
+    .game-picker-icon { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; color: var(--green); }
+    .game-picker-icon svg { width: 24px; height: 24px; }
+    .game-picker-name { font-size: 13px; font-weight: 600; color: var(--gray-800); }
+    .game-picker-desc { font-size: 11px; color: var(--gray-400); }
+    .game-picker-area { min-height: 50px; }
+  </style>
+  <script src="../pdf.worker.min.js"></script>
+  <script src="pdf.min.js"></script>
+</head>
+<body>
+  <!-- Top navigation -->
+  <div class="top-nav">
+    <div class="top-nav-brand">
+      <img src="../icons/primary-logo.png" alt="Offlyn Apply" style="height: 36px; width: auto; border-radius: 0;">
+      <div class="top-nav-info">
+        <div class="top-nav-title">Setup Your Profile</div>
+        <div class="top-nav-step" id="stepIndicator">Step 1 of 8</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button id="dark-mode-toggle" class="dark-mode-toggle" aria-label="Toggle dark mode"></button>
+      <button class="top-nav-exit" id="exitBtn" title="Close">&larr; Exit</button>
+    </div>
+  </div>
+
+  <!-- Step wizard -->
+  <div class="step-wizard" id="stepWizard">
+    <div class="wizard-step active" data-step="1">
+      <div class="wizard-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+      </div>
+      <div class="wizard-label">AI Setup</div>
+    </div>
+    <div class="wizard-step" data-step="2">
+      <div class="wizard-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      </div>
+      <div class="wizard-label">Resume</div>
+    </div>
+    <div class="wizard-step" data-step="3">
+      <div class="wizard-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </div>
+      <div class="wizard-label">Personal Info</div>
+    </div>
+    <div class="wizard-step" data-step="4">
+      <div class="wizard-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      </div>
+      <div class="wizard-label">Links</div>
+    </div>
+    <div class="wizard-step" data-step="5">
+      <div class="wizard-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <div class="wizard-label">Self-ID</div>
+    </div>
+    <div class="wizard-step" data-step="6">
+      <div class="wizard-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+      </div>
+      <div class="wizard-label">Work Auth</div>
+    </div>
+    <div class="wizard-step" data-step="7">
+      <div class="wizard-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      </div>
+      <div class="wizard-label">Cover Letter</div>
+    </div>
+    <div class="wizard-step" data-step="8">
+      <div class="wizard-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="wizard-label">Done</div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="header">
+      <h1>Welcome to Offlyn Apply</h1>
+      <p>Upload your resume to get started with automated job applications</p>
+    </div>
+    
+    <div class="content">
+      <!-- Step 2: Upload Resume -->
+      <div id="step-upload" class="step">
+        <div class="content-card">
+          <h2 class="step-title">Upload Your Resume</h2>
+          <p class="step-subtitle">We'll auto-extract your information to save time (optional)</p>
+          
+          <div class="connection-status" id="connectionStatus" style="display: none;">
+            <span class="status-indicator"></span>
+            <span>Checking connection...</span>
+          </div>
+          
+          <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </div>
+            <div class="upload-text" style="font-size: 16px; font-weight: 600; color: #1e2a3a; margin-bottom: 4px;">Drag and drop your resume here</div>
+            <div style="color: #94a3b8; font-size: 13px; margin-bottom: 14px;">or click to browse</div>
+            <div style="display: inline-block; background: #558b2f; color: #fff; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">Select File</div>
+            <div class="upload-hint" style="margin-top: 14px;">Supports PDF, DOCX, TXT (max 5MB)</div>
+            <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.txt">
+          </div>
+          
+          <div class="file-info" id="fileInfo">
+            <div class="file-name" id="fileName"></div>
+            <div class="file-size" id="fileSize"></div>
+          </div>
+          
+          <div class="status" id="uploadStatus"></div>
+          <div id="errorDetails"></div>
+          
+          <!-- Progress Bar -->
+          <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">Preparing...</div>
+            <p class="progress-time-hint" id="progressTimeHint"></p>
+            <p class="parse-status-label" id="parseFriendlyStatus"></p>
+            <p class="parse-detail-label" id="parseDetailLabel"></p>
+            
+            <div class="progress-stages">
+              <div class="progress-stage" id="stage-read">
+                <div class="stage-icon">1</div>
+                <span>Reading File</span>
+              </div>
+              <div class="progress-stage" id="stage-extract">
+                <div class="stage-icon">2</div>
+                <span>Extracting Text</span>
+              </div>
+              <div class="progress-stage" id="stage-parse">
+                <div class="stage-icon">3</div>
+                <span>AI Parsing</span>
+              </div>
+              <div class="progress-stage" id="stage-done">
+                <div class="stage-icon">4</div>
+                <span>Complete</span>
+              </div>
+            </div>
+
+            <div class="tip-carousel" id="tipCarousel">
+              <div class="tip-carousel-icon" id="tipCarouselIcon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <div class="tip-carousel-text" id="tipCarouselText">Your data never leaves your device &mdash; all AI processing happens locally.</div>
+            </div>
+          </div>
+
+          <!-- Game picker container (shown during resume parsing) -->
+          <div id="parseGameContainer" class="game-container" style="display:none;"></div>
+          
+          <!-- Resume upload is required — no skip option -->
+        </div>
+        
+        <div class="button-group" style="margin-top: 24px;">
+          <button class="btn btn-secondary" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <button class="btn btn-primary" id="parseBtn" disabled>
+            Next
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Step 1: Ollama AI Setup (one-click redesign) -->
+      <div id="step-ollama" class="step active">
+        <div class="content-card">
+          <h2 class="step-title">Supercharge Your Applications with Local AI</h2>
+          <p class="step-subtitle">Offlyn uses on-device AI — your data never leaves your computer.</p>
+
+          <!-- Success banner (hidden until models pulled) -->
+          <div id="ollamaSuccessBanner" style="display:none;text-align:center;padding:24px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;margin-bottom:16px;animation:fadeInBanner 0.3s ease;">
+            <div style="width:48px;height:48px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <h3 style="font-size:16px;font-weight:600;color:#15803d;margin-bottom:4px;">AI is ready on your device</h3>
+            <p style="font-size:13px;color:#6b7280;margin:0;">Ollama running with llama3.2 and nomic-embed-text — everything stays local.</p>
+          </div>
+
+          <!-- Download button area (visible initially) -->
+          <div id="ollamaDownloadArea" style="text-align:center;margin-bottom:24px;">
+            <button id="btnOllamaDownload" style="display:inline-flex;align-items:center;gap:14px;background:#000;color:#fff;border:none;border-radius:10px;padding:16px 36px;font-size:16px;font-weight:600;cursor:pointer;font-family:var(--font-sans);transition:all 0.2s;">
+              <span style="width:32px;height:32px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;">
+                <img src="../icons/monogram-nosquare.png" alt="Offlyn" width="24" height="24" style="object-fit:contain;">
+              </span>
+              Download Offlyn AI Setup <span id="ollamaOsLabel" style="font-weight:400;opacity:0.6;font-size:13px;"></span>
+            </button>
+            <p style="margin-top:10px;font-size:12px;color:var(--gray-400);">Installs Ollama &amp; configures AI &middot; Free &middot; Takes under a minute</p>
+            <button id="btnAlreadyHaveOllama" style="display:inline-block;margin-top:10px;font-size:12px;color:var(--green);cursor:pointer;background:none;border:none;font-family:var(--font-sans);text-decoration:underline;text-underline-offset:2px;">I already have Ollama installed</button>
+          </div>
+
+          <!-- Post-download guided steps (hidden until download starts) -->
+          <div id="ollamaInstallGuide" style="display:none;margin-bottom:24px;">
+            <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:12px;padding:20px 24px;max-width:440px;margin:0 auto;">
+              <p style="font-size:14px;font-weight:600;color:var(--gray-800);margin:0 0 16px;text-align:center;">Almost there! Follow these steps:</p>
+              <div style="display:flex;flex-direction:column;gap:14px;">
+                <div id="guideStep1" class="install-guide-step active" style="display:flex;align-items:flex-start;gap:12px;">
+                  <span class="install-guide-num" style="flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">1</span>
+                  <div>
+                    <p style="font-size:13px;font-weight:600;color:var(--gray-800);margin:0 0 2px;">Open the downloaded file</p>
+                    <p style="font-size:12px;color:var(--gray-500);margin:0;">Find <strong>Offlyn-AI-Setup.dmg</strong> in your Downloads and double-click it</p>
+                  </div>
+                </div>
+                <div id="guideStep2" class="install-guide-step" style="display:flex;align-items:flex-start;gap:12px;">
+                  <span class="install-guide-num" style="flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--gray-300);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">2</span>
+                  <div>
+                    <p style="font-size:13px;font-weight:600;color:var(--gray-800);margin:0 0 2px;">Run Offlyn AI Setup</p>
+                    <p style="font-size:12px;color:var(--gray-500);margin:0;">Double-click <strong>Offlyn AI Setup</strong> in the window that opens. If macOS warns you, click <em>Open</em>.</p>
+                  </div>
+                </div>
+                <div id="guideStep3" class="install-guide-step" style="display:flex;align-items:flex-start;gap:12px;">
+                  <span class="install-guide-num" style="flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--gray-300);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">3</span>
+                  <div>
+                    <p style="font-size:13px;font-weight:600;color:var(--gray-800);margin:0 0 2px;">Come back here</p>
+                    <p style="font-size:12px;color:var(--gray-500);margin:0;">The installer will set everything up. This page detects it automatically — just wait.</p>
+                  </div>
+                </div>
+              </div>
+              <div style="text-align:center;margin-top:16px;">
+                <div id="guideWaitingDot" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--gray-400);">
+                  <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;animation:guidePulse 1.5s ease-in-out infinite;"></span>
+                  Listening for Ollama...
+                </div>
+              </div>
+            </div>
+            <div style="text-align:center;margin-top:12px;">
+              <button id="guideBackBtn" style="font-size:12px;color:var(--gray-500);cursor:pointer;background:none;border:none;font-family:var(--font-sans);text-decoration:underline;text-underline-offset:2px;">← Go back</button>
+            </div>
+          </div>
+          <style>
+            .install-guide-step.active .install-guide-num { background: var(--green) !important; }
+            .install-guide-step.done .install-guide-num { background: var(--green) !important; }
+            .install-guide-step.done .install-guide-num::after { content: '✓'; }
+            @keyframes guidePulse { 0%,100% { opacity: .4; } 50% { opacity: 1; } }
+          </style>
+
+          <!-- Progress bar (hidden until install starts) -->
+          <div id="ollamaProgressSection" style="display:none;margin-bottom:24px;">
+            <div style="background:var(--gray-200);border-radius:20px;height:8px;overflow:hidden;margin-bottom:8px;">
+              <div id="ollamaProgressFill" style="height:100%;width:0%;background:linear-gradient(90deg,var(--green),var(--green-mid));border-radius:20px;transition:width 0.4s ease;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;">
+              <span id="ollamaProgressLabel" style="color:var(--gray-600);">Waiting for Ollama...</span>
+              <span id="ollamaProgressPct" style="color:var(--green);font-weight:600;"></span>
+            </div>
+            <button id="ollamaCancelPolling" style="display:none;margin-top:10px;font-size:12px;color:var(--gray-500);cursor:pointer;background:none;border:none;font-family:var(--font-sans);text-decoration:underline;">← Go back to download</button>
+          </div>
+
+          <!-- Privacy notice (always visible) -->
+          <div class="ollama-privacy-notice">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span><strong>100% Private</strong> — All AI processing happens on your device. No data is sent to external servers.</span>
+          </div>
+
+          <!-- Mini tutorial (shows during install) -->
+          <div id="ollamaMiniTutorial" style="display:none;margin-top:20px;">
+            <h3 style="font-family:var(--font-serif);font-size:15px;font-weight:500;color:var(--gray-600);margin-bottom:14px;text-align:center;">While you wait — here's what you're unlocking</h3>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div style="background:var(--gray-100);border-radius:10px;padding:18px 16px;">
+                <div style="width:32px;height:32px;border-radius:8px;background:var(--green-light);display:flex;align-items:center;justify-content:center;margin-bottom:10px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </div>
+                <h4 style="font-size:13px;font-weight:600;margin-bottom:4px;">AI Resume Parsing</h4>
+                <p style="font-size:12px;color:var(--gray-600);line-height:1.5;margin:0;">Upload your resume and AI extracts all your details automatically</p>
+              </div>
+              <div style="background:var(--gray-100);border-radius:10px;padding:18px 16px;">
+                <div style="width:32px;height:32px;border-radius:8px;background:var(--green-light);display:flex;align-items:center;justify-content:center;margin-bottom:10px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <h4 style="font-size:13px;font-weight:600;margin-bottom:4px;">One-Click Auto-Fill</h4>
+                <p style="font-size:12px;color:var(--gray-600);line-height:1.5;margin:0;">Fill any job application form from Workday to Greenhouse</p>
+              </div>
+              <div style="background:var(--gray-100);border-radius:10px;padding:18px 16px;">
+                <div style="width:32px;height:32px;border-radius:8px;background:var(--green-light);display:flex;align-items:center;justify-content:center;margin-bottom:10px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </div>
+                <h4 style="font-size:13px;font-weight:600;margin-bottom:4px;">AI Cover Letters</h4>
+                <p style="font-size:12px;color:var(--gray-600);line-height:1.5;margin:0;">Tailored to each job description, generated 100% locally</p>
+              </div>
+              <div style="background:var(--gray-100);border-radius:10px;padding:18px 16px;">
+                <div style="width:32px;height:32px;border-radius:8px;background:var(--green-light);display:flex;align-items:center;justify-content:center;margin-bottom:10px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </div>
+                <h4 style="font-size:13px;font-weight:600;margin-bottom:4px;">Smart Job Search</h4>
+                <p style="font-size:12px;color:var(--gray-600);line-height:1.5;margin:0;">Find matching jobs across multiple boards in one place</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Trivia game container (shown during model download) -->
+          <div id="triviaGameContainer" class="game-container" style="display:none;"></div>
+
+          <!-- Advanced setup fallback (collapsible, holds the old native helper flow) -->
+          <details id="ollamaAdvancedFallback" style="display:none;margin-top:16px;">
+            <summary style="cursor:pointer;font-size:12px;color:var(--gray-400);text-decoration:underline;text-underline-offset:2px;list-style:none;text-align:center;">Having trouble? Advanced setup</summary>
+            <div style="margin-top:12px;padding:16px;background:var(--gray-100);border-radius:10px;">
+              <!-- Sub-state A: helper not installed -->
+              <div id="helperNotInstalled" class="ollama-setup-substate">
+                <div class="setup-oneliner-card">
+                  <h3 style="font-size:14px;font-weight:700;color:#1e2a3a;margin-bottom:6px;">Step 1 of 2 — Install the Offlyn Helper (one-time)</h3>
+                  <div id="helperInstallInstructions"></div>
+                  <p style="font-size:12px;color:#64748b;margin-bottom:14px;">After the installer finishes, come back and click below.</p>
+                  <button class="btn btn-secondary" id="checkHelperBtn" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:8px 16px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    I Installed It — Check Again
+                  </button>
+                  <p id="helperErrorHint" style="font-size:11px;color:#dc2626;margin-top:8px;word-break:break-word;"></p>
+                </div>
+              </div>
+              <!-- Sub-state B: helper installed, ready to run setup -->
+              <div id="helperInstalled" class="ollama-setup-substate" style="display:none;">
+                <div class="setup-oneliner-card" style="border-color:#22c55e20;background:#f0fdf4;">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span style="font-size:13px;font-weight:600;color:#15803d;">Offlyn Helper ready</span>
+                  </div>
+                  <h3 style="font-size:14px;font-weight:700;color:#1e2a3a;margin-bottom:6px;">Step 2 of 2 — Install AI</h3>
+                  <p style="font-size:13px;color:#475569;margin-bottom:8px;">One click installs everything — Ollama, the AI models, and CORS config.</p>
+                  <button class="btn btn-primary" id="runSetupBtn" style="display:inline-flex;align-items:center;gap:8px;font-size:14px;padding:10px 20px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    Install AI (Free, ~2.5 GB)
+                  </button>
+                </div>
+                <div id="setupProgressLog" style="display:none;margin-top:12px;background:#0f1117;border-radius:8px;padding:12px 14px;max-height:220px;overflow-y:auto;font-family:monospace;font-size:12px;color:#a3e635;line-height:1.6;"></div>
+              </div>
+              <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <button class="btn btn-secondary" id="retryOllamaBtn" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:8px 16px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                  Test Connection
+                </button>
+                <a href="#" id="showTroubleshootingBtn" style="font-size:13px;color:#558b2f;text-decoration:none;">Manual setup / Troubleshooting &rarr;</a>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <div class="button-group" style="margin-top:24px;">
+          <button id="continueWithOllamaBtn" class="btn btn-primary" style="flex:1;" disabled>
+            Continue with AI Features
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+        <p id="ollamaErrorMsg" style="display:none; color:#ef4444; font-size:13px; margin-top:10px;"></p>
+      </div>
+
+      <!-- Troubleshooting Modal -->
+      <div class="troubleshoot-modal" id="troubleshootModal">
+        <div class="ts-overlay" id="tsOverlay"></div>
+        <div class="ts-dialog">
+          <div class="ts-dialog-header">
+            <h2>Ollama Troubleshooting Guide</h2>
+            <button class="ts-close" id="closeTroubleshootingBtn">&times;</button>
+          </div>
+          <div class="ts-dialog-body">
+            <div class="ts-section">
+              <h3>Common Issues</h3>
+              <div class="ts-issue">
+                <h4>1. Ollama Not Running</h4>
+                <p><strong>Problem:</strong> Ollama is installed but not running.</p>
+                <ul>
+                  <li><strong>macOS/Linux:</strong> Run <code>ollama serve</code> in terminal</li>
+                  <li><strong>Windows:</strong> Ollama starts automatically — check the system tray</li>
+                  <li>Verify with: <code>ollama list</code></li>
+                </ul>
+              </div>
+              <div class="ts-issue">
+                <h4>2. Port Already in Use</h4>
+                <p><strong>Problem:</strong> Port 11434 is in use by another application.</p>
+                <ul>
+                  <li>Check what's using it: <code>lsof -i :11434</code> (macOS/Linux)</li>
+                  <li>Stop the conflicting process, or set a custom port via Advanced Configuration</li>
+                </ul>
+              </div>
+              <div class="ts-issue">
+                <h4>3. Model Not Downloaded</h4>
+                <p><strong>Problem:</strong> Ollama running but model not installed.</p>
+                <ul>
+                  <li>Download: <code>ollama pull llama3.2</code></li>
+                  <li>Verify: <code>ollama list</code> should show <code>llama3.2</code></li>
+                  <li>Embedding model (optional): <code>ollama pull nomic-embed-text</code></li>
+                </ul>
+              </div>
+              <div class="ts-issue">
+                <h4>4. CORS / 403 Forbidden</h4>
+                <p><strong>Problem:</strong> Ollama is reachable but blocking this extension's origin with 403.</p>
+                <p><strong>Root cause:</strong> Ollama checks the <code>Origin</code> header. By default it only allows localhost origins, not <code>moz-extension://</code>.</p>
+                <p><strong>Fix — these steps must be followed exactly:</strong></p>
+                <ul>
+                  <li><strong>Step 1:</strong> Stop Ollama — quit the menu bar app, or Ctrl+C the terminal running <code>ollama serve</code></li>
+                  <li><strong>Step 2:</strong> In a new terminal, paste the following as ONE single command:
+                    <div class="code-cmd" style="margin:6px 0;"><code>OLLAMA_ORIGINS='moz-extension://*' ollama serve</code><button class="btn-copy-cmd" data-copy="OLLAMA_ORIGINS='moz-extension://*' ollama serve">Copy</button></div>
+                  </li>
+                  <li><strong>Step 3:</strong> Keep that terminal open — closing it stops Ollama</li>
+                  <li><strong>Step 4:</strong> Click "Re-test Connection" in the extension</li>
+                </ul>
+                <p style="margin-top:8px;"><strong>Common mistakes that DON'T work:</strong></p>
+                <ul>
+                  <li><code>OLLAMA_ORIGINS='...'</code> on one line, then <code>ollama serve</code> on the next — the env var is lost between commands</li>
+                  <li><code>launchctl setenv OLLAMA_ORIGINS ...</code> — only affects NEW launchd processes, not the current terminal session</li>
+                </ul>
+                <p style="margin-top:8px;"><strong>Permanent fix (macOS/Linux):</strong></p>
+                <div class="code-cmd" style="margin:4px 0;"><code>echo 'export OLLAMA_ORIGINS="moz-extension://*"' &gt;&gt; ~/.zshrc &amp;&amp; source ~/.zshrc</code><button class="btn-copy-cmd" data-copy='echo '"'"'export OLLAMA_ORIGINS="moz-extension://*"'"'"' >> ~/.zshrc && source ~/.zshrc'>Copy</button></div>
+                <p style="font-size:12px;color:#6b7280;margin-top:4px;">After this, plain <code>ollama serve</code> will always have the right origins.</p>
+              </div>
+              <div class="ts-issue">
+                <h4>5. Slow Performance</h4>
+                <ul>
+                  <li>Use smaller model: <code>ollama pull llama3.2:1b</code></li>
+                  <li>First request loads the model (slow) — subsequent requests are fast</li>
+                </ul>
+              </div>
+              <div class="ts-issue">
+                <h4>6. Remote Ollama Server</h4>
+                <ul>
+                  <li>Use Advanced Configuration to set a custom endpoint, e.g. <code>http://192.168.1.100:11434</code></li>
+                  <li>Set <code>OLLAMA_HOST=0.0.0.0</code> on the server side to allow remote connections</li>
+                </ul>
+              </div>
+            </div>
+            <div class="ts-section">
+              <h3>Test Commands</h3>
+              <div class="ts-cmd-row"><div class="code-cmd"><code>curl http://localhost:11434/api/version</code><button class="btn-copy-cmd" data-copy="curl http://localhost:11434/api/version">Copy</button></div></div>
+              <div class="ts-cmd-row"><div class="code-cmd"><code>ollama list</code><button class="btn-copy-cmd" data-copy="ollama list">Copy</button></div></div>
+              <div class="ts-cmd-row"><div class="code-cmd"><code>ollama serve</code><button class="btn-copy-cmd" data-copy="ollama serve">Copy</button></div></div>
+            </div>
+            <div class="ts-section ts-resources">
+              <h3>Additional Resources</h3>
+              <a href="https://ollama.com/download" target="_blank">Ollama Installation →</a>
+              <a href="https://github.com/ollama/ollama/blob/main/docs/troubleshooting.md" target="_blank">Official Troubleshooting Guide →</a>
+              <a href="https://github.com/ollama/ollama/issues" target="_blank">Report an Issue on GitHub →</a>
+            </div>
+            <div class="ts-skip-wrap">
+              <p>Still stuck? You can continue without AI features and set up Ollama later from Settings.</p>
+              <button class="btn btn-secondary" id="skipFromTroubleshootingBtn" style="margin-top:10px;">Continue Without AI</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Personal Information (split fields) -->
+      <div id="step-review" class="step">
+        <div class="content-card">
+          <h2 class="step-title">Personal Information</h2>
+          <p class="step-subtitle">Review and edit your details — these fill job applications automatically</p>
+
+          <form id="personalInfoForm" novalidate>
+            <!-- Name row -->
+            <div class="form-row">
+              <div class="form-group">
+                <label class="profile-label">First Name <span class="required">*</span></label>
+                <input type="text" id="piFirstName" name="firstName" class="profile-input" required placeholder="Jane">
+              </div>
+              <div class="form-group">
+                <label class="profile-label">Middle Name</label>
+                <input type="text" id="piMiddleName" name="middleName" class="profile-input" placeholder="(optional)">
+              </div>
+              <div class="form-group">
+                <label class="profile-label">Last Name <span class="required">*</span></label>
+                <input type="text" id="piLastName" name="lastName" class="profile-input" required placeholder="Smith">
+              </div>
+            </div>
+
+            <!-- Email -->
+            <div class="form-group" style="margin-top: 12px;">
+              <label class="profile-label">Email <span class="required">*</span></label>
+              <input type="email" id="piEmail" name="email" class="profile-input" required placeholder="jane@example.com">
+            </div>
+
+            <!-- Phone -->
+            <div class="form-section-header"><h3>Phone Number</h3></div>
+            <div class="form-row">
+              <div class="form-group narrow">
+                <label class="profile-label">Country Code <span class="required">*</span></label>
+                <select id="piPhoneCountryCode" name="phoneCountryCode" class="profile-input" required>
+                  <option value="+1">United States (+1)</option>
+                  <option value="+1-CA">Canada (+1)</option>
+                  <option value="+44">United Kingdom (+44)</option>
+                  <option value="+91">India (+91)</option>
+                  <option value="+86">China (+86)</option>
+                  <option value="+81">Japan (+81)</option>
+                  <option value="+49">Germany (+49)</option>
+                  <option value="+33">France (+33)</option>
+                  <option value="+61">Australia (+61)</option>
+                  <option value="+55">Brazil (+55)</option>
+                  <option value="+52">Mexico (+52)</option>
+                  <option value="+65">Singapore (+65)</option>
+                  <option value="+82">South Korea (+82)</option>
+                  <option value="+34">Spain (+34)</option>
+                  <option value="+39">Italy (+39)</option>
+                  <option value="+31">Netherlands (+31)</option>
+                  <option value="+46">Sweden (+46)</option>
+                  <option value="+41">Switzerland (+41)</option>
+                  <option value="+971">UAE (+971)</option>
+                  <option value="+other">Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="profile-label">Phone Number <span class="required">*</span></label>
+                <input type="tel" id="piPhoneNumber" name="phoneNumber" class="profile-input" required placeholder="5551234567">
+                <span class="form-hint">Digits only — no spaces, dashes, or parentheses</span>
+              </div>
+            </div>
+
+            <!-- Location -->
+            <div class="form-section-header"><h3>Location</h3></div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="profile-label">City <span class="required">*</span></label>
+                <input type="text" id="piCity" name="city" class="profile-input" required placeholder="San Francisco">
+              </div>
+              <div class="form-group">
+                <label class="profile-label">State / Province <span class="required">*</span></label>
+                <input type="text" id="piState" name="state" class="profile-input" required placeholder="California">
+              </div>
+            </div>
+            <div class="form-row" style="margin-top: 12px;">
+              <div class="form-group">
+                <label class="profile-label">Country <span class="required">*</span></label>
+                <select id="piCountry" name="country" class="profile-input" required>
+                  <option value="United States">United States</option>
+                  <option value="Canada">Canada</option>
+                  <option value="United Kingdom">United Kingdom</option>
+                  <option value="India">India</option>
+                  <option value="Australia">Australia</option>
+                  <option value="Germany">Germany</option>
+                  <option value="France">France</option>
+                  <option value="Japan">Japan</option>
+                  <option value="China">China</option>
+                  <option value="Brazil">Brazil</option>
+                  <option value="Mexico">Mexico</option>
+                  <option value="Singapore">Singapore</option>
+                  <option value="South Korea">South Korea</option>
+                  <option value="Spain">Spain</option>
+                  <option value="Italy">Italy</option>
+                  <option value="Netherlands">Netherlands</option>
+                  <option value="Sweden">Sweden</option>
+                  <option value="Switzerland">Switzerland</option>
+                  <option value="United Arab Emirates">United Arab Emirates</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="profile-label">ZIP / Postal Code</label>
+                <input type="text" id="piZipCode" name="zipCode" class="profile-input" placeholder="94103">
+              </div>
+            </div>
+          </form>
+
+          <!-- Dynamic section: skills / work / education / summary -->
+          <div id="profilePreview" style="margin-top: 8px;"></div>
+
+          <!-- Raw JSON Data (Collapsible) -->
+          <div class="raw-data-section" style="margin-top: 24px;">
+            <div class="raw-data-header" id="rawDataToggle">
+              <h4>View Raw Parsed Data</h4>
+              <span class="raw-data-toggle">[+] Show</span>
+            </div>
+            <div class="raw-data-content" id="rawDataContent">
+              <pre class="raw-data-json" id="rawDataJson"></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="button-group" style="margin-top: 24px;">
+          <button class="btn btn-secondary" id="backBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <button class="btn btn-primary" id="saveBtn">
+            Next
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Step 3: Professional Links -->
+      <div id="step-links" class="step">
+        <div class="content-card">
+          <h2 class="step-title">Professional Links</h2>
+          <p class="step-subtitle">Add your online profiles and portfolio</p>
+          
+          <form id="linksForm">
+            <div class="form-group">
+              <label>LinkedIn Profile <span class="required-mark">*</span></label>
+              <input type="url" name="linkedin" id="linksLinkedin" class="profile-input" placeholder="https://linkedin.com/in/johndoe">
+            </div>
+            <div class="form-group">
+              <label>Portfolio URL</label>
+              <input type="url" name="portfolio" id="linksPortfolio" class="profile-input" placeholder="https://johndoe.dev">
+            </div>
+            <div class="form-group">
+              <label>GitHub (Optional)</label>
+              <input type="url" name="github" id="linksGithub" class="profile-input" placeholder="https://github.com/johndoe">
+            </div>
+            <div class="form-group">
+              <label>Other Link (Optional)</label>
+              <input type="url" name="otherLink" id="linksOther" class="profile-input" placeholder="https://example.com">
+            </div>
+          </form>
+        </div>
+        
+        <div class="button-group" style="margin-top: 24px;">
+          <button id="backFromLinksBtn" class="btn btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <button id="saveLinksBtn" class="btn btn-primary">
+            Next
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Step 4: Self-Identification (voluntary) -->
+      <div id="step-selfid" class="step">
+        <div class="content-card">
+          <h2 class="step-title">Voluntary Self-Identification</h2>
+          <p class="step-subtitle">Many applications include diversity questions. Provide this info once to auto-fill them.</p>
+
+          <div class="privacy-notice">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span>All fields are optional. This information stays on your device and is never shared with anyone.</span>
+          </div>
+
+          <form id="selfIdForm">
+
+            <!-- Age -->
+            <div class="selfid-group">
+              <label class="group-label">Age</label>
+              <div class="age-option-row">
+                <label><input type="radio" name="ageOption" value="exact"> Enter exact age</label>
+                <label><input type="radio" name="ageOption" value="range"> Select age range</label>
+                <label><input type="radio" name="ageOption" value="none" checked> Prefer not to say</label>
+              </div>
+              <input type="number" id="selfIdExactAge" min="16" max="100" placeholder="e.g. 28" class="profile-input" style="display:none; max-width: 120px;">
+              <select id="selfIdAgeRange" class="profile-input" style="display:none; max-width: 180px;">
+                <option value="">Select range...</option>
+                <option value="Under 18">Under 18</option>
+                <option value="18-24">18–24</option>
+                <option value="25-34">25–34</option>
+                <option value="35-44">35–44</option>
+                <option value="45-54">45–54</option>
+                <option value="55-64">55–64</option>
+                <option value="65+">65+</option>
+              </select>
+            </div>
+
+            <!-- Gender -->
+            <div class="selfid-group">
+              <label class="group-label">Gender Identity</label>
+              <span class="group-hint">Select all that apply</span>
+              <div class="checkbox-grid">
+                <label><input type="checkbox" name="gender" value="Male"> Male</label>
+                <label><input type="checkbox" name="gender" value="Female"> Female</label>
+                <label><input type="checkbox" name="gender" value="Non-binary"> Non-binary</label>
+                <label><input type="checkbox" name="gender" value="Genderqueer"> Genderqueer</label>
+                <label><input type="checkbox" name="gender" value="Gender fluid"> Gender fluid</label>
+                <label><input type="checkbox" name="gender" value="Agender"> Agender</label>
+                <label><input type="checkbox" name="gender" value="Two-spirit"> Two-spirit</label>
+                <label><input type="checkbox" name="gender" value="Other" id="genderOtherCheck"> Other</label>
+                <label><input type="checkbox" name="gender" value="Prefer not to say"> Prefer not to say</label>
+              </div>
+              <input type="text" id="genderOtherText" placeholder="Please specify" class="profile-input" style="display:none; margin-top: 6px; max-width: 260px;">
+            </div>
+
+            <!-- Transgender -->
+            <div class="selfid-group">
+              <label class="group-label">Do you identify as transgender?</label>
+              <div class="radio-list">
+                <label><input type="radio" name="transgender" value="Yes"> Yes</label>
+                <label><input type="radio" name="transgender" value="No"> No</label>
+                <label><input type="radio" name="transgender" value="Decline to self-identify" checked> Decline to self-identify</label>
+              </div>
+            </div>
+
+            <!-- Ethnicity -->
+            <div class="selfid-group">
+              <label class="group-label">Are you Hispanic or Latino?</label>
+              <div class="radio-list">
+                <label><input type="radio" name="ethnicity" value="Yes, Hispanic or Latino"> Yes, Hispanic or Latino</label>
+                <label><input type="radio" name="ethnicity" value="No, not Hispanic or Latino"> No, not Hispanic or Latino</label>
+                <label><input type="radio" name="ethnicity" value="Prefer not to say" checked> Prefer not to say</label>
+              </div>
+            </div>
+
+            <!-- Race -->
+            <div class="selfid-group">
+              <label class="group-label">Race</label>
+              <span class="group-hint">Select all that apply</span>
+              <div class="checkbox-grid">
+                <label><input type="checkbox" name="race" value="American Indian or Alaska Native"> American Indian or Alaska Native</label>
+                <label><input type="checkbox" name="race" value="Asian"> Asian</label>
+                <label><input type="checkbox" name="race" value="Black or African American"> Black or African American</label>
+                <label><input type="checkbox" name="race" value="Hispanic or Latino"> Hispanic or Latino</label>
+                <label><input type="checkbox" name="race" value="Native Hawaiian or Other Pacific Islander"> Native Hawaiian or Other Pacific Islander</label>
+                <label><input type="checkbox" name="race" value="White"> White</label>
+                <label><input type="checkbox" name="race" value="Two or more races"> Two or more races</label>
+                <label><input type="checkbox" name="race" value="Prefer not to say"> Prefer not to say</label>
+              </div>
+            </div>
+
+            <!-- Veteran Status -->
+            <div class="selfid-group">
+              <label class="group-label">Are you a protected veteran?</label>
+              <span class="group-hint">Includes disabled veterans, recently separated veterans, active duty wartime or campaign badge veterans, and Armed Forces service medal veterans.</span>
+              <div class="radio-list">
+                <label><input type="radio" name="veteran" value="Yes, I am a protected veteran"> Yes, I am a protected veteran</label>
+                <label><input type="radio" name="veteran" value="No, I am not a protected veteran"> No, I am not a protected veteran</label>
+                <label><input type="radio" name="veteran" value="I don't wish to answer" checked> I don't wish to answer</label>
+              </div>
+            </div>
+
+            <!-- Disability -->
+            <div class="selfid-group">
+              <label class="group-label">Do you have a disability?</label>
+              <span class="group-hint">As defined by the ADA: a physical or mental impairment that substantially limits one or more major life activities.</span>
+              <div class="radio-list">
+                <label><input type="radio" name="disability" value="Yes, I have a disability"> Yes, I have a disability (or previously had one)</label>
+                <label><input type="radio" name="disability" value="No, I don't have a disability"> No, I don't have a disability</label>
+                <label><input type="radio" name="disability" value="I don't wish to answer" checked> I don't wish to answer</label>
+              </div>
+            </div>
+
+            <!-- Sexual Orientation -->
+            <div class="selfid-group">
+              <label class="group-label">Sexual Orientation</label>
+              <span class="group-hint">Select all that apply</span>
+              <div class="checkbox-grid">
+                <label><input type="checkbox" name="orientation" value="Heterosexual"> Heterosexual / Straight</label>
+                <label><input type="checkbox" name="orientation" value="Gay"> Gay</label>
+                <label><input type="checkbox" name="orientation" value="Lesbian"> Lesbian</label>
+                <label><input type="checkbox" name="orientation" value="Bisexual"> Bisexual</label>
+                <label><input type="checkbox" name="orientation" value="Pansexual"> Pansexual</label>
+                <label><input type="checkbox" name="orientation" value="Asexual"> Asexual</label>
+                <label><input type="checkbox" name="orientation" value="Queer"> Queer</label>
+                <label><input type="checkbox" name="orientation" value="Questioning"> Questioning</label>
+                <label><input type="checkbox" name="orientation" value="Other"> Other</label>
+                <label><input type="checkbox" name="orientation" value="Prefer not to say"> Prefer not to say</label>
+              </div>
+            </div>
+
+          </form>
+        </div>
+
+        <div class="button-group" style="margin-top: 24px;">
+          <button id="backFromSelfIdBtn" class="btn btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <button id="saveSelfIdBtn" class="btn btn-primary">
+            Next
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 5: Work Authorization -->
+      <div id="step-workauth" class="step">
+        <div class="content-card">
+        <h2 class="step-title">Work Authorization</h2>
+        <p class="step-subtitle">Help us fill out work eligibility questions</p>
+        
+        <form id="workAuthForm">
+          <!-- US Work Authorization -->
+          <div class="question-group">
+            <label class="question-label">Are you legally authorized to work in the United States?</label>
+            <div class="radio-group">
+              <label><input type="radio" name="legallyAuthorized" value="yes"> Yes</label>
+              <label><input type="radio" name="legallyAuthorized" value="no"> No</label>
+              <label><input type="radio" name="legallyAuthorized" value="prefer-not-to-say"> Prefer not to say</label>
+            </div>
+          </div>
+
+          <!-- Sponsorship Requirement -->
+          <div class="question-group">
+            <label class="question-label">Do you now or will you in the future require sponsorship for employment visa status?</label>
+            <div class="radio-group">
+              <label><input type="radio" name="requiresSponsorship" value="yes"> Yes</label>
+              <label><input type="radio" name="requiresSponsorship" value="no"> No</label>
+              <label><input type="radio" name="requiresSponsorship" value="prefer-not-to-say"> Prefer not to say</label>
+            </div>
+          </div>
+
+          <!-- Current Status (shown if authorized or needs sponsorship) -->
+          <div class="question-group" id="currentStatusGroup" style="display: none;">
+            <label class="question-label">What is your current work authorization status?</label>
+            <select name="currentStatus" id="currentStatus">
+              <option value="">Select...</option>
+              <option value="US Citizen">US Citizen</option>
+              <option value="US Permanent Resident">US Permanent Resident (Green Card)</option>
+              <option value="Employment Authorization Document">Employment Authorization Document (EAD)</option>
+              <option value="H-1B Visa">H-1B Visa</option>
+              <option value="L-1 Visa">L-1 Visa</option>
+              <option value="TN Visa">TN Visa (NAFTA)</option>
+              <option value="O-1 Visa">O-1 Visa</option>
+              <option value="F-1 Student Visa">F-1 Student Visa</option>
+              <option value="OPT">OPT (Optional Practical Training)</option>
+              <option value="CPT">CPT (Curricular Practical Training)</option>
+              <option value="STEM OPT Extension">STEM OPT Extension</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <!-- Visa Type (shown if requires sponsorship) -->
+          <div class="question-group" id="visaTypeGroup" style="display: none;">
+            <label class="question-label">What type of visa sponsorship do you require?</label>
+            <select name="visaType" id="visaType">
+              <option value="">Select...</option>
+              <option value="H-1B">H-1B (Specialty Occupation)</option>
+              <option value="Green Card">Green Card (Permanent Residency)</option>
+              <option value="TN">TN Visa (NAFTA - Canadian/Mexican)</option>
+              <option value="O-1">O-1 (Extraordinary Ability)</option>
+              <option value="L-1">L-1 (Intracompany Transfer)</option>
+              <option value="E-3">E-3 (Australian Specialty Workers)</option>
+              <option value="H-1B1">H-1B1 (Chile/Singapore)</option>
+              <option value="OPT Extension">OPT Extension</option>
+              <option value="STEM OPT Extension">STEM OPT Extension</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <!-- Sponsorship Timeline (shown if requires sponsorship) -->
+          <div class="question-group" id="sponsorshipTimelineGroup" style="display: none;">
+            <label class="question-label">When will you require sponsorship?</label>
+            <select name="sponsorshipTimeline">
+              <option value="">Select...</option>
+              <option value="Immediately">Immediately</option>
+              <option value="Within 3 months">Within 3 months</option>
+              <option value="Within 6 months">Within 6 months</option>
+              <option value="Within 1 year">Within 1 year</option>
+              <option value="More than 1 year">More than 1 year</option>
+              <option value="Uncertain">Uncertain</option>
+            </select>
+          </div>
+        </form>
+
+          <div class="info-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            Your data stays on your device - never uploaded or shared
+          </div>
+        </div>
+        
+        <div class="button-group" style="margin-top: 24px;">
+          <button id="backFromWorkAuthBtn" class="btn btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <button id="saveWorkAuthBtn" class="btn btn-primary">
+            Next
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 5: Cover Letter Defaults -->
+      <div id="step-coverletter" class="step">
+        <div class="content-card">
+          <h2 class="step-title">Cover Letter Defaults</h2>
+          <p class="step-subtitle">Set your preferences for AI-generated cover letters</p>
+          
+          <form id="coverLetterForm">
+            <div class="form-group">
+              <label>Preferred Tone</label>
+              <select name="tone" id="clTone">
+                <option value="Professional">Professional</option>
+                <option value="Conversational">Conversational</option>
+                <option value="Enthusiastic">Enthusiastic</option>
+                <option value="Formal">Formal</option>
+                <option value="Confident">Confident</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Key Skills to Highlight</label>
+              <input type="text" name="keySkills" id="clKeySkills" class="profile-input" placeholder="e.g. React, TypeScript, Node.js, GraphQL">
+              <span style="font-size: 12px; color: #94a3b8; margin-top: 4px;">Separate skills with commas</span>
+            </div>
+            <div class="form-group">
+              <label>Additional Instructions (Optional)</label>
+              <textarea name="additionalNotes" id="clNotes" class="profile-textarea" rows="3" placeholder="Any specific things you'd like mentioned in cover letters..."></textarea>
+            </div>
+          </form>
+
+          <div class="info-box" style="margin-top: 20px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            These defaults are used when generating cover letters. You can adjust them for each application.
+          </div>
+        </div>
+        
+        <div class="button-group" style="margin-top: 24px;">
+          <button id="backFromCoverLetterBtn" class="btn btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <button id="saveCoverLetterBtn" class="btn btn-primary">
+            Next
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 6: Success / Review -->
+      <div id="step-success" class="step">
+        <div class="content-card">
+          <div style="text-align: center; margin-bottom: 24px;">
+            <div style="width: 56px; height: 56px; border-radius: 50%; background: #e8f5e9; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#558b2f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <h2 class="step-title">Review Your Profile</h2>
+            <p class="step-subtitle">Double-check everything before we save</p>
+          </div>
+          
+          <div id="reviewSummary">
+            <!-- Populated dynamically -->
+          </div>
+
+          <div class="info-box" style="margin-top: 24px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            Your profile is saved locally and never leaves your device
+          </div>
+        </div>
+        
+        <button class="btn btn-primary" id="doneBtn" style="width: 100%; margin-top: 16px; padding: 16px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Save Profile & Continue
+        </button>
+      </div>
+      <!-- Learned Values Step (also opened standalone via showLearnedValues flag) -->
+      <div id="step-learned" class="step">
+        <div class="content-card">
+          <div style="margin-bottom: 20px;">
+            <h2 class="step-title" style="margin-bottom: 4px;">Learned Values</h2>
+            <p class="step-subtitle">Patterns the extension has learned from your corrections and submissions</p>
+          </div>
+
+          <!-- Pattern cards rendered here by onboarding.ts -->
+          <div id="learnedValuesContainer"></div>
+        </div>
+
+        <!-- Footer buttons rendered by loadLearnedValues() -->
+        <div id="learnedButtonGroup" style="display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap;"></div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Privacy footer -->
+  <div style="text-align: center; padding: 16px 24px 32px; max-width: 760px; width: 100%; margin: 0 auto;">
+    <p style="font-size: 12px; color: #94a3b8; display: flex; align-items: center; justify-content: center; gap: 6px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      All your data is stored locally on your device and never uploaded to any server
+    </p>
+  </div>
+
+  <script src="onboarding.js"></script>
+  <script src="../shared/dark-mode.js"></script>
+</body>
+</html>

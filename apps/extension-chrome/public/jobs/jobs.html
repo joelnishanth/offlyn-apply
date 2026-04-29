@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" sizes="48x48" href="../icons/icon-48.png">
+  <title>Find Jobs - Offlyn Apply</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script src="../shared/theme-init.js"></script>
+  <style>
+    /* ── Design Tokens ── */
+    :root {
+      --black: #0a0a0a;
+      --white: #ffffff;
+      --off-white: #f9f8f6;
+      --green: #1a7f5a;
+      --green-light: #e6f4ee;
+      --green-mid: #2da870;
+      --gray-100: #f4f3f0;
+      --gray-200: #e8e6e1;
+      --gray-400: #9e9b93;
+      --gray-600: #5a5750;
+      --gray-800: #2c2b28;
+      --border: #e2e0da;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --font-serif: 'Lora', Georgia, serif;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    html.dark {
+      --black: #ffffff;
+      --white: #0a0a0a;
+      --off-white: #111111;
+      --green: #2da870;
+      --green-light: #1a3a2a;
+      --green-mid: #34d399;
+      --gray-100: #1a1a1a;
+      --gray-200: #2a2a2a;
+      --gray-400: #737373;
+      --gray-600: #a3a3a3;
+      --gray-800: #e5e5e5;
+      --border: #2a2a2a;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--white);
+      min-height: 100vh;
+      color: var(--black);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .header {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 10;
+    }
+
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header-brand { display: flex; align-items: center; gap: 16px; }
+    .header-brand img { height: 40px; width: auto; object-fit: contain; }
+    .header-brand h1 { font-family: var(--font-serif); font-size: 1.25em; color: var(--black); font-weight: 500; }
+
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+
+    .dark-mode-toggle {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: transparent; border: 1px solid var(--border);
+      cursor: pointer; color: var(--gray-600);
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: all .15s; flex-shrink: 0;
+    }
+    .dark-mode-toggle:hover { background: var(--gray-100); color: var(--black); }
+
+    .btn-back {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: none; border: none; color: var(--gray-600);
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      padding: 6px 12px; border-radius: var(--radius-sm);
+      text-decoration: none; transition: background 0.15s, color 0.15s;
+    }
+    .btn-back:hover { background: var(--gray-100); color: var(--black); }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+    /* Search bar */
+    .search-bar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .search-bar input,
+    .search-bar select {
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--black);
+      background: var(--white);
+    }
+
+    .search-bar input:focus,
+    .search-bar select:focus {
+      outline: none;
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(26,127,90,0.12);
+    }
+
+    .ac-wrap {
+      position: relative;
+      flex: 2;
+      min-width: 200px;
+    }
+    .ac-wrap.ac-location {
+      flex: 1;
+      min-width: 150px;
+    }
+    .ac-wrap input { width: 100%; }
+
+    .ac-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0; right: 0;
+      z-index: 50;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+      max-height: 220px;
+      overflow-y: auto;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    }
+    .ac-dropdown.open { display: block; }
+
+    .ac-option {
+      padding: 8px 14px;
+      font-size: 13px;
+      color: var(--black);
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .ac-option:hover,
+    .ac-option.highlighted {
+      background: var(--green-light);
+      color: var(--green);
+    }
+    .ac-option mark {
+      background: none;
+      color: var(--green);
+      font-weight: 600;
+    }
+
+    .search-days { width: 140px; }
+
+    .btn-search {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--green); color: #fff; border: none;
+      padding: 10px 20px; border-radius: var(--radius-sm);
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: all 0.15s; white-space: nowrap;
+    }
+    .btn-search:hover { background: var(--green-mid); }
+    .btn-search:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Advanced filters row */
+    .filters-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .filters-row select,
+    .filters-row input[type="number"] {
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--black);
+      background: var(--white);
+    }
+    .filters-row select:focus,
+    .filters-row input[type="number"]:focus {
+      outline: none;
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(26,127,90,0.12);
+    }
+
+    .filter-label {
+      font-size: 12px;
+      color: var(--gray-400);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .salary-input {
+      width: 100px;
+    }
+    .salary-dash {
+      color: var(--gray-400);
+      font-size: 13px;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--gray-600);
+    }
+
+    .toggle-row input[type="checkbox"] { accent-color: var(--green); }
+
+    .filter-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 12px;
+      color: var(--gray-600);
+      background: var(--white);
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .filter-pill:hover { border-color: var(--green); color: var(--green); }
+    .filter-pill.active { background: var(--green-light); border-color: var(--green); color: var(--green); font-weight: 600; }
+    .filter-pill input { display: none; }
+
+    /* Results info */
+    .results-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: var(--gray-600);
+    }
+
+    .tab-bar {
+      display: flex;
+      gap: 4px;
+    }
+
+    .tab-btn {
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--white);
+      color: var(--gray-600);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .tab-btn:hover { background: var(--gray-100); }
+    .tab-btn.active { background: var(--green); color: #fff; border-color: var(--green); }
+
+    /* Job cards grid */
+    .jobs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 16px;
+    }
+
+    .job-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 18px;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .job-card:hover {
+      border-color: var(--gray-400);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+
+    .job-card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .job-card-info { flex: 1; min-width: 0; }
+    .job-card-logo-wrap {
+      flex-shrink: 0;
+      width: 32px; height: 32px;
+    }
+    .job-card-logo {
+      width: 32px; height: 32px;
+      border-radius: var(--radius-sm);
+      object-fit: contain;
+      background: var(--gray-100);
+    }
+    .job-card-logo-fallback {
+      width: 32px; height: 32px;
+      border-radius: var(--radius-sm);
+      background: var(--gray-100);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .job-card-logo-monogram {
+      width: 22px; height: 22px;
+      object-fit: contain;
+      opacity: 0.55;
+    }
+
+    .job-card-title {
+      font-weight: 600;
+      font-size: 1em;
+      color: var(--black);
+      line-height: 1.3;
+    }
+
+    .job-card-score {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .score-high { background: var(--green-light); color: var(--green); border: 2px solid #a7e3c9; }
+    .score-medium { background: #fefce8; color: #ca8a04; border: 2px solid #fde68a; }
+    .score-low { background: #fef2f2; color: #dc2626; border: 2px solid #fecaca; }
+
+    .job-card-company {
+      font-size: 0.88em;
+      color: var(--gray-600);
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .job-card-location {
+      font-size: 0.82em;
+      color: var(--gray-400);
+      margin-bottom: 8px;
+    }
+
+    .job-card-salary {
+      font-size: 0.85em;
+      font-weight: 600;
+      color: var(--green);
+      margin-bottom: 8px;
+    }
+
+    .job-card-desc {
+      font-size: 0.82em;
+      color: var(--gray-600);
+      line-height: 1.5;
+      flex: 1;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      margin-bottom: 12px;
+    }
+
+    .job-card-footer {
+      display: flex;
+      gap: 8px;
+      margin-top: auto;
+    }
+
+    .job-card-footer button,
+    .job-card-footer a {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 0.82em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: none;
+      font-family: inherit;
+      text-align: center;
+      text-decoration: none;
+    }
+
+    .btn-apply {
+      background: var(--green);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-apply:hover { background: var(--green-mid); }
+    .btn-apply:disabled { background: #86efac; cursor: wait; }
+
+    .btn-save {
+      background: var(--gray-100);
+      color: var(--gray-600);
+    }
+    .btn-save:hover { background: var(--gray-200); }
+    .btn-save.saved {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .job-card-date {
+      font-size: 0.75em;
+      color: var(--gray-400);
+      margin-top: 8px;
+    }
+
+    /* Empty + loading states */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #94a3b8;
+    }
+    .empty-state h3 {
+      font-size: 1.1em;
+      color: #475569;
+      margin-bottom: 8px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #64748b;
+    }
+
+    .loading-spinner {
+      border: 4px solid #e2e8f0;
+      border-top: 4px solid #7c3aed;
+      border-radius: 50%;
+      width: 36px; height: 36px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 12px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Dark mode — mostly handled by CSS tokens */
+    html.dark .btn-save.saved { background: #422006; color: #fbbf24; }
+    html.dark .ac-option:hover, html.dark .ac-option.highlighted { background: var(--green-light); color: var(--green-mid); }
+    html.dark .ac-option mark { color: var(--green-mid); }
+    html.dark .filter-pill.active { background: var(--green-light); }
+
+    /* Scheduled results banner */
+    .scheduled-banner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+      border: 1px solid #c4b5fd;
+      border-radius: 10px;
+    }
+    .scheduled-banner-icon {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: #7c3aed;
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-weight: 700; font-size: 14px;
+    }
+    .scheduled-banner-text {
+      flex: 1;
+      font-size: 14px;
+      color: #3b0764;
+      line-height: 1.4;
+    }
+    .scheduled-banner-text strong { font-weight: 700; }
+    .scheduled-banner-text small {
+      display: block;
+      font-size: 12px;
+      color: #6b21a8;
+      margin-top: 2px;
+    }
+    .scheduled-banner-actions { display: flex; gap: 8px; }
+    .btn-banner {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .btn-banner-primary { background: #7c3aed; color: #fff; }
+    .btn-banner-primary:hover { background: #6d28d9; }
+    .btn-banner-dismiss { background: transparent; color: #6b21a8; }
+    .btn-banner-dismiss:hover { background: rgba(124,58,237,0.1); }
+
+    html.dark .scheduled-banner { background: linear-gradient(135deg, #0d3325 0%, #1a503d 100%); border-color: var(--green); }
+    html.dark .scheduled-banner-text { color: var(--green-light); }
+    html.dark .scheduled-banner-text small { color: var(--green-mid); }
+    html.dark .btn-banner-dismiss { color: var(--green-mid); }
+    html.dark .btn-banner-dismiss:hover { background: rgba(26,127,90,0.2); }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <img src="../icons/primary-logo.png" alt="Offlyn Apply">
+        <h1>Find Jobs</h1>
+      </div>
+      <div class="header-actions">
+        <button id="dark-mode-toggle" class="dark-mode-toggle" aria-label="Toggle dark mode"></button>
+        <a href="../home/home.html" class="btn-back">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Back to Home
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="search-bar">
+      <div class="ac-wrap" id="ac-keywords-wrap">
+        <input type="text" id="search-keywords" class="search-keywords" placeholder="Job title or keywords..." autocomplete="off">
+        <div class="ac-dropdown" id="ac-keywords-dropdown"></div>
+      </div>
+      <div class="ac-wrap ac-location" id="ac-location-wrap">
+        <input type="text" id="search-location" class="search-location" placeholder="City, state, or 'remote'" autocomplete="off">
+        <div class="ac-dropdown" id="ac-location-dropdown"></div>
+      </div>
+      <button class="btn-search" id="btn-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Search
+      </button>
+    </div>
+
+    <div class="filters-row" id="filters-row">
+      <select id="search-days" class="search-days">
+        <option value="">Any time</option>
+        <option value="1">Past 24h</option>
+        <option value="3">Past 3 days</option>
+        <option value="7">Past week</option>
+        <option value="30">Past month</option>
+      </select>
+      <select id="search-sort">
+        <option value="default">Sort: Relevance</option>
+        <option value="date">Sort: Most recent</option>
+        <option value="salary">Sort: Highest salary</option>
+        <option value="compatibility">Sort: Best Match %</option>
+      </select>
+      <div class="filter-group">
+        <span class="filter-label">Salary</span>
+        <input type="number" id="salary-min" class="salary-input" placeholder="Min" step="10000" min="0">
+        <span class="salary-dash">&ndash;</span>
+        <input type="number" id="salary-max" class="salary-input" placeholder="Max" step="10000" min="0">
+      </div>
+      <label class="filter-pill" id="pill-remote">
+        <input type="checkbox" id="search-remote">
+        Remote
+      </label>
+      <label class="filter-pill" id="pill-fulltime">
+        <input type="checkbox" id="search-fulltime">
+        Full-time
+      </label>
+      <label class="filter-pill" id="pill-contract">
+        <input type="checkbox" id="search-contract">
+        Contract
+      </label>
+    </div>
+
+    <div class="scheduled-banner" id="scheduled-banner" style="display:none;">
+      <div class="scheduled-banner-icon" id="scheduled-count">0</div>
+      <div class="scheduled-banner-text">
+        <strong>New jobs found based on your preferences</strong>
+        <small>Background search discovered matching opportunities</small>
+      </div>
+      <div class="scheduled-banner-actions">
+        <button class="btn-banner btn-banner-primary" id="scheduled-view-btn">View</button>
+        <button class="btn-banner btn-banner-dismiss" id="scheduled-dismiss-btn">Dismiss</button>
+      </div>
+    </div>
+
+    <div class="results-info" id="results-info" style="display:none;">
+      <span id="results-count"></span>
+      <div class="tab-bar">
+        <button class="tab-btn active" id="tab-results" data-tab="results">Results</button>
+        <button class="tab-btn" id="tab-saved" data-tab="saved">Saved</button>
+      </div>
+    </div>
+
+    <div id="results-container">
+      <div class="empty-state" id="empty-state">
+        <h3>Search for jobs</h3>
+        <p>Enter keywords and location to discover job opportunities.</p>
+      </div>
+    </div>
+
+    <div id="loading" class="loading" style="display:none;">
+      <div class="loading-spinner"></div>
+      <p>Searching jobs...</p>
+    </div>
+
+    <div class="jobs-grid" id="jobs-grid" style="display:none;"></div>
+    <div class="jobs-grid" id="saved-grid" style="display:none;"></div>
+  </div>
+
+  <script src="jobs.js"></script>
+  <script src="../shared/dark-mode.js"></script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+ALEX MICHAEL CHEN
+Senior Software Engineer
+
+Email: alex.chen@example.com | Phone: +1 (415) 555-1234
+Location: San Francisco, CA
+LinkedIn: https://linkedin.com/in/alexmchen
+GitHub: https://github.com/alexmchen
+Portfolio: https://alexmchen.dev
+
+SUMMARY
+Senior Software Engineer with 7 years of experience building scalable cloud-native
+applications. Expert in TypeScript, React, Node.js, Python, and AWS. Led teams of
+5-10 engineers delivering high-impact products used by millions of users.
+
+SKILLS
+TypeScript, JavaScript, Python, Go, React, Node.js, GraphQL, PostgreSQL,
+Redis, AWS, Docker, Kubernetes, Terraform, Git, CI/CD
+
+WORK EXPERIENCE
+
+Senior Software Engineer | TechCorp Inc | March 2021 - Present
+- Lead development for SaaS platform serving 3M+ users
+- Architected microservices on AWS reducing infrastructure costs by 45%
+- Built real-time data pipelines processing 50K events/sec with Kafka and Redis
+- Mentored 4 junior engineers, improved team velocity by 30%
+
+Software Engineer | StartupXYZ | January 2019 - February 2021
+- Built full-stack features with React, Node.js, and PostgreSQL
+- Designed GraphQL API improving data fetching efficiency by 40%
+- Implemented automated testing achieving 90% code coverage
+
+Junior Developer | Digital Solutions Co | June 2017 - December 2018
+- Developed responsive web interfaces used by 100K+ customers
+- Fixed critical production bugs reducing error rate by 60%
+
+EDUCATION
+
+Master of Science in Computer Science | Stanford University | 2019
+Bachelor of Science in Computer Science | UC Berkeley | 2017 | GPA: 3.8
+
+CERTIFICATIONS
+- AWS Certified Solutions Architect Professional (2023)
+- Google Cloud Professional Data Engineer (2022)

@@ -1,0 +1,261 @@
+# Recursive Learning Cursor Rules for Browser Extension Development
+
+## Core Learning Principle
+Before implementing ANY solution, ALWAYS:
+1. Check `.cursor/browserextension-bestpractices.mdc` for known solutions
+2. Check `.cursor/known-issues.md` for documented problems and their fixes
+3. Check `.cursor/architecture-decisions.md` for design patterns and rationale
+4. If encountering an error, document it with solution before moving forward
+
+## Dashboard Integration 🆕
+The project has a real-time dashboard (`.dashboard/dashboard.html`) for tracking daily issues.
+
+**MANDATORY: Update dashboard when:**
+1. **Starting work** on any issue → Update current work + add issue
+2. **Encountering errors** → Add to dashboard immediately  
+3. **Fixing bugs** → Update to resolved with fix description
+4. **Getting blocked** → Update to blocked with reason
+5. **Completing task** → Mark resolved, clear current work
+
+**How to Update Dashboard (Automatic):**
+
+### Method 1: Update Current Work (What AI is doing NOW)
+Write to `.dashboard/ai-current-work.json`:
+```json
+{
+  "timestamp": "<ISO timestamp>",
+  "active": true,
+  "tasks": [
+    {
+      "title": "Task title",
+      "description": "What you're doing",
+      "status": "in-progress",
+      "startTime": "<ISO timestamp>",
+      "files": "file1.ts, file2.ts"
+    }
+  ]
+}
+```
+
+### Method 2: Queue Issues for Dashboard
+Append to `.dashboard/ai-issues-queue.json`:
+```json
+[
+  {
+    "timestamp": "<ISO timestamp>",
+    "title": "Issue title",
+    "description": "Context",
+    "status": "in-progress|resolved|blocked",
+    "severity": "critical|high|medium|low",
+    "fix": "Solution (if resolved)",
+    "files": "Comma-separated file paths"
+  }
+]
+```
+
+### Method 3: One Command Sync
+After updating JSON files, tell user to run:
+```bash
+node .dashboard/dashboard-bridge.js
+```
+This generates a sync page they can use to update the dashboard.
+
+**Important**: ALWAYS update these JSON files when working on issues. Tell user: "Dashboard updated - run sync or refresh dashboard to see changes."
+
+## Self-Correction Protocol
+
+### When Encountering Errors
+1. **Identify Root Cause**: Don't just fix symptoms, understand WHY the error occurred
+2. **Document Immediately**: Add to `.cursor/known-issues.md` with:
+   - Error description and symptoms
+   - Root cause analysis
+   - Solution implemented
+   - Prevention strategy for future
+   - Date and context
+3. **Update Best Practices**: If it's a pattern, add to `browserextension-bestpractices.mdc`
+4. **Verify Fix**: Test thoroughly before considering it resolved
+
+### When Making Architecture Decisions
+1. **Document Decision**: Add to `.cursor/architecture-decisions.md` with:
+   - Problem being solved
+   - Options considered
+   - Decision made and rationale
+   - Trade-offs accepted
+   - Date
+2. **Reference in Code**: Add comments linking to the decision document
+
+### Before Implementing Features
+1. **Check Learning Docs**: Review all `.cursor/*.md` files for relevant patterns
+2. **Apply Known Solutions**: Reuse proven approaches from best practices
+3. **Avoid Known Pitfalls**: Check known-issues.md for similar past problems
+
+## Browser Extension Specific Rules
+
+### Always Apply These Patterns
+- ✅ Use React-compatible input setters (see browserextension-bestpractices.mdc)
+- ✅ Implement page stability checks before DOM manipulation
+- ✅ Handle both regular and shadow DOM elements
+- ✅ Test across Chrome, Firefox, Edge, Safari if applicable
+- ✅ Use message passing for content script ↔ background communication
+- ✅ Never use `eval()` or inline scripts (CSP violations)
+
+### Common Browser Extension Pitfalls
+1. **Async Timing Issues**
+   - Problem: Race conditions with page load
+   - Solution: Always use page stability gates before DOM operations
+   
+2. **React/Vue State Management**
+   - Problem: Setting input.value directly doesn't update framework state
+   - Solution: Use property descriptor setters + dispatch events
+   
+3. **Content Security Policy**
+   - Problem: Inline scripts/styles blocked
+   - Solution: Use external files, hash-based CSP, or nonces
+
+4. **Storage Sync Limits**
+   - Problem: chrome.storage.sync has 100KB limit
+   - Solution: Use chrome.storage.local for large data, sync only config
+
+5. **Cross-Origin Requests**
+   - Problem: Content scripts inherit page CSP, can't make arbitrary requests
+   - Solution: Use background script as proxy, declare permissions
+
+## Learning File Structure
+
+### `.cursor/known-issues.md`
+Format:
+```markdown
+# Known Issues & Solutions
+
+## [Issue Title] - [Date]
+**Severity**: Critical/High/Medium/Low
+**Context**: [When/where this occurs]
+**Symptoms**: [What you observe]
+**Root Cause**: [Why it happens]
+**Solution**: [How to fix]
+**Prevention**: [How to avoid in future]
+**Related Files**: [List of affected files]
+
+---
+```
+
+### `.cursor/architecture-decisions.md`
+Format:
+```markdown
+# Architecture Decision Records (ADR)
+
+## ADR-001: [Decision Title] - [Date]
+**Status**: Accepted/Superseded
+**Context**: [Problem space]
+**Decision**: [What we decided]
+**Rationale**: [Why this approach]
+**Consequences**: [Trade-offs]
+**Alternatives Considered**: [Other options]
+
+---
+```
+
+### `.cursor/browserextension-bestpractices.mdc`
+Already exists - keep updating with proven patterns
+
+## Mandatory Pre-Implementation Checks
+
+Before writing ANY code, run this mental checklist:
+- [ ] Have I checked known-issues.md for similar past problems?
+- [ ] Have I reviewed best practices for this type of operation?
+- [ ] Have I checked architecture decisions for design patterns?
+- [ ] Do I understand WHY previous solutions work?
+- [ ] Am I applying page stability checks for DOM operations?
+- [ ] Am I using React-compatible setters for form inputs?
+- [ ] Have I considered shadow DOM scenarios?
+- [ ] Will this work across different websites/frameworks?
+
+## Post-Error Protocol
+
+When ANY error occurs:
+1. **STOP** - Don't immediately try another approach
+2. **ANALYZE** - Understand the root cause completely
+3. **DOCUMENT** - Add to known-issues.md with full context
+4. **FIX** - Implement solution based on understanding
+5. **VERIFY** - Test thoroughly including edge cases
+6. **UPDATE** - If it's a pattern, add to best practices
+7. **REFLECT** - Could this have been prevented by checking docs first?
+
+**CRITICAL**: Never skip step 3 (DOCUMENT). Even if the error seems minor, add it to known-issues.md. The act of documenting often reveals deeper insights and prevents recurrence.
+
+### Documentation is Mandatory, Not Optional
+- If you fix a bug → MUST update known-issues.md
+- If you establish a pattern → MUST update best-practices.mdc
+- If you make a decision → MUST create/update ADR
+- No exceptions - this is how the system learns
+
+## Code Review Checklist (Self-Apply)
+
+Before considering any implementation complete:
+- [ ] All errors have been documented in known-issues.md
+- [ ] Any new patterns added to best practices
+- [ ] Architecture decisions recorded if applicable
+- [ ] Code has comments referencing relevant docs
+- [ ] Similar future issues can be prevented by checking docs
+- [ ] No console.log/debugger statements left in code
+- [ ] Proper error handling implemented
+- [ ] Works with React/Vue/Angular controlled inputs
+- [ ] Handles shadow DOM if applicable
+- [ ] Tested page stability mechanisms
+
+## End-of-Session Documentation Check
+
+After completing work, ALWAYS ask yourself:
+1. **"Did I fix any bugs today?"** → If yes, are they in known-issues.md?
+2. **"Did I make any architectural decisions?"** → If yes, is there an ADR?
+3. **"Did I discover any patterns?"** → If yes, are they in best-practices.mdc?
+4. **"Could someone else learn from this?"** → If yes, document it
+
+**Proactive Reminder**: Before responding with "Implementation complete" or similar, verify all documentation is updated. Tell the user what docs were updated as part of the completion report.
+
+## Continuous Learning Loop
+
+1. **Encounter Issue** → Document in known-issues.md
+2. **Solve Issue** → Update solution in known-issues.md
+3. **Identify Pattern** → Add to best practices
+4. **Make Decision** → Record in architecture-decisions.md
+5. **Next Implementation** → Check all docs first → Avoid repeating mistakes
+
+## Testing Philosophy
+
+Always test in this order:
+1. **Static Analysis**: Check docs for known issues first
+2. **Unit Level**: Test individual functions/components
+3. **Integration**: Test content script ↔ background communication
+4. **Real World**: Test on actual websites (React apps, Vue apps, plain HTML)
+5. **Edge Cases**: Shadow DOM, iframes, SPAs with dynamic routing
+6. **Cross-Browser**: Chrome, Firefox, Edge at minimum
+
+## Red Flags That Should Trigger Documentation
+
+If you notice any of these, STOP and document:
+- ⚠️ Same error appearing multiple times
+- ⚠️ Solution that "just works" without understanding why
+- ⚠️ Workaround instead of root cause fix
+- ⚠️ Code that feels fragile or timing-dependent
+- ⚠️ Different behavior across browsers
+- ⚠️ Framework-specific handling needed (React/Vue/Angular)
+
+## Success Metrics
+
+The learning system is working if:
+- ✅ Similar issues don't recur after being documented
+- ✅ Implementation speed increases over time (reusing patterns)
+- ✅ Fewer unexpected errors in new features
+- ✅ Clear documentation trail for every decision
+- ✅ New team members can understand context from docs
+
+---
+
+**Remember**: Every mistake is a learning opportunity, but ONLY if you:
+1. Understand the root cause
+2. Document it properly
+3. Check docs before future implementations
+4. Update patterns as you learn
+
+The goal is not perfection, but continuous improvement through systematic learning.

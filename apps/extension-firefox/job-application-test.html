@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Application - Software Engineer - Tech Corp</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 50px; }
+    .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; }
+    .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+    .pass { background: #d4edda; color: #155724; }
+    .fail { background: #f8d7da; color: #721c24; }
+    .pending { background: #fff3cd; color: #856404; }
+  </style>
+</head>
+<body>
+  <h1>Cover Letter Functionality Test</h1>
+  
+  <div class="test-section">
+    <h2>Job Application Form (Test)</h2>
+    <form>
+      <div>
+        <label>Full Name:</label>
+        <input type="text" name="fullName" placeholder="Enter your full name">
+      </div>
+      <div>
+        <label>Email:</label>
+        <input type="email" name="email" placeholder="Enter your email">
+      </div>
+      <div>
+        <label>Position:</label>
+        <input type="text" name="position" value="Software Engineer">
+      </div>
+      <div>
+        <label>Company:</label>
+        <input type="text" name="company" value="Tech Corp">
+      </div>
+      <div>
+        <label>Cover Letter:</label>
+        <textarea name="coverLetter" rows="5" placeholder="Cover letter will be generated here"></textarea>
+      </div>
+    </form>
+  </div>
+
+  <div class="test-section">
+    <h2>Test Results</h2>
+    <div id="test-results">
+      <div class="status pending">Waiting for extension to load...</div>
+    </div>
+    
+    <button onclick="runManualTest()" style="margin: 10px 0; padding: 10px 20px;">Run Manual Test</button>
+  </div>
+
+  <script>
+    let testResults = {
+      extensionLoaded: false,
+      fieldSummaryVisible: false,
+      coverLetterButtonExists: false,
+      coverLetterPanelOpens: false,
+      backButtonWorks: false
+    };
+
+    function updateResults() {
+      const resultsDiv = document.getElementById('test-results');
+      let html = '';
+      
+      Object.entries(testResults).forEach(([test, passed]) => {
+        const status = passed ? 'pass' : (passed === false ? 'fail' : 'pending');
+        const icon = passed ? '[OK]' : (passed === false ? '[FAIL]' : '[...]');
+        html += `<div class="status ${status}">${icon} ${test}: ${passed}</div>`;
+      });
+      
+      resultsDiv.innerHTML = html;
+    }
+
+    function checkExtensionLoaded() {
+      // Check if field summary exists
+      const fieldSummary = document.getElementById('offlyn-field-summary');
+      if (fieldSummary) {
+        testResults.extensionLoaded = true;
+        testResults.fieldSummaryVisible = true;
+        
+        // Check if cover letter button exists
+        const coverLetterBtn = document.getElementById('ofl-cover-letter-btn');
+        if (coverLetterBtn) {
+          testResults.coverLetterButtonExists = true;
+        }
+      }
+      updateResults();
+    }
+
+    function runManualTest() {
+      console.log('Running manual test...');
+      
+      // Try to click cover letter button
+      const coverLetterBtn = document.getElementById('ofl-cover-letter-btn');
+      if (coverLetterBtn) {
+        coverLetterBtn.click();
+        
+        // Check if panel opens
+        setTimeout(() => {
+          const panel = document.getElementById('offlyn-cover-letter-panel');
+          if (panel) {
+            testResults.coverLetterPanelOpens = true;
+            
+            // Test back button
+            const backBtn = panel.querySelector('.ocl-back');
+            if (backBtn) {
+              setTimeout(() => {
+                backBtn.click();
+                setTimeout(() => {
+                  const fieldSummary = document.getElementById('offlyn-field-summary');
+                  if (fieldSummary && !fieldSummary.classList.contains('minimized')) {
+                    testResults.backButtonWorks = true;
+                  }
+                  updateResults();
+                }, 500);
+              }, 1000);
+            }
+          }
+          updateResults();
+        }, 2000);
+      } else {
+        console.log('Cover letter button not found');
+      }
+      updateResults();
+    }
+
+    // Check every 2 seconds for extension
+    setInterval(checkExtensionLoaded, 2000);
+    
+    // Initial check
+    setTimeout(checkExtensionLoaded, 1000);
+  </script>
+</body>
+</html>

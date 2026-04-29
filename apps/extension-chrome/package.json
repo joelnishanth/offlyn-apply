@@ -1,0 +1,50 @@
+{
+  "name": "offlyn-chrome-extension",
+  "version": "0.9.0",
+  "description": "AI-powered Chrome extension for job application auto-fill, compatibility analysis, and cover letter generation",
+  "type": "module",
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "dev": "node esbuild.config.mjs --watch",
+    "package": "cd dist && zip -r ../offlyn-chrome.zip .",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "chrome",
+    "webextension",
+    "job-application",
+    "automation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/chrome": "^0.1.37",
+    "@types/node": "^20.10.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/webextension-polyfill": "^0.12.5",
+    "@vitest/coverage-v8": "^4.1.0",
+    "esbuild": "^0.19.8",
+    "eslint": "^9.0.0",
+    "jsdom": "^28.1.0",
+    "typescript": "^5.3.3",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.10.1",
+    "ai": "^6.0.73",
+    "elkjs": "^0.9.3",
+    "framer-motion": "^12.9.4",
+    "lucide-react": "^0.577.0",
+    "mammoth": "^1.12.0",
+    "ollama-ai-provider-v2": "^2.0.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "webextension-polyfill": "^0.12.0",
+    "zod": "^4.1.8"
+  }
+}

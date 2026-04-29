@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offlyn Apply — AI Setup Step (Redesigned)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Exact design tokens from onboarding.html ── */
+    :root {
+      --black: #0a0a0a; --white: #ffffff; --off-white: #f9f8f6;
+      --green: #1a7f5a; --green-light: #e6f4ee; --green-mid: #2da870;
+      --gray-100: #f4f3f0; --gray-200: #e8e6e1; --gray-400: #9e9b93;
+      --gray-600: #5a5750; --gray-800: #2c2b28; --border: #e2e0da;
+      --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px;
+      --font-serif: 'Lora', Georgia, serif;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --info-bg: #e6f4ee; --info-text: var(--green);
+      --success-bg: #e6f4ee; --success-text: #166534;
+      --error-bg: #fef2f2; --error-text: #dc2626;
+    }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: var(--font-sans); background: var(--white); color: var(--black);
+      min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+      font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Top nav (exact copy) ── */
+    .top-nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border); padding: 16px 30px;
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%; max-width: 860px;
+    }
+    .top-nav-brand { display: flex; align-items: center; gap: 12px; }
+    .top-nav-brand img { height: 36px; width: auto; }
+    .logo-circle {
+      width: 36px; height: 36px; border-radius: 50%; background: var(--green);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-family: var(--font-serif); font-weight: 600; font-size: 16px;
+    }
+    .top-nav-info .top-nav-title { font-family: var(--font-serif); font-size: 16px; font-weight: 500; }
+    .top-nav-info .top-nav-step { font-size: 12px; color: var(--gray-400); margin-top: 1px; }
+
+    /* ── Wizard bar (exact copy) ── */
+    .step-wizard {
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 24px 40px 20px; gap: 0; border-bottom: 1px solid var(--border);
+      max-width: 860px; width: 100%; background: var(--white);
+    }
+    .wizard-step { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; position: relative; text-align: center; }
+    .wizard-step:not(:last-child)::after { content: ''; position: absolute; top: 16px; left: calc(50% + 20px); width: calc(100% - 40px); height: 2px; background: var(--gray-200); }
+    .wizard-icon { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--gray-200); background: var(--white); display: flex; align-items: center; justify-content: center; z-index: 1; }
+    .wizard-icon svg { color: var(--gray-400); width: 16px; height: 16px; }
+    .wizard-step.active .wizard-icon { border-color: var(--green); background: var(--green); }
+    .wizard-step.active .wizard-icon svg { color: #fff; }
+    .wizard-label { font-size: 10px; color: var(--gray-400); font-weight: 500; }
+    .wizard-step.active .wizard-label { color: var(--black); font-weight: 600; }
+
+    /* ── Container + content card (exact copy) ── */
+    .container { max-width: 760px; width: 100%; padding: 0 24px; margin-bottom: 40px; }
+    .content-card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 40px; margin-top: 24px; }
+
+    /* ── Step title/subtitle (exact copy) ── */
+    .step-title { font-family: var(--font-serif); font-size: clamp(24px, 4vw, 32px); font-weight: 400; line-height: 1.2; letter-spacing: -0.02em; color: var(--black); text-align: center; margin-bottom: 8px; }
+    .step-subtitle { font-size: 15px; color: var(--gray-600); text-align: center; margin-bottom: 24px; font-weight: 300; line-height: 1.6; }
+
+    /* ── Buttons (exact copy) ── */
+    .button-group { display: flex; gap: 12px; margin-top: 32px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 24px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; font-family: var(--font-sans); cursor: pointer; border: none; transition: all 0.15s ease; white-space: nowrap; flex: 1; }
+    .btn-primary { background: var(--green); color: var(--white); }
+    .btn-primary:hover:not(:disabled) { background: #145e42; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(26,127,90,0.25); }
+    .btn-primary:disabled { opacity: 0.4; cursor: default; }
+    .btn-secondary { background: transparent; color: var(--black); border: 1px solid var(--border); }
+    .btn-secondary:hover:not(:disabled) { background: var(--gray-100); }
+
+    /* ── Privacy notice (exact copy) ── */
+    .ollama-privacy-notice { display: flex; align-items: flex-start; gap: 10px; background: #f8faff; border: 1px solid #dbeafe; border-radius: 8px; padding: 12px 14px; font-size: 13px; color: #3b82f6; margin-bottom: 16px; }
+    .ollama-privacy-notice svg { flex-shrink: 0; margin-top: 1px; color: #3b82f6; }
+
+    /* ═══════════════════════════════════════
+       NEW: Download button with Ollama logo
+       ═══════════════════════════════════════ */
+    .download-area { text-align: center; margin-bottom: 24px; }
+    .btn-ollama-download {
+      display: inline-flex; align-items: center; gap: 14px;
+      background: #000; color: #fff; border: none; border-radius: var(--radius-md);
+      padding: 16px 36px; font-size: 16px; font-weight: 600; cursor: pointer;
+      font-family: var(--font-sans); transition: all 0.2s;
+    }
+    .btn-ollama-download:hover { background: #222; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
+    .ollama-btn-logo {
+      width: 30px; height: 30px; border-radius: 7px; background: #fff;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .download-meta { margin-top: 10px; font-size: 12px; color: var(--gray-400); }
+    .download-meta span { margin: 0 6px; }
+    .skip-link { display: inline-block; margin-top: 10px; font-size: 12px; color: var(--green); cursor: pointer; background: none; border: none; font-family: var(--font-sans); text-decoration: underline; text-underline-offset: 2px; }
+
+    /* ═══════════════════════════════════════
+       NEW: Progress bar (replaces terminal log)
+       ═══════════════════════════════════════ */
+    .progress-section { display: none; margin-bottom: 24px; }
+    .progress-section.visible { display: block; }
+    .progress-track { background: var(--gray-200); border-radius: 20px; height: 8px; overflow: hidden; margin-bottom: 8px; }
+    .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--green), var(--green-mid)); border-radius: 20px; transition: width 0.4s ease; position: relative; }
+    .progress-fill.polling { width: 100%; background: linear-gradient(90deg, transparent 0%, var(--green-light) 30%, var(--green-mid) 50%, var(--green-light) 70%, transparent 100%); background-size: 200% 100%; animation: shimmer 1.8s ease-in-out infinite; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .progress-info { display: flex; justify-content: space-between; font-size: 13px; }
+    .progress-label { color: var(--gray-600); }
+    .progress-pct { color: var(--green); font-weight: 600; }
+
+    /* ═══════════════════════════════════════
+       NEW: Mini tutorial (shows during install)
+       ═══════════════════════════════════════ */
+    .mini-tutorial { display: none; margin-top: 20px; }
+    .mini-tutorial.visible { display: block; }
+    .mini-tutorial h3 { font-family: var(--font-serif); font-size: 15px; font-weight: 500; color: var(--gray-600); margin-bottom: 14px; text-align: center; }
+    .tutorial-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .tutorial-card { background: var(--gray-100); border-radius: var(--radius-md); padding: 18px 16px; }
+    .tc-icon { width: 32px; height: 32px; border-radius: 8px; background: var(--green-light); display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+    .tc-icon svg { color: var(--green); width: 16px; height: 16px; }
+    .tutorial-card h4 { font-size: 13px; font-weight: 600; color: var(--black); margin-bottom: 4px; }
+    .tutorial-card p { font-size: 12px; color: var(--gray-600); line-height: 1.5; margin: 0; }
+
+    /* ═══════════════════════════════════════
+       NEW: Success banner (replaces status card)
+       ═══════════════════════════════════════ */
+    .success-banner { display: none; text-align: center; padding: 24px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-md); margin-bottom: 16px; }
+    .success-banner.visible { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .success-check { width: 48px; height: 48px; border-radius: 50%; background: var(--green); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; }
+    .success-check svg { color: #fff; }
+    .success-banner h3 { font-size: 16px; font-weight: 600; color: #15803d; margin-bottom: 4px; }
+    .success-banner p { font-size: 13px; color: #6b7280; margin: 0; }
+
+    /* ── Trouble link ── */
+    .trouble-link { display: none; text-align: center; margin-top: 8px; font-size: 11px; color: var(--gray-400); cursor: pointer; background: none; border: none; font-family: var(--font-sans); text-decoration: underline; text-underline-offset: 2px; }
+    .trouble-link.visible { display: block; }
+
+    /* ── Demo controls ── */
+    .mock-badge { position: fixed; bottom: 16px; right: 16px; background: #1e1e2e; color: #a6adc8; padding: 8px 14px; border-radius: 8px; font-size: 11px; font-weight: 500; display: flex; align-items: center; gap: 8px; z-index: 200; }
+    .mock-badge .pulse { width: 8px; height: 8px; border-radius: 50%; background: #f38ba8; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .demo-controls { position: fixed; bottom: 16px; left: 16px; display: flex; gap: 6px; z-index: 200; }
+    .demo-btn { background: #1e1e2e; color: #cdd6f4; border: none; border-radius: 8px; padding: 7px 12px; font-size: 10px; font-weight: 600; cursor: pointer; font-family: var(--font-sans); }
+    .demo-btn:hover { background: #313244; }
+  </style>
+</head>
+<body>
+
+<!-- Top nav (existing) -->
+<div class="top-nav">
+  <div class="top-nav-brand">
+    <div class="logo-circle">O</div>
+    <div class="top-nav-info">
+      <div class="top-nav-title">Offlyn Apply</div>
+      <div class="top-nav-step">Step 1 of 8</div>
+    </div>
+  </div>
+</div>
+
+<!-- Wizard bar (existing) -->
+<div class="step-wizard">
+  <div class="wizard-step active">
+    <div class="wizard-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+    <span class="wizard-label">AI Setup</span>
+  </div>
+  <div class="wizard-step"><div class="wizard-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div><span class="wizard-label">Upload</span></div>
+  <div class="wizard-step"><div class="wizard-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div><span class="wizard-label">Review</span></div>
+  <div class="wizard-step"><div class="wizard-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div><span class="wizard-label">Links</span></div>
+  <div class="wizard-step"><div class="wizard-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><span class="wizard-label">Self-ID</span></div>
+  <div class="wizard-step"><div class="wizard-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><span class="wizard-label">Work Auth</span></div>
+  <div class="wizard-step"><div class="wizard-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div><span class="wizard-label">Cover Letter</span></div>
+  <div class="wizard-step"><div class="wizard-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><span class="wizard-label">Done</span></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     THE SINGLE STEP: step-ollama (redesigned)
+     ═══════════════════════════════════════════════ -->
+<div class="container">
+  <div class="content-card">
+    <h2 class="step-title">Supercharge Your Applications with Local AI</h2>
+    <p class="step-subtitle">Offlyn uses on-device AI — your data never leaves your computer.</p>
+
+    <!-- Success banner (hidden until done) -->
+    <div class="success-banner" id="successBanner">
+      <div class="success-check">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <h3>AI is ready on your device</h3>
+      <p>Ollama running with llama3.2 and nomic-embed-text &mdash; everything stays local.</p>
+    </div>
+
+    <!-- Download button (hidden after click) -->
+    <div class="download-area" id="downloadArea">
+      <button class="btn-ollama-download" id="btnDownload">
+        <span class="ollama-btn-logo">
+          <svg width="18" height="18" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="14" r="10" fill="#000"/><ellipse cx="12" cy="13" rx="2" ry="2.5" fill="#fff"/><ellipse cx="20" cy="13" rx="2" ry="2.5" fill="#fff"/><ellipse cx="16" cy="24" rx="8" ry="6" fill="#000"/><ellipse cx="12" cy="26" rx="2.5" ry="3" fill="#000"/><ellipse cx="20" cy="26" rx="2.5" ry="3" fill="#000"/></svg>
+        </span>
+        Download Ollama <span id="osLabel" style="font-weight:400;opacity:0.6;font-size:13px;">(macOS)</span>
+      </button>
+      <p class="download-meta">Free<span>&middot;</span>~300 MB<span>&middot;</span>Takes under a minute</p>
+      <button class="skip-link" id="btnAlready">I already have Ollama installed</button>
+    </div>
+
+    <!-- Progress bar (hidden until install starts) -->
+    <div class="progress-section" id="progressSection">
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-info">
+        <span class="progress-label" id="progressLabel">Waiting for Ollama...</span>
+        <span class="progress-pct" id="progressPct">0%</span>
+      </div>
+    </div>
+
+    <!-- Privacy notice (always visible) -->
+    <div class="ollama-privacy-notice">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <span><strong>100% Private</strong> &mdash; All AI processing happens on your device. No data is sent to external servers.</span>
+    </div>
+
+    <!-- Mini tutorial (shows during install) -->
+    <div class="mini-tutorial" id="miniTutorial">
+      <h3>While you wait &mdash; here's what you're unlocking</h3>
+      <div class="tutorial-grid">
+        <div class="tutorial-card">
+          <div class="tc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+          <h4>AI Resume Parsing</h4>
+          <p>Upload your resume and AI extracts all your details automatically</p>
+        </div>
+        <div class="tutorial-card">
+          <div class="tc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <h4>One-Click Auto-Fill</h4>
+          <p>Fill any job application form from Workday to Greenhouse</p>
+        </div>
+        <div class="tutorial-card">
+          <div class="tc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <h4>AI Cover Letters</h4>
+          <p>Tailored to each job description, generated 100% locally</p>
+        </div>
+        <div class="tutorial-card">
+          <div class="tc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+          <h4>Smart Job Search</h4>
+          <p>Find matching jobs across multiple boards in one place</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom buttons (matches existing) -->
+  <div class="button-group">
+    <button class="btn btn-secondary" id="btnSkip">Skip AI Features</button>
+    <button class="btn btn-primary" id="btnContinue" disabled>
+      Continue with AI Features
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </div>
+  <button class="trouble-link" id="troubleLink">Having trouble? Advanced setup &rarr;</button>
+</div>
+
+<div class="mock-badge"><div class="pulse"></div>INTERACTIVE MOCK</div>
+<div class="demo-controls">
+  <button class="demo-btn" onclick="resetToInitial()">Reset</button>
+  <button class="demo-btn" onclick="simulateFlow()">&#9654; Simulate Full Flow</button>
+</div>
+
+<script>
+  // OS detection
+  const os = navigator.userAgent.toLowerCase().includes('mac') ? 'macOS'
+    : navigator.userAgent.toLowerCase().includes('win') ? 'Windows' : 'Linux';
+  document.getElementById('osLabel').textContent = '(' + os + ')';
+
+  const $ = id => document.getElementById(id);
+
+  function resetToInitial() {
+    $('downloadArea').style.display = '';
+    $('progressSection').classList.remove('visible');
+    $('miniTutorial').classList.remove('visible');
+    $('successBanner').classList.remove('visible');
+    $('troubleLink').classList.remove('visible');
+    $('btnContinue').disabled = true;
+    $('progressFill').style.width = '0%';
+    $('progressFill').classList.remove('polling');
+    $('progressPct').textContent = '';
+    $('progressPct').style.color = '';
+    $('progressLabel').textContent = 'Waiting for Ollama...';
+  }
+
+  function startInstalling() {
+    $('downloadArea').style.display = 'none';
+    $('progressSection').classList.add('visible');
+    $('miniTutorial').classList.add('visible');
+    $('troubleLink').classList.add('visible');
+  }
+
+  // Phase A: indeterminate shimmer while polling for Ollama
+  function startPollingPhase() {
+    $('progressFill').classList.add('polling');
+    $('progressFill').style.width = '';
+    $('progressPct').textContent = '';
+    $('progressLabel').textContent = 'Waiting for Ollama installation...';
+  }
+
+  // Phase B: real progress for model downloads
+  function startModelPull() {
+    $('progressFill').classList.remove('polling');
+    $('progressFill').style.width = '0%';
+    $('progressLabel').textContent = 'Ollama detected! Pulling models...';
+    $('progressPct').textContent = '0%';
+
+    let progress = 0;
+    const stages = [
+      { at: 0, text: 'Ollama detected! Pulling models...' },
+      { at: 3, text: 'Pulling llama3.2 (1.9 GB)...' },
+      { at: 65, text: 'Pulling nomic-embed-text (274 MB)...' },
+      { at: 90, text: 'Verifying connection...' },
+      { at: 100, text: 'All set!' },
+    ];
+
+    const sim = setInterval(() => {
+      progress += 0.5 + Math.random() * 1.4;
+      if (progress > 100) progress = 100;
+      $('progressFill').style.width = progress + '%';
+      $('progressPct').textContent = Math.round(progress) + '%';
+      for (let i = stages.length - 1; i >= 0; i--) {
+        if (progress >= stages[i].at) { $('progressLabel').textContent = stages[i].text; break; }
+      }
+      if (progress >= 100) {
+        clearInterval(sim);
+        $('progressPct').style.color = 'var(--green)';
+        setTimeout(() => {
+          $('progressSection').classList.remove('visible');
+          $('miniTutorial').classList.remove('visible');
+          $('troubleLink').classList.remove('visible');
+          $('successBanner').classList.add('visible');
+          $('btnContinue').disabled = false;
+        }, 600);
+      }
+    }, 100);
+  }
+
+  // Click: download button — opens ollama.com, then polls
+  $('btnDownload').addEventListener('click', () => {
+    startInstalling();
+    startPollingPhase();
+    // Simulate: user downloads + installs Ollama (takes a few seconds in demo)
+    setTimeout(() => startModelPull(), 4000);
+  });
+
+  // Click: already installed — skip polling, go straight to model pull
+  $('btnAlready').addEventListener('click', () => {
+    startInstalling();
+    setTimeout(() => startModelPull(), 400);
+  });
+
+  // Full flow simulation
+  function simulateFlow() {
+    resetToInitial();
+    setTimeout(() => {
+      $('btnDownload').click();
+    }, 800);
+  }
+</script>
+
+</body>
+</html>

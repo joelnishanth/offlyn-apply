@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" sizes="48x48" href="../icons/icon-48.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script src="../shared/theme-init.js"></script>
+  <title>Help - Offlyn Apply</title>
+  <style>
+    /* ── Design Tokens ── */
+    :root {
+      --black: #0a0a0a;
+      --white: #ffffff;
+      --off-white: #f9f8f6;
+      --green: #1a7f5a;
+      --green-light: #e6f4ee;
+      --green-mid: #2da870;
+      --gray-100: #f4f3f0;
+      --gray-200: #e8e6e1;
+      --gray-400: #9e9b93;
+      --gray-600: #5a5750;
+      --gray-800: #2c2b28;
+      --border: #e2e0da;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --font-serif: 'Lora', Georgia, serif;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    html.dark {
+      --black: #ffffff;
+      --white: #0a0a0a;
+      --off-white: #111111;
+      --green: #2da870;
+      --green-light: #1a3a2a;
+      --green-mid: #34d399;
+      --gray-100: #1a1a1a;
+      --gray-200: #2a2a2a;
+      --gray-400: #737373;
+      --gray-600: #a3a3a3;
+      --gray-800: #e5e5e5;
+      --border: #2a2a2a;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--off-white);
+      color: var(--black);
+      min-height: 100vh;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .header {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      color: var(--black);
+      padding: 24px 0;
+    }
+    html.dark .header {
+      background: var(--green);
+      border-bottom: none;
+      color: #fff;
+    }
+    .header-inner {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .header-icon {
+      height: 32px;
+      width: auto;
+      object-fit: contain;
+    }
+    .header-text h1 {
+      font-family: var(--font-serif);
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--black);
+    }
+    html.dark .header-text h1 { color: #fff; }
+    .header-text p {
+      font-size: 13px;
+      color: var(--gray-600);
+      margin-top: 2px;
+    }
+    html.dark .header-text p { color: rgba(255,255,255,0.7); }
+
+    .main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* Quick start steps */
+    .quick-start {
+      background: var(--white);
+      border-radius: var(--radius-md);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .quick-start h2 {
+      font-family: var(--font-serif);
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--black);
+      margin-bottom: 16px;
+    }
+
+    .step {
+      display: flex;
+      gap: 16px;
+      padding: 16px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .step:last-child { border-bottom: none; }
+    .step-num {
+      width: 32px; height: 32px;
+      background: #1e2a3a;
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .step-content {
+      flex: 1;
+    }
+    .step-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #1e2a3a;
+      margin-bottom: 4px;
+    }
+    .step-desc {
+      font-size: 13px;
+      color: #64748b;
+      line-height: 1.6;
+    }
+    .step-tip {
+      margin-top: 6px;
+      font-size: 12px;
+      color: #7cb342;
+      font-weight: 500;
+    }
+
+    /* FAQ accordion */
+    .faq-section {
+      margin-bottom: 24px;
+    }
+    .faq-section h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1e2a3a;
+      margin-bottom: 12px;
+    }
+
+    .faq-item {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+    .faq-q {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      color: #1e2a3a;
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .faq-q:hover { background: #f9fafb; }
+    .faq-arrow {
+      font-size: 12px;
+      color: #94a3b8;
+      transition: transform 0.2s;
+    }
+    .faq-item.open .faq-arrow { transform: rotate(180deg); }
+    .faq-a {
+      display: none;
+      padding: 0 18px 16px;
+      font-size: 13px;
+      color: #4b5563;
+      line-height: 1.7;
+    }
+    .faq-item.open .faq-a { display: block; }
+
+    /* Feature cards */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .features h2 {
+      grid-column: 1 / -1;
+      font-size: 18px;
+      font-weight: 700;
+      color: #1e2a3a;
+      margin-bottom: 4px;
+    }
+    .feature-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 18px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .feature-icon {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 10px;
+    }
+    .feature-card h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1e2a3a;
+      margin-bottom: 4px;
+    }
+    .feature-card p {
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.5;
+    }
+
+    /* Keyboard shortcuts */
+    .shortcuts {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .shortcuts h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1e2a3a;
+      margin-bottom: 12px;
+    }
+    .shortcut-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #f7f7f7;
+    }
+    .shortcut-row:last-child { border-bottom: none; }
+    .shortcut-action {
+      font-size: 13px;
+      color: #374151;
+    }
+    kbd {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #f5f7fa;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: #1e2a3a;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 16px 24px 32px;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+    .footer a {
+      color: #64748b;
+      text-decoration: none;
+    }
+    .footer a:hover { color: #1e2a3a; }
+
+    .dark-mode-toggle {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.3);
+      cursor: pointer; color: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: all .15s;
+      flex-shrink: 0;
+    }
+    .dark-mode-toggle:hover { background: rgba(255,255,255,0.1); }
+
+    /* Dark mode — mostly handled by CSS tokens */
+    html.dark .step-tip { color: var(--green-mid); }
+    html.dark kbd { background: var(--gray-100); border-color: var(--border); color: var(--gray-800); }
+    html.dark .step-num { background: var(--green); }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-inner">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <img class="header-icon" src="../icons/primary-logo.png" alt="Offlyn Apply">
+        <div class="header-text">
+          <h1>Help & Tutorial</h1>
+          <p>Learn how to get the most out of Offlyn Apply</p>
+        </div>
+      </div>
+      <button id="dark-mode-toggle" class="dark-mode-toggle" aria-label="Toggle dark mode"></button>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- Quick Start -->
+    <div class="quick-start">
+      <h2>Quick Start Guide</h2>
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">Set Up Your Profile</div>
+          <div class="step-desc">Click the extension icon and select <strong>Manage Profile</strong>. Upload your resume or manually enter your details (name, email, phone, work history).</div>
+          <div class="step-tip">Tip: Uploading a resume auto-fills most fields for you.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Visit a Job Application Page</div>
+          <div class="step-desc">Navigate to any job application form (LinkedIn, Indeed, Greenhouse, Lever, etc.). The extension automatically detects application pages and shows a small floating icon.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Auto-Fill the Form</div>
+          <div class="step-desc">Click <strong>Auto-Fill</strong> in the popup or on the floating panel. The extension fills in detected fields using your profile data.</div>
+          <div class="step-tip">Tip: Use Dry Run mode (in Settings) to preview what would be filled without changing the form.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Review and Submit</div>
+          <div class="step-desc">Review the filled fields, make any adjustments, and submit your application. Offlyn Apply learns from your corrections to improve future suggestions.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-title">Track Your Progress</div>
+          <div class="step-desc">Open the <strong>Dashboard</strong> to see all your applications in a Kanban board. Drag cards between columns to update their status (Submitted, Interviewing, Accepted, etc.).</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Features -->
+    <div class="features">
+      <h2>Key Features</h2>
+
+      <div class="feature-card">
+        <div class="feature-icon" style="background: #1e2a3a;">AF</div>
+        <h3>Smart Auto-Fill</h3>
+        <p>Fills job application forms using your profile. Works with React, Vue, Angular, and plain HTML forms.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon" style="background: #7cb342;">CL</div>
+        <h3>Cover Letter Generator</h3>
+        <p>AI-powered cover letters tailored to each job. Requires Ollama running locally.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon" style="background: #3b82f6;">KB</div>
+        <h3>Kanban Dashboard</h3>
+        <p>Track all applications with drag-and-drop status updates, charts, and CSV export.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon" style="background: #f59e0b;">LV</div>
+        <h3>Learning System</h3>
+        <p>Learns from your corrections. The more you use it, the better suggestions get.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon" style="background: #ef4444;">RP</div>
+        <h3>Resume Parsing</h3>
+        <p>Upload a PDF resume and the AI extracts your details automatically.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon" style="background: #64748b;">PR</div>
+        <h3>Privacy First</h3>
+        <p>All data stays on your device. No accounts, no cloud, no tracking.</p>
+      </div>
+    </div>
+
+    <!-- FAQ -->
+    <div class="faq-section">
+      <h2>Frequently Asked Questions</h2>
+
+      <div class="faq-item">
+        <div class="faq-q">Why isn't the extension detecting my job page?<span class="faq-arrow">&#9660;</span></div>
+        <div class="faq-a">The extension uses heuristics to detect job application pages. It looks for form fields, apply buttons, and known ATS platforms (Greenhouse, Lever, etc.). If a page isn't detected, it may not have enough signals. Try clicking "Auto-Fill" manually from the popup.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">What is Ollama and do I need it?<span class="faq-arrow">&#9660;</span></div>
+        <div class="faq-a">Ollama is a local AI runtime that runs language models on your computer. It's needed for advanced features like resume parsing and cover letter generation. Basic autofill works without it. Install Ollama from <strong>ollama.com</strong> and the native host bridge from the extension's native-host folder.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">Is my data sent to any server?<span class="faq-arrow">&#9660;</span></div>
+        <div class="faq-a">No. All your data (profile, applications, learned values) is stored in your browser's local storage. AI features use Ollama which runs on your own computer. The only external resource loaded is Chart.js from a CDN for the dashboard charts.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">How do I update my profile?<span class="faq-arrow">&#9660;</span></div>
+        <div class="faq-a">Click the extension icon, then "Manage Profile". This opens the onboarding page where you can update any of your personal details, work history, or cover letter preferences.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">What is Dry Run mode?<span class="faq-arrow">&#9660;</span></div>
+        <div class="faq-a">Dry Run mode lets you preview what would be filled in without actually changing any form values. It's useful for testing the extension on a new site. Enable it in Settings or from the popup's Advanced section.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">How do I delete my data?<span class="faq-arrow">&#9660;</span></div>
+        <div class="faq-a">Go to Settings to clear application history or reset Self-ID data. To remove everything, simply uninstall the extension - all data is deleted automatically since it's stored only in your browser.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q">Can I export my applications?<span class="faq-arrow">&#9660;</span></div>
+        <div class="faq-a">Yes! Open the Dashboard and click "Export CSV" to download all your tracked applications as a spreadsheet file. You can also copy your profile data from Settings using "Export Profile".</div>
+      </div>
+    </div>
+
+    <!-- Keyboard shortcuts -->
+    <div class="shortcuts">
+      <h2>Tips & Tricks</h2>
+      <div class="shortcut-row">
+        <span class="shortcut-action">Open extension popup</span>
+        <span>Click the <img src="../icons/primary-logo.png" alt="Offlyn Apply" style="width:16px;height:16px;vertical-align:middle;border-radius:3px;"> icon in toolbar</span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-action">Quick autofill from page</span>
+        <span>Click the floating icon on job pages</span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-action">Move application status</span>
+        <span>Drag cards between columns in Dashboard</span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-action">Search applications</span>
+        <span>Type in the search bar on the Dashboard</span>
+      </div>
+      <div class="shortcut-row">
+        <span class="shortcut-action">Edit application details</span>
+        <span>Click "Edit" on any application card</span>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p><a href="../settings/settings.html">Settings</a> &middot; <a href="../privacy/privacy.html">Privacy Policy</a> &middot; <a href="../dashboard/dashboard.html">Dashboard</a></p>
+    </div>
+
+  </div>
+
+  <script src="help.js"></script>
+  <script src="../shared/dark-mode.js"></script>
+</body>
+</html>

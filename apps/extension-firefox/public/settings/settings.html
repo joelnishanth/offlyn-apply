@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" sizes="48x48" href="../icons/icon-48.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script src="../shared/theme-init.js"></script>
+  <title>Settings - Offlyn Apply</title>
+  <style>
+    /* ── Design Tokens ── */
+    :root {
+      --black: #0a0a0a;
+      --white: #ffffff;
+      --off-white: #f9f8f6;
+      --green: #1a7f5a;
+      --green-light: #e6f4ee;
+      --green-mid: #2da870;
+      --gray-100: #f4f3f0;
+      --gray-200: #e8e6e1;
+      --gray-400: #9e9b93;
+      --gray-600: #5a5750;
+      --gray-800: #2c2b28;
+      --border: #e2e0da;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --font-serif: 'Lora', Georgia, serif;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    html.dark {
+      --black: #ffffff;
+      --white: #0a0a0a;
+      --off-white: #111111;
+      --green: #2da870;
+      --green-light: #1a3a2a;
+      --green-mid: #34d399;
+      --gray-100: #1a1a1a;
+      --gray-200: #2a2a2a;
+      --gray-400: #737373;
+      --gray-600: #a3a3a3;
+      --gray-800: #e5e5e5;
+      --border: #2a2a2a;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--gray-100);
+      color: var(--black);
+      min-height: 100vh;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Header */
+    .header {
+      background: var(--black);
+      color: var(--white);
+      padding: 24px 0;
+    }
+    .header-inner {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .header-icon {
+      height: 32px;
+      width: auto;
+      object-fit: contain;
+    }
+    .header-text h1 {
+      font-family: var(--font-serif);
+      font-size: 20px;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+    }
+    .header-text p {
+      font-size: 13px;
+      opacity: 0.7;
+      margin-top: 2px;
+    }
+
+    /* Main */
+    .main {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* Section */
+    .section {
+      background: var(--white);
+      border-radius: var(--radius-md);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .section-header {
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-title {
+      font-family: var(--font-serif);
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--black);
+    }
+    .section-desc {
+      font-size: 12px;
+      color: var(--gray-600);
+      margin-top: 2px;
+    }
+
+    /* Setting row */
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .setting-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--black);
+    }
+    .setting-hint {
+      font-size: 12px;
+      color: var(--gray-400);
+      margin-top: 2px;
+    }
+
+    /* Toggle switch */
+    .toggle {
+      position: relative;
+      width: 44px; height: 24px;
+      background: var(--gray-200);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+      flex-shrink: 0;
+      margin-left: 16px;
+    }
+    .toggle.active { background: var(--green); }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: #fff;
+      top: 2px; left: 2px;
+      transition: transform 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+    .toggle.active::after { transform: translateX(20px); }
+
+    /* Text input */
+    .setting-input {
+      width: 200px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--black);
+      background: var(--white);
+      margin-left: 16px;
+      flex-shrink: 0;
+    }
+    .setting-input:focus {
+      outline: none;
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(26,127,90,0.1);
+    }
+
+    /* Action buttons */
+    .action-row {
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .action-row:last-child { border-bottom: none; }
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--white);
+      color: var(--black);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    .action-btn:hover {
+      background: var(--green-light);
+      border-color: var(--green);
+    }
+    .action-btn--danger {
+      color: #dc2626;
+      border-color: #fecaca;
+    }
+    .action-btn--danger:hover {
+      background: #fef2f2;
+      border-color: #dc2626;
+    }
+
+    /* ── Manage Your Data ── */
+    .danger-zone {
+      border: 1.5px solid #fca5a5;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .danger-zone-header {
+      background: #fef2f2;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .danger-zone-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #dc2626;
+    }
+    .danger-zone-desc {
+      font-size: 12px;
+      color: var(--gray-400);
+      margin-top: 2px;
+    }
+    .btn-danger-zone {
+      padding: 9px 16px;
+      background: #fff;
+      border: 1.5px solid #fca5a5;
+      border-radius: 8px;
+      color: #dc2626;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      font-family: inherit;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .btn-danger-zone:hover {
+      background: #fef2f2;
+      border-color: #dc2626;
+    }
+    .danger-confirm-panel {
+      display: none;
+      padding: 16px 18px;
+      border-top: 1px solid #fecaca;
+      background: #fff;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .danger-confirm-panel.open { display: flex; }
+    .danger-warning-text {
+      font-size: 13px;
+      color: #374151;
+      line-height: 1.6;
+    }
+    .danger-warning-text strong { color: #dc2626; }
+    .danger-warning-list {
+      font-size: 12px;
+      color: #6b7280;
+      line-height: 1.8;
+      padding-left: 18px;
+      margin: 0;
+    }
+    .danger-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .btn-download-data {
+      flex: 1;
+      min-width: 140px;
+      padding: 10px 14px;
+      background: #f0f9ff;
+      border: 1.5px solid #7dd3fc;
+      border-radius: 8px;
+      color: #0369a1;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      font-family: inherit;
+      text-align: center;
+    }
+    .btn-download-data:hover {
+      background: #e0f2fe;
+      border-color: #0369a1;
+    }
+    .btn-nuke {
+      flex: 1;
+      min-width: 140px;
+      padding: 10px 14px;
+      background: #dc2626;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .15s;
+      font-family: inherit;
+      text-align: center;
+    }
+    .btn-nuke:hover { background: #b91c1c; }
+    .btn-cancel-nuke {
+      padding: 10px 14px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      color: #6b7280;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .15s;
+      font-family: inherit;
+    }
+    .btn-cancel-nuke:hover { background: #f9fafb; color: #374151; }
+    .action-feedback {
+      display: inline-block;
+      margin-left: 10px;
+      font-size: 12px;
+      color: #7cb342;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .action-feedback.visible { opacity: 1; }
+
+    /* Storage info */
+    .storage-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 20px;
+    }
+    .storage-meter {
+      flex: 1;
+      height: 6px;
+      background: #e5e7eb;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .storage-meter-fill {
+      height: 100%;
+      background: #7cb342;
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+    .storage-text {
+      font-size: 12px;
+      color: #64748b;
+      white-space: nowrap;
+    }
+
+    /* Ollama config section */
+    .ollama-config-form {
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .ollama-field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+      margin-bottom: 5px;
+    }
+    .ollama-field input {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: inherit;
+      color: #1a1a1a;
+      background: #f9fafb;
+      transition: border-color 0.2s;
+    }
+    .ollama-field input:focus {
+      outline: none;
+      border-color: #7cb342;
+      box-shadow: 0 0 0 3px rgba(124,179,66,0.12);
+      background: #fff;
+    }
+    .ollama-field small {
+      display: block;
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 3px;
+    }
+    .ollama-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .ollama-status-badge {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+    .ollama-test-result {
+      font-size: 12px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      display: none;
+    }
+    .ollama-test-result.visible { display: block; }
+    .ollama-test-result.ok { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .ollama-test-result.fail { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+
+    /* Footer links */
+    .footer {
+      text-align: center;
+      padding: 16px 24px 32px;
+    }
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+    }
+    .footer-link {
+      font-size: 12px;
+      color: #94a3b8;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .footer-link:hover { color: #1e2a3a; }
+    .version {
+      font-size: 11px;
+      color: #cbd5e1;
+      margin-top: 8px;
+    }
+    .dark-mode-toggle {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.3);
+      cursor: pointer; color: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: all .15s;
+      flex-shrink: 0;
+    }
+    .dark-mode-toggle:hover { background: rgba(255,255,255,0.1); }
+
+    /* Dark mode — mostly handled by CSS tokens */
+    html.dark .toggle { background: var(--gray-400); }
+    html.dark .toggle.active { background: var(--green); }
+    html.dark .action-btn--danger { color: #f87171; border-color: #7f1d1d; }
+    html.dark .action-btn--danger:hover { background: #2d1515; border-color: #dc2626; }
+    html.dark .danger-zone { border-color: #7f1d1d; }
+    html.dark .danger-zone-header { background: #2d1515; }
+    html.dark .danger-zone-title { color: #f87171; }
+    html.dark .btn-danger-zone { color: #f87171; border-color: #7f1d1d; }
+    html.dark .btn-danger-zone:hover { background: #2d1515; }
+    html.dark .danger-confirm-panel { border-top-color: #7f1d1d; }
+    html.dark .btn-download-data { background: #0c2d48; border-color: #1e6b9c; color: #7dd3fc; }
+    html.dark .btn-download-data:hover { background: #0e3a5e; }
+    html.dark .btn-cancel-nuke:hover { background: var(--gray-200); }
+    html.dark .storage-meter { background: var(--gray-200); }
+    html.dark .ollama-test-result.ok { background: var(--green-light); color: var(--green-mid); border-color: var(--green); }
+    html.dark .ollama-test-result.fail { background: #2d1515; color: #f87171; border-color: #dc2626; }
+    html.dark .footer-link { color: var(--gray-400); }
+    html.dark .footer-link:hover { color: var(--gray-800); }
+    html.dark .version { color: var(--gray-400); }
+    html.dark .action-feedback { color: var(--green-mid); }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-inner">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <img class="header-icon" src="../icons/primary-logo.png" alt="Offlyn Apply">
+        <div class="header-text">
+          <h1>Settings</h1>
+          <p>Configure your Offlyn Apply experience</p>
+        </div>
+      </div>
+      <button id="dark-mode-toggle" class="dark-mode-toggle" aria-label="Toggle dark mode"></button>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- General -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">General</div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Extension Enabled</div>
+          <div class="setting-hint">Enable or disable all extension features</div>
+        </div>
+        <div class="toggle active" id="toggle-enabled" role="switch" aria-checked="true" aria-label="Enable extension" tabindex="0"></div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Dry Run Mode</div>
+          <div class="setting-hint">Preview autofill without actually changing form values</div>
+        </div>
+        <div class="toggle" id="toggle-dryrun" role="switch" aria-checked="false" aria-label="Toggle dry run mode" tabindex="0"></div>
+      </div>
+    </div>
+
+    <!-- Job Discovery -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Job Discovery</div>
+        <div class="section-desc">Automatic job searches and preference learning</div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Scheduled Search</div>
+          <div class="setting-hint">Automatically search for jobs in the background</div>
+        </div>
+        <div class="toggle active" id="toggle-scheduled-search" role="switch" aria-checked="true" aria-label="Toggle scheduled search" tabindex="0"></div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Search Frequency</div>
+          <div class="setting-hint">How often to search for new jobs</div>
+        </div>
+        <select class="setting-input" id="select-search-interval" style="width:auto;padding:8px 12px;">
+          <option value="1">Every hour</option>
+          <option value="4">Every 4 hours</option>
+          <option value="8" selected>Every 8 hours</option>
+          <option value="12">Every 12 hours</option>
+          <option value="24">Once a day</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Browser Notifications</div>
+          <div class="setting-hint">Get notified when new matching jobs are found</div>
+        </div>
+        <div class="toggle active" id="toggle-notifications" role="switch" aria-checked="true" aria-label="Toggle notifications" tabindex="0"></div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Learn Preferences</div>
+          <div class="setting-hint">Improve recommendations based on your searches and applications</div>
+        </div>
+        <div class="toggle active" id="toggle-pref-learn" role="switch" aria-checked="true" aria-label="Toggle preference learning" tabindex="0"></div>
+      </div>
+      <div class="action-row">
+        <button class="action-btn" id="btn-test-notification">Test Notification</button>
+        <span class="action-feedback" id="feedback-test-notif">Sent!</span>
+      </div>
+      <div class="action-row">
+        <button class="action-btn" id="btn-clear-prefs">Clear Learned Preferences</button>
+        <span class="action-feedback" id="feedback-clear-prefs">Cleared</span>
+      </div>
+      <div class="setting-row" style="border-top:1px solid #f0f0f0;">
+        <div class="setting-info">
+          <div class="setting-label" style="font-size:12px;color:#94a3b8;">Last background search</div>
+        </div>
+        <span style="font-size:12px;color:#94a3b8;" id="last-search-time">Never</span>
+      </div>
+    </div>
+
+    <!-- Notifications -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Notifications</div>
+      </div>
+    </div>
+
+    <!-- Ollama AI Configuration -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Ollama AI Configuration</div>
+        <div class="section-desc">Configure your local AI endpoint and models</div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">AI Features</div>
+          <div class="setting-hint" id="ollama-status">Checking...</div>
+        </div>
+        <span id="ollama-badge" class="ollama-status-badge" style="background:#f0f0f0;color:#999;">--</span>
+      </div>
+      <div class="ollama-config-form">
+        <div class="ollama-field">
+          <label for="settings-ollama-endpoint">Endpoint URL</label>
+          <input type="url" id="settings-ollama-endpoint" placeholder="http://localhost:11434">
+          <small>Default: http://localhost:11434</small>
+        </div>
+        <div class="ollama-field">
+          <label for="settings-ollama-chat-model">Chat Model</label>
+          <input type="text" id="settings-ollama-chat-model" placeholder="llama3.2">
+          <small>e.g. llama3.2, llama3.2:1b, mistral</small>
+        </div>
+        <div class="ollama-field">
+          <label for="settings-ollama-embed-model">Embedding Model</label>
+          <input type="text" id="settings-ollama-embed-model" placeholder="nomic-embed-text">
+          <small>Used for semantic field matching</small>
+        </div>
+        <div class="ollama-test-result" id="settings-ollama-test-result"></div>
+        <div class="ollama-actions">
+          <button class="action-btn" id="btn-test-ollama">Test Connection</button>
+          <button class="action-btn" id="btn-save-ollama">Save Config</button>
+          <span class="action-feedback" id="feedback-ollama">Saved</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Data Management -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Data Management</div>
+        <div class="section-desc">Your data is stored locally and never leaves your device</div>
+      </div>
+      <div class="action-row" style="flex-direction:column; align-items:flex-start; gap:6px;">
+        <div style="display:flex; align-items:center; gap:10px; width:100%;">
+          <button class="action-btn" id="btn-reupload-resume">Update Resume</button>
+          <input type="file" id="reupload-resume-input" accept=".pdf,.docx,.doc,.txt" style="display:none">
+          <span class="action-feedback" id="feedback-reupload" style="display:none;"></span>
+        </div>
+        <span style="font-size:11px; color:#94a3b8;">Upload a new resume to refresh your profile (skills, experience, education)</span>
+      </div>
+      <div class="action-row">
+        <button class="action-btn" id="btn-export-profile">Export Profile</button>
+        <span class="action-feedback" id="feedback-export">Copied to clipboard</span>
+      </div>
+      <div class="action-row">
+        <button class="action-btn" id="btn-view-learned">View Learned Values</button>
+      </div>
+      <div class="action-row">
+        <button class="action-btn" id="btn-clean-selfid">Reset Self-ID Data</button>
+        <span class="action-feedback" id="feedback-selfid">Reset complete</span>
+      </div>
+      <div class="action-row">
+        <button class="action-btn action-btn--danger" id="btn-clear-apps">Clear All Applications</button>
+        <span class="action-feedback" id="feedback-clear">Cleared</span>
+      </div>
+    </div>
+
+    <!-- Storage -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Storage</div>
+      </div>
+      <div class="storage-bar">
+        <div class="storage-meter">
+          <div class="storage-meter-fill" id="storage-fill" style="width: 0%"></div>
+        </div>
+        <div class="storage-text" id="storage-text">Calculating...</div>
+      </div>
+    </div>
+
+    <!-- Manage Your Data -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Manage Your Data</div>
+        <div class="section-desc">Control what Offlyn stores on this device</div>
+      </div>
+      <div class="danger-zone">
+        <div class="danger-zone-header">
+          <div>
+            <div class="danger-zone-title">Clear All My Data</div>
+            <div class="danger-zone-desc">Permanently deletes your profile, learned values, and all history</div>
+          </div>
+          <button class="btn-danger-zone" id="btn-open-clear-all">Clear All Data</button>
+        </div>
+        <div class="danger-confirm-panel" id="danger-confirm-panel">
+          <p class="danger-warning-text">
+            <strong>This will permanently delete everything Offlyn Apply has stored on this device:</strong>
+          </p>
+          <ul class="danger-warning-list">
+            <li>Your profile (name, contact info, work history, resume)</li>
+            <li>All learned autofill values and patterns</li>
+            <li>Graph memory (Q&amp;A history, answer confidence)</li>
+            <li>All tracked job applications</li>
+            <li>Contextual answers and AI embeddings</li>
+          </ul>
+          <p class="danger-warning-text" style="margin-top:4px;">
+            We strongly recommend downloading a backup first. This <strong>cannot be undone</strong>.
+          </p>
+          <div class="danger-actions">
+            <button class="btn-download-data" id="btn-download-data">⬇ Download My Data First</button>
+            <button class="btn-nuke" id="btn-nuke-all">Delete Everything</button>
+            <button class="btn-cancel-nuke" id="btn-cancel-clear">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- About -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">About</div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Version</div>
+          <div class="setting-hint">Offlyn Apply - Job Application Assistant</div>
+        </div>
+        <span style="font-size: 13px; color: #64748b;" id="version-text" data-version>0.3.0</span>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="footer-links">
+        <a class="footer-link" href="../help/help.html" target="_blank">Help & Tutorial</a>
+        <a class="footer-link" href="../privacy/privacy.html" target="_blank">Privacy Policy</a>
+        <a class="footer-link" href="../dashboard/dashboard.html" target="_blank">Dashboard</a>
+      </div>
+      <div class="version" id="footer-version" data-version-v>v0.3.0</div>
+    </div>
+
+  </div>
+
+  <script src="../pdf.worker.min.js"></script>
+  <script src="../onboarding/pdf.min.js"></script>
+  <script src="settings.js"></script>
+  <script src="../shared/version-init.js"></script>
+  <script src="../shared/dark-mode.js"></script>
+</body>
+</html>

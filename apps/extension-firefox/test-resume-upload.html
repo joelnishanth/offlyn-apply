@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Resume Upload - Job Application</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 10px;
+    }
+    .section {
+      margin: 30px 0;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 6px;
+    }
+    .section h2 {
+      color: #667eea;
+      font-size: 18px;
+      margin-bottom: 15px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #333;
+    }
+    input[type="text"], input[type="email"], input[type="tel"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .file-input-wrapper {
+      border: 2px dashed #ddd;
+      border-radius: 6px;
+      padding: 20px;
+      text-align: center;
+      background: white;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .file-input-wrapper:hover {
+      border-color: #667eea;
+      background: #f8f9ff;
+    }
+    .file-input-wrapper.has-file {
+      border-color: #4caf50;
+      background: #e8f5e9;
+    }
+    input[type="file"] {
+      display: none;
+    }
+    .file-label {
+      cursor: pointer;
+      color: #666;
+    }
+    .file-name {
+      margin-top: 10px;
+      font-weight: 600;
+      color: #4caf50;
+    }
+    .submit-btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 15px 40px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 30px;
+    }
+    .submit-btn:hover {
+      background: #5568d3;
+    }
+    .note {
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      margin: 20px 0;
+      font-size: 14px;
+      color: #856404;
+    }
+    .success {
+      background: #d4edda;
+      border-left: 4px solid #28a745;
+      color: #155724;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Senior Software Engineer - Test Company</h1>
+    
+    <div class="note">
+      <strong>Test Instructions:</strong> This page tests resume auto-upload. 
+      Upload a resume in onboarding, then visit this page to see if it auto-uploads to the file inputs.
+      Check the console for upload logs.
+    </div>
+
+    <form id="applicationForm">
+      <!-- Personal Information -->
+      <div class="section">
+        <h2>Personal Information</h2>
+        
+        <div class="form-group">
+          <label for="firstName">First Name *</label>
+          <input type="text" id="firstName" name="firstName" required>
+        </div>
+
+        <div class="form-group">
+          <label for="lastName">Last Name *</label>
+          <input type="text" id="lastName" name="lastName" required>
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email *</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+
+        <div class="form-group">
+          <label for="phone">Phone</label>
+          <input type="tel" id="phone" name="phone">
+        </div>
+      </div>
+
+      <!-- Documents -->
+      <div class="section">
+        <h2>Required Documents</h2>
+        
+        <div class="form-group">
+          <label>Resume/CV *</label>
+          <div class="file-input-wrapper" id="resumeWrapper">
+            <label for="resume" class="file-label">
+              Click to upload or drag and drop your resume
+              <div style="font-size: 12px; color: #999; margin-top: 5px;">PDF, DOC, DOCX (Max 5MB)</div>
+            </label>
+            <input type="file" id="resume" name="resume" accept=".pdf,.doc,.docx" required>
+            <div class="file-name" id="resumeName"></div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Cover Letter (Optional)</label>
+          <div class="file-input-wrapper" id="coverWrapper">
+            <label for="cover" class="file-label">
+              Click to upload your cover letter
+              <div style="font-size: 12px; color: #999; margin-top: 5px;">PDF, DOC, DOCX (Max 5MB)</div>
+            </label>
+            <input type="file" id="cover" name="cover" accept=".pdf,.doc,.docx">
+            <div class="file-name" id="coverName"></div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Portfolio/Work Samples (Optional)</label>
+          <div class="file-input-wrapper" id="portfolioWrapper">
+            <label for="portfolio" class="file-label">
+              📁 Click to upload your portfolio
+              <div style="font-size: 12px; color: #999; margin-top: 5px;">PDF, ZIP (Max 10MB)</div>
+            </label>
+            <input type="file" id="portfolio" name="portfolio" accept=".pdf,.zip">
+            <div class="file-name" id="portfolioName"></div>
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="submit-btn">Submit Application</button>
+    </form>
+
+    <div id="status" style="margin-top: 20px;"></div>
+  </div>
+
+  <script>
+    // Track file uploads
+    const fileInputs = [
+      { input: 'resume', wrapper: 'resumeWrapper', name: 'resumeName' },
+      { input: 'cover', wrapper: 'coverWrapper', name: 'coverName' },
+      { input: 'portfolio', wrapper: 'portfolioWrapper', name: 'portfolioName' }
+    ];
+
+    fileInputs.forEach(({ input, wrapper, name }) => {
+      const inputEl = document.getElementById(input);
+      const wrapperEl = document.getElementById(wrapper);
+      const nameEl = document.getElementById(name);
+
+      inputEl.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          nameEl.textContent = `✓ ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+          wrapperEl.classList.add('has-file');
+          
+          // Log the upload
+          const isAutoFilled = !e.isTrusted;
+          console.log(`${isAutoFilled ? '[AUTO-FILLED]' : '[USER UPLOADED]'}: ${input} - ${file.name}`);
+          
+          if (isAutoFilled) {
+            showStatus(`[OK] Auto-uploaded: ${file.name} to ${input} field`, 'success');
+          }
+        }
+      });
+
+      // Drag and drop
+      wrapperEl.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        wrapperEl.style.borderColor = '#667eea';
+      });
+
+      wrapperEl.addEventListener('dragleave', () => {
+        wrapperEl.style.borderColor = '#ddd';
+      });
+
+      wrapperEl.addEventListener('drop', (e) => {
+        e.preventDefault();
+        wrapperEl.style.borderColor = '#ddd';
+        
+        const file = e.dataTransfer.files[0];
+        if (file) {
+          inputEl.files = e.dataTransfer.files;
+          inputEl.dispatchEvent(new Event('change'));
+        }
+      });
+    });
+
+    // Prevent actual form submission
+    document.getElementById('applicationForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      const formData = new FormData(e.target);
+      const data = {};
+      
+      for (let [key, value] of formData.entries()) {
+        if (value instanceof File) {
+          data[key] = `${value.name} (${(value.size / 1024).toFixed(1)} KB)`;
+        } else {
+          data[key] = value;
+        }
+      }
+      
+      console.log('Form Data:', data);
+      showStatus('[OK] Form submitted successfully! Check console for data.', 'success');
+    });
+
+    function showStatus(message, type = 'note') {
+      const statusEl = document.getElementById('status');
+      statusEl.className = type;
+      statusEl.innerHTML = `<div class="${type}">${message}</div>`;
+      
+      setTimeout(() => {
+        statusEl.innerHTML = '';
+      }, 5000);
+    }
+
+    // Monitor for auto-fill
+    console.log('Page loaded. Waiting for auto-fill...');
+    console.log('Expected: Resume should auto-upload to "resume" field only');
+    console.log('Expected: Cover letter and portfolio should remain empty');
+    
+    // Check after 2 seconds
+    setTimeout(() => {
+      const resumeInput = document.getElementById('resume');
+      const coverInput = document.getElementById('cover');
+      const portfolioInput = document.getElementById('portfolio');
+      
+      console.log('\nAuto-fill Status Check:');
+      console.log(`Resume: ${resumeInput.files.length > 0 ? '[OK] Uploaded' : '[FAIL] Empty'}`);
+      console.log(`Cover Letter: ${coverInput.files.length > 0 ? '[WARN] Uploaded (unexpected)' : '[OK] Empty (expected)'}`);
+      console.log(`Portfolio: ${portfolioInput.files.length > 0 ? '[WARN] Uploaded (unexpected)' : '[OK] Empty (expected)'}`);
+      
+      if (resumeInput.files.length > 0) {
+        console.log(`\n[OK] SUCCESS: Resume auto-uploaded: ${resumeInput.files[0].name}`);
+      } else {
+        console.log('\n[FAIL] ISSUE: Resume was not auto-uploaded');
+        console.log('Possible causes:');
+        console.log('1. No resume file stored in browser storage');
+        console.log('2. Extension not loaded');
+        console.log('3. Auto-fill disabled');
+      }
+    }, 2000);
+  </script>
+</body>
+</html>

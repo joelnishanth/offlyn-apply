@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" sizes="48x48" href="../icons/icon-48.png">
+  <title>Manage Profiles - Offlyn Apply</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script src="../shared/theme-init.js"></script>
+  <style>
+    /* ── Design Tokens ── */
+    :root {
+      --black: #0a0a0a;
+      --white: #ffffff;
+      --off-white: #f9f8f6;
+      --green: #1a7f5a;
+      --green-light: #e6f4ee;
+      --green-mid: #2da870;
+      --gray-100: #f4f3f0;
+      --gray-200: #e8e6e1;
+      --gray-400: #9e9b93;
+      --gray-600: #5a5750;
+      --gray-800: #2c2b28;
+      --border: #e2e0da;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --font-serif: 'Lora', Georgia, serif;
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    
+    html.dark {
+      --black: #ffffff;
+      --white: #0a0a0a;
+      --off-white: #111111;
+      --green: #2da870;
+      --green-light: #1a3a2a;
+      --green-mid: #34d399;
+      --gray-100: #1a1a1a;
+      --gray-200: #2a2a2a;
+      --gray-400: #737373;
+      --gray-600: #a3a3a3;
+      --gray-800: #e5e5e5;
+      --border: #2a2a2a;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--white);
+      min-height: 100vh;
+      color: var(--black);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .header {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .header-inner {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .header-brand img {
+      height: 40px;
+      width: auto;
+      object-fit: contain;
+    }
+
+    .header-brand h1 {
+      font-family: var(--font-serif);
+      font-size: 1.25em;
+      color: var(--black);
+      font-weight: 500;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: none;
+      color: var(--gray-600);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .btn-back:hover {
+      background: var(--gray-100);
+      color: var(--black);
+    }
+
+    .dark-mode-toggle {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: transparent;
+      border: 1px solid var(--border);
+      cursor: pointer; color: var(--gray-600);
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: all .15s;
+      flex-shrink: 0;
+    }
+    .dark-mode-toggle:hover { background: var(--gray-100); color: var(--black); border-color: var(--gray-200); }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .section-title {
+      font-family: var(--font-serif);
+      font-size: 1.1em;
+      font-weight: 500;
+      color: var(--gray-800);
+      margin-bottom: 16px;
+    }
+
+    /* Active profile banner */
+    .active-banner {
+      background: var(--green);
+      color: #fff;
+      border-radius: var(--radius-md);
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .active-banner-dot {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .active-banner-info h2 {
+      font-family: var(--font-serif);
+      font-size: 1.2em;
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+
+    .active-banner-info p {
+      font-size: 0.85em;
+      opacity: 0.8;
+    }
+
+    .active-banner-badge {
+      margin-left: auto;
+      background: rgba(255,255,255,0.2);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75em;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Profile cards grid */
+    .profiles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .profile-card {
+      background: var(--white);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .profile-card:hover {
+      border-color: var(--gray-400);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    .profile-card.active {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(26, 127, 90, 0.15);
+    }
+
+    .profile-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .profile-card-dot {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .profile-card-name {
+      font-weight: 600;
+      font-size: 1em;
+      color: var(--black);
+      outline: none;
+      border-radius: 4px;
+      padding: 1px 4px;
+      margin: -1px -4px;
+      transition: background 0.15s, box-shadow 0.15s;
+    }
+    .profile-card-name:hover {
+      background: var(--green-light);
+    }
+    .profile-card-name:focus {
+      background: var(--green-light);
+      box-shadow: 0 0 0 2px rgba(26,127,90,0.3);
+    }
+
+    .profile-card-role {
+      font-size: 0.82em;
+      color: var(--gray-600);
+      margin-top: 2px;
+    }
+
+    .profile-card-meta {
+      font-size: 0.78em;
+      color: var(--gray-400);
+      margin-bottom: 14px;
+    }
+
+    .profile-card-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .profile-card-actions button {
+      flex: 1;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 0.82em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: none;
+      font-family: inherit;
+    }
+
+    .btn-activate {
+      background: var(--green);
+      color: #fff;
+    }
+    .btn-activate:hover { background: var(--green-mid); }
+
+    .btn-edit-profile {
+      background: var(--gray-100);
+      color: var(--gray-600);
+    }
+    .btn-edit-profile:hover { background: var(--gray-200); color: var(--black); }
+
+    .btn-delete-profile {
+      background: #fef2f2;
+      color: #dc2626;
+      flex: 0 0 auto;
+      padding: 8px 12px;
+    }
+    .btn-delete-profile:hover { background: #fee2e2; }
+
+    .btn-onboarding {
+      background: #f0fdf4;
+      color: #16a34a;
+    }
+    .btn-onboarding:hover { background: #dcfce7; }
+
+    .active-tag {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: #f0fdf4;
+      color: #16a34a;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 0.72em;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Create new profile card */
+    .profile-card-new {
+      background: #fff;
+      border: 2px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 180px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: #64748b;
+      gap: 8px;
+    }
+
+    .profile-card-new:hover {
+      border-color: #7c3aed;
+      color: #7c3aed;
+      background: #faf5ff;
+    }
+
+    .profile-card-new svg { opacity: 0.6; }
+    .profile-card-new:hover svg { opacity: 1; }
+
+    .profile-card-new span {
+      font-weight: 600;
+      font-size: 0.9em;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active { display: flex; }
+
+    .modal-content {
+      background: #fff;
+      padding: 28px;
+      border-radius: 14px;
+      max-width: 440px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .modal-content h2 {
+      margin-bottom: 18px;
+      color: #1e293b;
+      font-size: 1.15em;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: #475569;
+      font-weight: 600;
+      font-size: 0.85em;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      color: #1e293b;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
+    }
+
+    .color-picker {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .color-swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .color-swatch:hover { transform: scale(1.15); }
+    .color-swatch.selected { border-color: #1e293b; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #1e293b; }
+
+    .form-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .btn-primary {
+      flex: 1;
+      background: #7c3aed;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-family: inherit;
+      font-size: 14px;
+      transition: background 0.15s;
+    }
+
+    .btn-primary:hover { background: #6d28d9; }
+
+    .btn-secondary {
+      flex: 1;
+      background: #e2e8f0;
+      color: #475569;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-family: inherit;
+      font-size: 14px;
+      transition: background 0.15s;
+    }
+
+    .btn-secondary:hover { background: #cbd5e1; }
+
+    /* Dark mode — mostly handled by CSS tokens */
+    html.dark .btn-delete-profile { background: #2d1515; color: #f87171; }
+    html.dark .btn-delete-profile:hover { background: #3d1515; }
+    html.dark .btn-onboarding { background: var(--green-light); color: var(--green-mid); }
+    html.dark .btn-onboarding:hover { background: #1a3d20; }
+    html.dark .active-tag { background: var(--green-light); color: var(--green-mid); }
+    html.dark .profile-card-new:hover { border-color: var(--green); background: var(--green-light); }
+    html.dark .color-swatch.selected { border-color: var(--gray-800); box-shadow: 0 0 0 2px var(--gray-100), 0 0 0 4px var(--gray-800); }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <img src="../icons/primary-logo.png" alt="Offlyn Apply">
+        <h1>Manage Profiles</h1>
+      </div>
+      <div class="header-actions">
+        <button id="dark-mode-toggle" class="dark-mode-toggle" aria-label="Toggle dark mode"></button>
+        <a href="../home/home.html" class="btn-back">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Back to Home
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div id="active-banner" class="active-banner" style="display:none;">
+      <div class="active-banner-dot" id="active-dot"></div>
+      <div class="active-banner-info">
+        <h2 id="active-name"></h2>
+        <p id="active-role"></p>
+      </div>
+      <div class="active-banner-badge">Active</div>
+    </div>
+
+    <div class="section-title">All Profiles</div>
+    <div class="profiles-grid" id="profiles-grid"></div>
+  </div>
+
+  <!-- Create / Edit Modal -->
+  <div class="modal" id="profile-modal">
+    <div class="modal-content">
+      <h2 id="modal-title">New Profile</h2>
+      <form id="profile-form">
+        <input type="hidden" id="edit-id">
+        <div class="form-group">
+          <label for="profile-name">Profile Name</label>
+          <input type="text" id="profile-name" placeholder="e.g. Frontend Engineer" required>
+        </div>
+        <div class="form-group">
+          <label for="profile-role">Target Role (optional)</label>
+          <input type="text" id="profile-role" placeholder="e.g. Senior Frontend Developer">
+        </div>
+        <div class="form-group">
+          <label for="clone-from">Clone data from</label>
+          <select id="clone-from">
+            <option value="">Start empty</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Color</label>
+          <div class="color-picker" id="color-picker"></div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary" id="modal-submit">Create Profile</button>
+          <button type="button" class="btn-secondary" id="modal-cancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="profiles.js"></script>
+  <script src="../shared/dark-mode.js"></script>
+</body>
+</html>

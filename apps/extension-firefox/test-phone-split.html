@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phone Number Split Fields Test - Offlyn</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .form-section {
+      background: white;
+      padding: 30px;
+      margin-bottom: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+    h2 {
+      color: #555;
+      margin-top: 0;
+      font-size: 1.3em;
+      border-bottom: 2px solid #007bff;
+      padding-bottom: 10px;
+    }
+    .description {
+      color: #666;
+      margin-bottom: 30px;
+      padding: 15px;
+      background: #e7f3ff;
+      border-left: 4px solid #007bff;
+      border-radius: 4px;
+    }
+    .field-group {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #fafafa;
+      border-radius: 4px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+      color: #333;
+    }
+    input, select {
+      padding: 10px;
+      font-size: 14px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .phone-split {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .phone-split .country-code {
+      flex: 0 0 120px;
+    }
+    .phone-split .phone-number {
+      flex: 1;
+    }
+    .test-info {
+      margin-top: 10px;
+      padding: 10px;
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #856404;
+    }
+    .expected {
+      margin-top: 5px;
+      padding: 8px;
+      background: #d4edda;
+      border-radius: 3px;
+      font-size: 12px;
+      font-family: monospace;
+      color: #155724;
+    }
+    .test-case-number {
+      display: inline-block;
+      background: #007bff;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-right: 10px;
+    }
+    button {
+      background: #28a745;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    button:hover {
+      background: #218838;
+    }
+  </style>
+</head>
+<body>
+  <h1>Phone Number Split Fields Test</h1>
+  <div class="description">
+    <strong>Test Purpose:</strong> Verify that the Offlyn extension correctly detects and fills phone numbers when split into separate country code and phone number fields.
+    <br><br>
+    <strong>Setup:</strong> Make sure your profile has a phone number like <code>+12432349871</code> or <code>+919876543210</code>
+    <br><br>
+    <strong>Expected Behavior:</strong> Country code field should get <code>+1</code>, phone number field should get <code>2432349871</code>
+  </div>
+
+  <!-- Test Case 1: Standard Split with Dropdown -->
+  <form class="form-section">
+    <h2><span class="test-case-number">Test 1</span>Country Code Dropdown + Phone Input</h2>
+    
+    <div class="field-group">
+      <label for="country-code-1">Country Code</label>
+      <select id="country-code-1" name="country_code">
+        <option value="">Select...</option>
+        <option value="+1">+1 (US/Canada)</option>
+        <option value="+44">+44 (UK)</option>
+        <option value="+91">+91 (India)</option>
+        <option value="+86">+86 (China)</option>
+        <option value="+81">+81 (Japan)</option>
+        <option value="+49">+49 (Germany)</option>
+        <option value="+33">+33 (France)</option>
+        <option value="+61">+61 (Australia)</option>
+      </select>
+      <div class="expected">Expected: +1 (or your country code)</div>
+    </div>
+
+    <div class="field-group">
+      <label for="phone-1">Phone Number</label>
+      <input type="tel" id="phone-1" name="phone_number" maxlength="10" placeholder="2432349871">
+      <div class="expected">Expected: 2432349871 (without country code)</div>
+    </div>
+
+    <div class="test-info">
+      This is the most common pattern - a dropdown for country code and a text input for the local number.
+    </div>
+  </form>
+
+  <!-- Test Case 2: Both Text Inputs -->
+  <form class="form-section">
+    <h2><span class="test-case-number">Test 2</span>Both Fields as Text Inputs</h2>
+    
+    <div class="phone-split">
+      <div class="country-code">
+        <label for="dial-code-2">Dial Code</label>
+        <input type="text" id="dial-code-2" name="dial_code" placeholder="+1" maxlength="4">
+        <div class="expected">Expected: +1</div>
+      </div>
+      
+      <div class="phone-number">
+        <label for="mobile-2">Mobile Number</label>
+        <input type="tel" id="mobile-2" name="mobile_number" placeholder="2432349871" maxlength="10">
+        <div class="expected">Expected: 2432349871</div>
+      </div>
+    </div>
+
+    <div class="test-info">
+      Both fields as text inputs. The extension should detect them by names like "dial_code" and "mobile_number".
+    </div>
+  </form>
+
+  <!-- Test Case 3: "Country Code" Label -->
+  <form class="form-section">
+    <h2><span class="test-case-number">Test 3</span>Explicit "Country Code" Label</h2>
+    
+    <div class="field-group">
+      <label for="phoneCountry-3">Phone Country Code</label>
+      <input type="text" id="phoneCountry-3" name="phoneCountry" placeholder="+1" maxlength="4">
+      <div class="expected">Expected: +1</div>
+    </div>
+
+    <div class="field-group">
+      <label for="phoneNumber-3">Phone Number</label>
+      <input type="tel" id="phoneNumber-3" name="phoneNumber" placeholder="2432349871">
+      <div class="expected">Expected: 2432349871</div>
+    </div>
+
+    <div class="test-info">
+      Uses "phoneCountry" naming pattern. Should be detected as country code field.
+    </div>
+  </form>
+
+  <!-- Test Case 4: Inline Layout -->
+  <form class="form-section">
+    <h2><span class="test-case-number">Test 4</span>Inline Phone Fields</h2>
+    
+    <label>Contact Number</label>
+    <div class="phone-split">
+      <div class="country-code">
+        <input type="text" id="cc-4" name="countrycode" placeholder="Code" maxlength="4">
+        <div class="expected">+1</div>
+      </div>
+      
+      <div class="phone-number">
+        <input type="tel" id="tel-4" name="telephone" placeholder="Enter phone number">
+        <div class="expected">2432349871</div>
+      </div>
+    </div>
+
+    <div class="test-info">
+      Compact inline layout. Uses "countrycode" (one word) naming.
+    </div>
+  </form>
+
+  <!-- Test Case 5: Single Field (No Split) -->
+  <form class="form-section">
+    <h2><span class="test-case-number">Test 5</span>Single Phone Field (Full Number)</h2>
+    
+    <div class="field-group">
+      <label for="phone-5">Phone Number</label>
+      <input type="tel" id="phone-5" name="phone" placeholder="Enter your phone number">
+      <div class="expected">Expected: +12432349871 (full number with country code)</div>
+    </div>
+
+    <div class="test-info">
+      <strong>Control Test:</strong> When there's NO country code field nearby, the extension should fill the FULL phone number including country code.
+    </div>
+  </form>
+
+  <!-- Test Case 6: Alternative Naming -->
+  <form class="form-section">
+    <h2><span class="test-case-number">Test 6</span>Alternative Naming Patterns</h2>
+    
+    <div class="field-group">
+      <label for="phone-code-6">Phone Code</label>
+      <select id="phone-code-6" name="phone_code">
+        <option value="">Select code...</option>
+        <option value="+1">United States (+1)</option>
+        <option value="+91">India (+91)</option>
+        <option value="+44">United Kingdom (+44)</option>
+        <option value="+86">China (+86)</option>
+      </select>
+      <div class="expected">Expected: +1</div>
+    </div>
+
+    <div class="field-group">
+      <label for="cell-6">Cell Phone</label>
+      <input type="tel" id="cell-6" name="cell" maxlength="10" placeholder="Mobile number">
+      <div class="expected">Expected: 2432349871</div>
+    </div>
+
+    <div class="test-info">
+      Uses "phone_code" for country code and "cell" for phone number.
+    </div>
+  </form>
+
+  <!-- Test Case 7: International Format -->
+  <form class="form-section">
+    <h2><span class="test-case-number">Test 7</span>International Phone with Formatting</h2>
+    
+    <div class="field-group">
+      <label for="country-dial-7">Country Dial Code</label>
+      <input type="text" id="country-dial-7" name="country_dial_code" placeholder="Country code">
+      <div class="expected">Expected: +1</div>
+    </div>
+
+    <div class="field-group">
+      <label for="phone-formatted-7">Phone (formatted)</label>
+      <input type="tel" id="phone-formatted-7" name="phone_formatted" placeholder="(XXX) XXX-XXXX">
+      <div class="expected">Expected: (243) 234-9871 or 2432349871</div>
+    </div>
+
+    <div class="test-info">
+      Some forms expect formatted phone numbers. The extension should provide the best format.
+    </div>
+  </form>
+
+  <!-- Testing Instructions -->
+  <div class="form-section" style="background: #f0f0f0;">
+    <h2>Testing Instructions</h2>
+    
+    <ol style="line-height: 1.8;">
+      <li><strong>Setup Profile:</strong> Make sure your profile in the extension has a phone number like <code>+12432349871</code></li>
+      <li><strong>Load Extension:</strong> Ensure Offlyn extension is loaded in Firefox</li>
+      <li><strong>Visit This Page:</strong> The extension should detect all these forms</li>
+      <li><strong>Check Auto-fill:</strong> Fields should be automatically filled based on the patterns above</li>
+      <li><strong>Verify Splits:</strong> 
+        <ul>
+          <li>Country code fields should have just the code (e.g., <code>+1</code>)</li>
+          <li>Phone number fields should have just the number (e.g., <code>2432349871</code>)</li>
+          <li>Single phone fields should have the full number (e.g., <code>+12432349871</code>)</li>
+        </ul>
+      </li>
+      <li><strong>Check Console:</strong> Open browser console to see debug logs from the extension</li>
+    </ol>
+
+    <h3 style="margin-top: 30px;">Expected Console Logs:</h3>
+    <pre style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 12px;">[Offlyn] Detected job application page
+[Offlyn] Detected 14 form fields
+[Offlyn] ✓ Filled country code field with: +1
+[Offlyn] ✓ Filled phone number field with: 2432349871
+[Offlyn] ✓ Filled full phone field with: +12432349871
+...</pre>
+
+    <h3 style="margin-top: 30px;">Common Phone Formats Supported:</h3>
+    <ul style="line-height: 1.8;">
+      <li><code>+12432349871</code> - International format</li>
+      <li><code>+1-243-234-9871</code> - Formatted with dashes</li>
+      <li><code>+1 (243) 234-9871</code> - Formatted with parentheses</li>
+      <li><code>12432349871</code> - Without plus sign</li>
+      <li><code>(243) 234-9871</code> - US format (assumes +1)</li>
+      <li><code>2432349871</code> - Plain 10 digits (assumes US)</li>
+    </ul>
+  </div>
+
+  <button type="button" onclick="showValues()">Show All Field Values</button>
+
+  <script>
+    function showValues() {
+      const inputs = document.querySelectorAll('input, select');
+      console.log('=== Current Field Values ===');
+      inputs.forEach(input => {
+        if (input.value) {
+          console.log(`${input.name || input.id}: "${input.value}"`);
+        }
+      });
+      
+      alert('Check browser console for all field values');
+    }
+
+    // Log when page is loaded
+    console.log('Phone Split Fields Test Page Loaded');
+    console.log('Waiting for Offlyn extension to detect and fill fields...');
+  </script>
+</body>
+</html>

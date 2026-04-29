@@ -1,0 +1,6 @@
+{
+  "name": "offlyn-native-host",
+  "version": "0.9.0",
+  "type": "module",
+  "private": true
+}
