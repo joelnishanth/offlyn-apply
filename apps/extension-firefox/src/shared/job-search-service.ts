@@ -243,7 +243,14 @@ export async function searchJobs(filters: JobSearchFilters): Promise<JobSearchRe
   const allJobs = deduplicateJobs(locationFiltered);
 
   if (allJobs.length === 0) {
-    return generateMockResults(filters);
+    const emptyResult: JobSearchResult = {
+      jobs: [],
+      totalResults: 0,
+      page: filters.page ?? 1,
+      totalPages: 0,
+    };
+    cache.set(cacheKey, { data: emptyResult, ts: Date.now() });
+    return emptyResult;
   }
 
   const result: JobSearchResult = {
@@ -255,88 +262,6 @@ export async function searchJobs(filters: JobSearchFilters): Promise<JobSearchRe
 
   cache.set(cacheKey, { data: result, ts: Date.now() });
   return result;
-}
-
-function generateMockResults(filters: JobSearchFilters): JobSearchResult {
-  const mockJobs: JobListing[] = [
-    {
-      id: 'mock_1',
-      title: `Senior ${filters.keywords || 'Software'} Engineer`,
-      company: 'TechCorp Inc.',
-      location: filters.location || 'San Francisco, CA',
-      description: `We are looking for an experienced ${filters.keywords || 'software'} engineer to join our team. You will work on building scalable systems and leading technical initiatives.`,
-      salaryMin: 120000,
-      salaryMax: 180000,
-      salaryCurrency: 'USD',
-      url: 'https://example.com/job/1',
-      postedDate: new Date(Date.now() - 86400000).toISOString(),
-      source: 'mock',
-      category: 'IT Jobs',
-    },
-    {
-      id: 'mock_2',
-      title: `${filters.keywords || 'Software'} Developer`,
-      company: 'StartupAI',
-      location: filters.location || 'New York, NY',
-      description: `Join our fast-growing startup as a ${filters.keywords || 'software'} developer. Work with cutting-edge AI technologies.`,
-      salaryMin: 90000,
-      salaryMax: 140000,
-      salaryCurrency: 'USD',
-      url: 'https://example.com/job/2',
-      postedDate: new Date(Date.now() - 172800000).toISOString(),
-      source: 'mock',
-      category: 'IT Jobs',
-    },
-    {
-      id: 'mock_3',
-      title: `Lead ${filters.keywords || 'Software'} Architect`,
-      company: 'Enterprise Solutions Ltd',
-      location: filters.location || 'Remote',
-      description: `Design and implement enterprise-scale ${filters.keywords || 'software'} systems. Lead a team of 8 engineers.`,
-      salaryMin: 150000,
-      salaryMax: 220000,
-      salaryCurrency: 'USD',
-      url: 'https://example.com/job/3',
-      postedDate: new Date(Date.now() - 259200000).toISOString(),
-      source: 'mock',
-      category: 'IT Jobs',
-    },
-    {
-      id: 'mock_4',
-      title: `Junior ${filters.keywords || 'Software'} Engineer`,
-      company: 'DevHub',
-      location: filters.location || 'Austin, TX',
-      description: `Great opportunity for a junior ${filters.keywords || 'software'} engineer. Mentorship program and growth path included.`,
-      salaryMin: 70000,
-      salaryMax: 100000,
-      salaryCurrency: 'USD',
-      url: 'https://example.com/job/4',
-      postedDate: new Date(Date.now() - 345600000).toISOString(),
-      source: 'mock',
-      category: 'IT Jobs',
-    },
-    {
-      id: 'mock_5',
-      title: `${filters.keywords || 'Software'} Engineering Manager`,
-      company: 'GlobalTech',
-      location: filters.location || 'Seattle, WA',
-      description: `Manage a distributed team building ${filters.keywords || 'software'} products used by millions.`,
-      salaryMin: 160000,
-      salaryMax: 230000,
-      salaryCurrency: 'USD',
-      url: 'https://example.com/job/5',
-      postedDate: new Date(Date.now() - 432000000).toISOString(),
-      source: 'mock',
-      category: 'IT Jobs',
-    },
-  ];
-
-  return {
-    jobs: mockJobs,
-    totalResults: mockJobs.length,
-    page: 1,
-    totalPages: 1,
-  };
 }
 
 export function computeCompatibilityScore(
